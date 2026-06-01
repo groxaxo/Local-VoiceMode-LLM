@@ -1,200 +1,131 @@
 # OpenCode Voice Service
 
-**Silero VAD-driven voice conversation service for OpenCode.** Continuous 16kHz microphone capture with automatic endpointing, remote STT via Parakeet, and local TTS via Chatterbox-Multilingual-MLX.
+**Silero VAD-driven voice conversation for OpenCode.** Continuous 16kHz mic capture with automatic endpointing, remote STT (Parakeet), and **xAI TTS by default** (voice **Eve**, same API as [OpenVoiceApp](https://github.com/groxaxo/OpenVoiceApp) `VoiceBridge`). Local **Chatterbox** on `:8765` is optional.
 
-No beeps, no fixed recording windows. Just speak — the VAD detects when you're done.
+No beeps, no fixed recording windows. Speak — the VAD detects when you're done. After the agent replies, the mic opens again **immediately** so you can keep talking.
 
 ## Features
 
-- **Silero VAD** — neural voice activity detection, not crude RMS gating
-- **Automatic endpointing** — configurable trailing silence threshold (default 500ms)
-- **Pre-speech padding** — 400ms of audio before detected speech included for natural starts
-- **Gain normalization** — audio boosted to -20dBFS before STT (OpenVoiceApp pattern)
-- **Ring buffer** — bounded memory growth, handles arbitrary-length utterances
-- **Language-aware TTS** — auto-detects Spanish vs English from character patterns
-- **OpenCode skill** — ready-to-use skill definition for `skill("talk")`
-- **Standalone CLI** — works independently of OpenCode for testing and scripting
+- **Silero VAD** — neural voice activity detection
+- **Automatic endpointing** — trailing silence threshold (default 500ms)
+- **xAI TTS default** — `POST https://api.x.ai/v1/tts` (`voice_id`, `language: auto`)
+- **Chatterbox optional** — `TTS_ENGINE=chatterbox` or fallback if xAI fails
+- **Pipelined talk loop** — `speak` ends → mic opens instantly (`TALK_AUTO_LISTEN=1`)
+- **OpenCode skill** — `skill("talk")` for Cursor / OpenCode / Claude Code
+- **Standalone CLI** — works without the IDE
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   VAD Recorder (vad_recorder.py)              │
-│                                                               │
-│  ┌──────────┐    ┌─────────────┐    ┌──────────────────┐     │
-│  │ sounddevice│──▶│ Silero VAD  │──▶│  Endpointer       │     │
-│  │ (16kHz)   │   │ (512 frames)│   │ (500ms silence)  │     │
-│  └──────────┘    └─────────────┘    └────────┬─────────┘     │
-│                                              │                │
-│           speech_end ──▶ RingBuffer.slice ──▶ save_wav        │
-│                                              │                │
-└──────────────────────────────────────────────┼────────────────┘
-                                               ▼
-                                    ┌──────────────────┐
-                                    │  Parakeet STT    │
-                                    │ (:5092)          │
-                                    └────────┬─────────┘
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  OpenCode / CLI  │
-                                    └────────┬─────────┘
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  Chatterbox TTS   │
-                                    │ (:8765, local)    │
-                                    └──────────────────┘
+  Mic ──▶ Silero VAD ──▶ WAV ──▶ Parakeet STT (:5092)
+                                      │
+                                      ▼
+                               Agent / OpenCode
+                                      │
+                                      ▼
+                               xAI TTS (default)
+                               or Chatterbox (:8765)
+                                      │
+                                      ▼
+                               afplay ──▶ listen again
 ```
-
-The design is modeled after [OpenVoiceApp](https://github.com/groxaxo/OpenVoiceApp) iOS architecture — see the [architecture docs](docs/architecture.md) for detailed mappings.
 
 ## Prerequisites
 
-- **macOS** (Apple Silicon recommended for TTS performance)
-- **Python 3.12** (managed via `uv` or `pyenv`)
-- **ffmpeg** (for reference voice generation)
-- **TTS server**: `mlx-audio` running at `localhost:8765`
-- **STT server**: Parakeet at `100.85.200.51:5092`
+- **macOS** (Apple Silicon recommended)
+- **Python 3.12** (`uv` or `pyenv`) — created by `setup.sh`
+- **xAI API key** — `XAI_API_KEY` (see `.env.example`)
+- **STT**: Parakeet at `100.85.200.51:5092` (or set `STT_URL`)
+- **Chatterbox** (optional): `mlx-audio` on `localhost:8765` for fallback / `TTS_ENGINE=chatterbox`
 
 ## Quick Start
 
 ```bash
-# 1. Clone
 git clone https://github.com/groxaxo/opencode-voice-service.git
 cd opencode-voice-service
-
-# 2. Run setup (creates venv, installs deps)
 chmod +x setup.sh && ./setup.sh
 
-# 3. Test the service
+# Configure xAI (required for default TTS)
+export XAI_API_KEY=xai-...   # or copy .env.example into voice-bridge/.env
+
 ./service/talk.sh status
-./service/talk.sh devices
-
-# 4. Speak!
-./service/talk.sh listen
-# (speak into your mic, wait for silence, transcribed text appears)
-
-# 5. Hear a response
-./service/talk.sh speak "Hello from the voice service"
+./service/talk.sh listen                    # first utterance
+./service/talk.sh speak "Hello from Eve."   # speaks, then listens for your reply
 ```
 
 ## Usage
 
-### As a Standalone Service
+### Standalone CLI
 
 ```bash
-# Record one utterance and transcribe
-./service/talk.sh listen
-# → "the transcribed text"
-
-# Speak via TTS
-./service/talk.sh speak "Text to say" [en|es]
-
-# Continuous conversation loop (readline-based)
-./service/talk.sh loop
-
-# Check everything is working
+./service/talk.sh listen              # record + transcribe → stdout
+./service/talk.sh speak "reply"       # TTS, then auto-listen → stdout = next user text
+TALK_AUTO_LISTEN=0 talk.sh speak "…"  # read aloud only, no mic
+TTS_ENGINE=chatterbox talk.sh speak "…"  # force local Chatterbox
 ./service/talk.sh status
-
-# List audio inputs
 ./service/talk.sh devices
 ```
 
-### As an OpenCode Skill
+### OpenCode / Cursor talk loop
 
-The skill at `skill/SKILL.md` is registered by default when you run `setup.sh`. It's triggered by the model when the user says "talk", "voice", "speak", "habla", etc.
+The agent runs:
 
-The model orchestrates the talk loop:
+1. **Once:** `talk.sh listen` → first user message  
+2. **Each turn:** `talk.sh speak '<short reply>'` → plays audio, then records; **stdout = next user message**  
+3. Do **not** call `listen` after `speak` (built in). User can talk while the agent prepares the next LLM call.
 
-1. `talk.sh listen` — VAD records + STT returns transcribed text
-2. Process text as the user's message
-3. `talk.sh speak "response"` — TTS playback
-4. Loop
-
-### SDK / Scripting
-
-```python
-# Programmatic use from Python
-from service.vad_recorder import VADRecorder, list_devices, save_wav
-import argparse
-
-args = argparse.Namespace(
-    oneshot=True, continuous=False,
-    output_dir="/tmp", output_file="utterance.wav",
-    min_silence_ms=500, vad_threshold=0.5,
-    pre_speech_ms=400, max_duration_s=30,
-    mic_device=None, mic_query="MacBook",
-    debug=False
-)
-recorder = VADRecorder(args)
-recorder.run()
-```
+See `skill/SKILL.md` for full agent rules.
 
 ## Configuration
 
-All settings are configurable via environment variables:
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PYTHON` | auto-detected | Python interpreter path |
-| `VAD_THRESHOLD` | 0.5 | Speech probability threshold |
-| `VAD_MIN_SILENCE_MS` | 500 | Trailing silence before turn end |
-| `MIC_QUERY` | MacBook | Mic device name substring |
-| `STT_URL` | http://100.85.200.51:5092/... | Parakeet STT endpoint |
-| `STT_MODEL` | istupakov/parakeet-tdt-0.6b-v3-onnx | STT model name |
-| `TTS_SERVER` | http://localhost:8765 | TTS server URL |
-| `TTS_HOST` | localhost | TTS host override |
-| `TTS_PORT` | 8765 | TTS port override |
-| `REF_DIR` | ~/.config/opencode | Reference voice directory |
+| `TTS_ENGINE` | `xai` | `xai` or `chatterbox` |
+| `XAI_API_KEY` | (from `.env`) | Bearer token for xAI TTS |
+| `XAI_TTS_VOICE` | `eve` | `ara`, `eve`, `leo`, `rex`, `sal` |
+| `TTS_ENABLE_CHATTERBOX_FALLBACK` | `1` | Try Chatterbox if xAI fails |
+| `TALK_AUTO_LISTEN` | `1` | After `speak`, run `listen` and print user text |
+| `TALK_READY_CUE` | `1` | Short tone before listening |
+| `VAD_THRESHOLD` | `0.5` | Speech detection sensitivity |
+| `VAD_MIN_SILENCE_MS` | `500` | Silence to end turn |
+| `MIC_QUERY` | MacBook | Input device substring |
+| `STT_URL` | `http://100.85.200.51:5092/...` | Parakeet endpoint |
 
-## Reference Voices
+API key lookup order: `XAI_API_KEY` env → `~/Documents/IOSAPP/voice-bridge/.env` → `~/.hermes/.env` → `~/.config/opencode/.env`
 
-Generate cloned voices for TTS:
+## Install paths (`setup.sh`)
 
-```bash
-# English (Samantha)
-say -v "Samantha" -o /tmp/ref.aiff "Hello, I am your AI assistant." && \
-  ffmpeg -i /tmp/ref.aiff -ar 22050 -ac 1 ~/.config/opencode/ref_voice_en.wav -y
+| File | Installed to |
+|------|----------------|
+| `service/talk.sh` | `~/.config/opencode/skills/talk/talk.sh` |
+| `service/vad_recorder.py` | `~/.config/opencode/skills/talk/` |
+| `service/tts.sh` | `~/.config/opencode/tts.sh` + skill dir |
+| `skill/SKILL.md` | `~/.config/opencode/skills/talk/SKILL.md` |
 
-# Spanish (Mónica)
-say -v "Mónica" -o /tmp/ref.aiff "Hola, soy tu asistente de inteligencia artificial." && \
-  ffmpeg -i /tmp/ref.aiff -ar 22050 -ac 1 ~/.config/opencode/ref_voice_es.wav -y
-```
-
-## Directory Structure
+## Directory structure
 
 ```
 opencode-voice-service/
-├── README.md                  # This file
-├── LICENSE                    # MIT
-├── setup.sh                   # One-command setup
-├── .gitignore
+├── README.md
+├── setup.sh
+├── .env.example
 ├── service/
-│   ├── vad_recorder.py        # Silero VAD recording engine
-│   ├── talk.sh                # Voice conversation orchestrator
-│   └── tts.sh                 # TTS CLI wrapper
+│   ├── vad_recorder.py
+│   ├── talk.sh
+│   └── tts.sh
 ├── skill/
-│   └── SKILL.md               # OpenCode skill definition
+│   └── SKILL.md
 ├── launchd/
-│   └── com.opencode.tts-server.plist  # TTS server autostart
+│   └── com.opencode.tts-server.plist   # optional Chatterbox autostart
 └── docs/
-    └── architecture.md         # Architecture reference
+    └── architecture.md
 ```
 
-## OpenCode Skill Integration
+## Related projects
 
-After `setup.sh`, the skill is installed to `~/.config/opencode/skills/talk/`. The model loads it automatically when you say "talk", "voice", "speak", "habla", etc.
-
-To re-register manually:
-```bash
-# Symlink the skill
-ln -sf "$PWD/skill" ~/.config/opencode/skills/talk
-```
-
-## Related Projects
-
-- [OpenVoiceApp](https://github.com/groxaxo/OpenVoiceApp) — iOS app this service's architecture is modeled after
-- [Chatterbox TTS Setup](https://github.com/groxaxo/chatterbox-tts-setup) — TTS server setup scripts
-- [OpenCode](https://opencode.ai) — The AI coding assistant this skill is for
+- [OpenVoiceApp](https://github.com/groxaxo/OpenVoiceApp) — iOS app; xAI TTS contract reference  
+- [chatterbox-tts-setup](https://github.com/groxaxo/chatterbox-tts-setup) — optional local TTS server  
+- [OpenCode](https://opencode.ai)
 
 ## License
 

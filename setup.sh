@@ -39,8 +39,8 @@ done
 if [ -d "$VENV_DIR" ]; then
     info "Venv exists at $VENV_DIR"
     # Check python version
-    PY_VER=$("$VENV_DIR/bin/python" --version 2>&1 | grep -oP '\d+\.\d+')
-    if [ "$(echo "$PY_VER >= 3.11" | bc -l 2>/dev/null)" != "1" ]; then
+    PY_VER=$("$VENV_DIR/bin/python" --version 2>&1 | sed -n 's/.* \([0-9]*\.[0-9]*\).*/\1/p')
+    if [ -n "$PY_VER" ] && [ "$(echo "$PY_VER >= 3.11" | bc -l 2>/dev/null)" != "1" ]; then
         warn "Python $PY_VER < 3.11, recreating venv"
         rm -rf "$VENV_DIR"
     fi
@@ -156,7 +156,8 @@ echo ""
 echo "  Service:   $SKILL_DIR/talk.sh"
 echo "  Skill:     $SKILL_DIR/SKILL.md"
 echo "  Venv:      $VENV_DIR"
-echo "  TTS:       $(launchctl list | grep -q opencode.tts && echo 'RUNNING' || echo 'not running')"
+echo "  TTS:       xAI (default, voice eve) + optional Chatterbox :8765"
+echo "  Chatterbox launchd: $(launchctl list 2>/dev/null | grep -q opencode.tts && echo RUNNING || echo 'not running (optional)')"
 echo ""
 echo "  Try it:    $SKILL_DIR/talk.sh listen"
 echo "  Status:    $SKILL_DIR/talk.sh status"

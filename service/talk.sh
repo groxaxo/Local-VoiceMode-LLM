@@ -3,11 +3,11 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → speaks text via local TTS
+#   talk.sh speak    → xAI TTS, then auto-listen for next utterance (default)
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
-#   tts.sh           (Chatterbox mlx-audio server)
+#   tts.sh           (xAI TTS default; Chatterbox optional)
 #   Parakeet STT     (remote, http://100.85.200.51:5092)
 #
 # Usage:
@@ -24,7 +24,11 @@ SERVICE_DIR="$(cd "$(dirname "$0")" && pwd)"
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS server (local Chatterbox via mlx-audio)
+# TTS (xAI default — same API as OpenVoiceApp VoiceBridge)
+: "${TTS_ENGINE:=xai}"
+: "${XAI_TTS_VOICE:=eve}"
+: "${TTS_ENABLE_CHATTERBOX_FALLBACK:=1}"
+# Optional local Chatterbox (mlx-audio on :8765)
 : "${TTS_SERVER:=http://localhost:8765}"
 # STT endpoint (remote Parakeet)
 : "${STT_URL:=http://100.85.200.51:5092/v1/audio/transcriptions}"
@@ -34,6 +38,12 @@ SERVICE_DIR="$(cd "$(dirname "$0")" && pwd)"
 : "${VAD_THRESHOLD:=0.5}"
 # Mic device selection
 : "${MIC_QUERY:=MacBook}"
+# Ready cue before listen (short tone so user knows when to speak)
+: "${TALK_READY_CUE:=1}"
+: "${TALK_READY_SOUND:=/System/Library/Sounds/Tink.aiff}"
+: "${TALK_READY_DELAY_MS:=400}"
+# After speak finishes playback, immediately start listen (stdout = next user text)
+: "${TALK_AUTO_LISTEN:=1}"
 # -----------------------------------------------------------------------------
 
 # Auto-detect Python
@@ -44,20 +54,36 @@ if [ -z "$PYTHON" ]; then
     [ -z "$PYTHON" ] && PYTHON="python3"
 fi
 
-TTS_SH="$SERVICE_DIR/tts.sh"
+TTS_SH="${TTS_SH:-$HOME/.config/opencode/tts.sh}"
+if [ ! -x "$TTS_SH" ]; then
+    TTS_SH="$SERVICE_DIR/tts.sh"
+fi
 VAD_PY="$SERVICE_DIR/vad_recorder.py"
 
 detect_lang() {
     local text="$1"
-    if echo "$text" | grep -qP '[áéíóúñü¿¡]'; then
+    if echo "$text" | LC_ALL=C grep -q '[áéíóúñü¿¡ÁÉÍÓÚÑÜ]'; then
         echo "es"
     else
         echo "en"
     fi
 }
 
+cmd_ready_cue() {
+    [ "${TALK_READY_CUE}" = "0" ] && return 0
+    if [ -f "$TALK_READY_SOUND" ]; then
+        afplay "$TALK_READY_SOUND" 2>/dev/null || printf '\a'
+    else
+        printf '\a'
+    fi
+}
+
 cmd_listen() {
     local outfile="${1:-opencode-utterance.wav}"
+    local ready_delay=0
+    [ "${TALK_READY_CUE}" != "0" ] && ready_delay="${TALK_READY_DELAY_MS}"
+
+    cmd_ready_cue >&2
 
     # Run VAD recorder in oneshot mode, parse the last JSON line for the file path
     local file
@@ -66,6 +92,7 @@ cmd_listen() {
         --output-file "$outfile" \
         --vad-threshold "$VAD_THRESHOLD" \
         --min-silence-ms "$VAD_MIN_SILENCE_MS" \
+        --ready-delay-ms "$ready_delay" \
         2>/dev/null | "$PYTHON" -c "
 import json,sys
 for line in sys.stdin:
@@ -96,7 +123,18 @@ for line in sys.stdin:
 cmd_speak() {
     local text="$1"
     local lang="${2:-$(detect_lang "$text")}"
-    bash "$TTS_SH" "$text" "$lang"
+    TTS_ENGINE="$TTS_ENGINE" \
+    XAI_TTS_VOICE="$XAI_TTS_VOICE" \
+    TTS_ENABLE_CHATTERBOX_FALLBACK="$TTS_ENABLE_CHATTERBOX_FALLBACK" \
+        bash "$TTS_SH" "$text" "$lang" \
+        || say -v "Monica" "$text"
+
+    # Pipeline: mic opens as soon as TTS ends so the user can talk while the
+    # agent is still preparing the next LLM call.
+    if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+        echo "Listening for your reply…" >&2
+        cmd_listen
+    fi
 }
 
 cmd_loop() {
@@ -110,7 +148,7 @@ cmd_loop() {
             echo -n "Response: " >&2
             read -r response
             if [ -n "$response" ]; then
-                cmd_speak "$response"
+                TALK_AUTO_LISTEN=1 cmd_speak "$response"
             fi
         fi
     done
@@ -121,13 +159,25 @@ cmd_status() {
     "$PYTHON" "$VAD_PY" --list-devices 2>&1 | grep -v '^$'
     echo ""
 
-    echo "=== TTS Server ($TTS_SERVER) ==="
+    echo "=== TTS (engine=$TTS_ENGINE, xAI voice=$XAI_TTS_VOICE) ==="
+    if [ "$TTS_ENGINE" = "xai" ] || [ "$TTS_ENGINE" = "grok" ]; then
+        if [ -n "${XAI_API_KEY:-}" ] || grep -q '^XAI_API_KEY=' \
+            "$HOME/Documents/IOSAPP/voice-bridge/.env" \
+            "$HOME/.hermes/.env" \
+            "$HOME/.config/opencode/.env" 2>/dev/null; then
+            echo "  xAI API key: configured"
+        else
+            echo "  xAI API key: MISSING — set XAI_API_KEY or add to voice-bridge/.env"
+        fi
+        echo "  Chatterbox fallback: $([ "$TTS_ENABLE_CHATTERBOX_FALLBACK" = 1 ] && echo enabled || echo disabled)"
+    fi
+    echo "=== Chatterbox server ($TTS_SERVER, optional) ==="
     local tts_host
     tts_host=$(echo "$TTS_SERVER" | sed 's|http://||;s|/.*||')
     if nc -z -w 2 "${tts_host%:*}" "${tts_host#*:}" 2>/dev/null; then
         echo "  RUNNING"
     else
-        echo "  NOT RUNNING — start with: launchctl load ~/Library/LaunchAgents/com.opencode.tts-server.plist"
+        echo "  NOT RUNNING (only needed for TTS_ENGINE=chatterbox or fallback)"
     fi
     echo ""
 
@@ -145,6 +195,7 @@ cmd_status() {
     echo "  Interpreter: $PYTHON"
     echo "  VAD: $VAD_PY"
     echo "  TTS: $TTS_SH"
+    echo "  Auto-listen after speak: $([ "$TALK_AUTO_LISTEN" = 1 ] && echo yes || echo no)"
     "$PYTHON" -c "
 import sounddevice as sd, torch, silero_vad
 print('  sounddevice : OK')

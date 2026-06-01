@@ -168,6 +168,7 @@ class VADRecorder:
         self.speech_start_sample = 0
         self.frames_since_speech = 0
         self._stop_requested = False
+        self._ignore_until = 0.0
 
     def load_vad(self):
         """Lazily load the Silero VAD model."""
@@ -183,6 +184,14 @@ class VADRecorder:
     def process_frame(self, frame: np.ndarray):
         """Feed one 512-sample frame through VAD and update state."""
         self.ring.append(frame)
+        if self._ignore_until and time.time() < self._ignore_until:
+            return
+        if self._ignore_until:
+            self._ignore_until = 0.0
+            self.vad.reset_states()
+            self.speech_active = False
+            self.frames_since_speech = 0
+
         tensor = torch.from_numpy(frame).unsqueeze(0)
         result = self.vad(tensor)
 
@@ -253,6 +262,8 @@ class VADRecorder:
             print(f"[vad] device [{device}]: {dev_info['name']}", file=sys.stderr)
 
         self.load_vad()
+        if self.args.ready_delay_ms > 0:
+            self._ignore_until = time.time() + self.args.ready_delay_ms / 1000.0
         emit_json("listening")
 
         self.stream = sd.InputStream(
@@ -292,6 +303,8 @@ def main():
                    help="VAD speech probability threshold (default: 0.5)")
     p.add_argument("--pre-speech-ms", type=int, default=400,
                    help="Audio before detected speech to include (default: 400ms)")
+    p.add_argument("--ready-delay-ms", type=int, default=0,
+                   help="Ignore mic/VAD for N ms after start (post ready-cue)")
     p.add_argument("--max-duration-s", type=float, default=30,
                    help="Max recording duration (default: 30s)")
     p.add_argument("--mic-device", type=int, default=None,
