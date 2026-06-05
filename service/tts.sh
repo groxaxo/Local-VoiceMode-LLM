@@ -1,13 +1,13 @@
 #!/bin/bash
 # tts.sh — Multi-engine TTS CLI for OpenCode / talk skill.
 #
-# Engines: xai (default), vibevoice, supertonic, or neutts.
+# Engines: neutts (default), xai, vibevoice, supertonic.
 # Set TTS_ENGINE to override. macOS say is intentionally not available.
 
 set -e
 
 # --- Engine config -----------------------------------------------------------
-: "${TTS_ENGINE:=xai}"
+: "${TTS_ENGINE:=neutts}"
 : "${XAI_API_KEY:=${XAI_API_KEY:-}}"
 : "${XAI_TTS_VOICE:=eve}"
 : "${XAI_TTS_MODEL:=grok-2-audio}"
@@ -21,7 +21,10 @@ set -e
 : "${SUPERTONIC_URL:=http://127.0.0.1:8765}"
 : "${SUPERTONIC_SH:=$HOME/.config/opencode/skills/supertonic-tts/supertonic.sh}"
 : "${NEUTTS_URL:=http://127.0.0.1:8020}"
+# NeuTTS model selection by language — must match NEUTTS_PRELOAD_MODELS
+# to avoid lazy loading. Server preloads: q4-gguf (EN) + spanish-q4-gguf (ES)
 : "${NEUTTS_MODEL:=neuphonic/neutts-nano-q4-gguf}"
+: "${NEUTTS_MODEL_ES:=neuphonic/neutts-nano-spanish-q4-gguf}"
 # -----------------------------------------------------------------------------
 
 # shellcheck source=tts_lang.sh
@@ -33,6 +36,51 @@ LANG="$(resolve_lang "${2:-}" "$TEXT")"
 
 # If TTS_NO_PLAY=1, generate the WAV but don't play it (let caller handle playback)
 : "${TTS_NO_PLAY:=0}"
+
+speak_neutts() {
+    local text="$1"
+    local lang="$2"
+    local model="$NEUTTS_MODEL"
+
+    # Select preloaded model by language to avoid lazy loading
+    case "$lang" in
+        es*)  model="${NEUTTS_MODEL_ES}" ;;
+        en*|*) model="${NEUTTS_MODEL}" ;;
+    esac
+
+    echo "[tts] NeuTTS lang=${lang} model=${model}" >&2
+
+    local payload
+    payload=$(python3 -c "
+import json, sys
+d = {'text': sys.argv[1], 'model': sys.argv[3]}
+if sys.argv[2]:
+    d['language'] = sys.argv[2]
+print(json.dumps(d))
+" "$text" "$lang" "$model" 2>/dev/null || printf '{"text":"%s","model":"%s"}' "$text" "$model")
+
+    local http_code
+    http_code=$(curl -sS -m 120 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "${NEUTTS_URL}/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d "$payload") || {
+        echo "tts.sh: NeuTTS request failed (curl exit $?)" >&2
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: NeuTTS HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
+
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: NeuTTS produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    afplay "$OUTPUT"
+    rm -f "$OUTPUT"
+}
 
 speak_xai() {
     local text="$1"
@@ -56,7 +104,7 @@ speak_xai() {
         -o "$OUTPUT" \
         -w '%{http_code}' \
         "https://api.x.ai/v1/tts" \
-        -H "Authorization: Bearer $XAI_API_KEY"\
+        -H "Authorization: Bearer $XAI_API_KEY" \
         -H "Content-Type: application/json" \
         -d "$input_json") || {
         echo "tts.sh: xAI request failed (curl exit $?)" >&2
@@ -148,104 +196,46 @@ print(json.dumps(d))
     rm -f "$OUTPUT"
 }
 
-speak_neutts() {
-    local text="$1"
-    local lang="$2"
-    local model="$NEUTTS_MODEL"
-
-    case "$lang" in
-        es*)  model="neuphonic/neutts-nano-spanish-q4-gguf" ;;
-        de*)  model="neuphonic/neutts-nano-german-q4-gguf" ;;
-        fr*)  model="neuphonic/neutts-nano-french-q4-gguf" ;;
-        en*|*) model="${NEUTTS_MODEL}" ;;
-    esac
-
-    echo "[tts] NeuTTS lang=${lang} model=${model}" >&2
-
-    local payload
-    payload=$(python3 -c "
-import json, sys
-d = {'text': sys.argv[1], 'model': sys.argv[3]}
-if sys.argv[2]:
-    d['language'] = sys.argv[2]
-print(json.dumps(d))
-" "$text" "$lang" "$model" 2>/dev/null || printf '{"text":"%s","model":"%s"}' "$text" "$model")
-
-    local http_code
-    http_code=$(curl -sS -m 120 \
-        -o "$OUTPUT" \
-        -w '%{http_code}' \
-        "${NEUTTS_URL}/v1/audio/speech" \
-        -H "Content-Type: application/json" \
-        -d "$payload") || {
-        echo "tts.sh: NeuTTS request failed (curl exit $?)" >&2
-        return 1
-    }
-
-    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-        echo "tts.sh: NeuTTS HTTP $http_code" >&2
-        rm -f "$OUTPUT"
-        return 1
-    fi
-
-    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: NeuTTS produced no audio" >&2; return 1; }
-    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
-    afplay "$OUTPUT"
-    rm -f "$OUTPUT"
-}
-
 engine="$(printf '%s' "${TTS_ENGINE}" | tr '[:upper:]' '[:lower:]')"
 case "$engine" in
-    xai)
-        if speak_xai "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "[tts] xAI failed, trying VibeVoice fallback…" >&2
-        if speak_vibevoice "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "tts.sh: xAI and VibeVoice failed; no macOS say fallback is available" >&2
-        exit 1
-        ;;
-    vibevoice|vibe|mlx-vibe)
-        if speak_vibevoice "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "[tts] VibeVoice failed, trying xAI fallback…" >&2
-        if speak_xai "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "tts.sh: VibeVoice and xAI failed; no macOS say fallback is available" >&2
-        exit 1
-        ;;
-    supertonic|coreml-tts)
-        if speak_supertonic "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "[tts] Supertonic failed, trying xAI fallback…" >&2
-        if speak_xai "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "[tts] xAI also failed, trying VibeVoice…" >&2
-        if speak_vibevoice "$TEXT" "$LANG"; then
-            exit 0
-        fi
+    neutts|neuphonic)
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed, trying xAI fallback…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] xAI failed, trying Supertonic…" >&2
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
-    neutts|neuphonic)
-        if speak_neutts "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "[tts] NeuTTS failed, trying VibeVoice fallback…" >&2
-        if speak_vibevoice "$TEXT" "$LANG"; then
-            exit 0
-        fi
-        echo "tts.sh: NeuTTS and VibeVoice failed; no macOS say fallback is available" >&2
+    xai)
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] xAI failed, trying NeuTTS fallback…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed, trying VibeVoice…" >&2
+        if speak_vibevoice "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    vibevoice|vibe|mlx-vibe)
+        if speak_vibevoice "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] VibeVoice failed, trying NeuTTS fallback…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed, trying xAI…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    supertonic|coreml-tts)
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed, trying NeuTTS fallback…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed, trying xAI…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
     *)
-        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: xai, vibevoice, supertonic, neutts." >&2
+        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: neutts, xai, vibevoice, supertonic." >&2
         exit 2
         ;;
 esac

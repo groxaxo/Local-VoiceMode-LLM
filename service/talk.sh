@@ -3,11 +3,11 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → TTS (xAI default, VibeVoice fallback), then auto-listen
+#   talk.sh speak    → TTS (NeuTTS default, xAI/VibeVoice/Supertonic fallback), then auto-listen
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
-#   tts.sh           (xAI / VibeVoice)
+#   tts.sh           (NeuTTS / xAI / VibeVoice / Supertonic)
 #   Parakeet STT     (local CoreML default :5093)
 #
 # Usage:
@@ -24,8 +24,8 @@ SERVICE_DIR="$(cd "$(dirname "$0")" && pwd)"
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS (xAI default, VibeVoice fallback — tts-multimodel-api :8010)
-: "${TTS_ENGINE:=xai}"
+# TTS (NeuTTS default, xAI/VibeVoice/Supertonic fallback)
+: "${TTS_ENGINE:=neutts}"
 : "${VIBEVOICE_MODEL:=vibe-realtime-8bit}"
 : "${VIBEVOICE_VOICE:=en-Emma_woman}"
 : "${VIBEVOICE_VOICE_AUTO:=1}"

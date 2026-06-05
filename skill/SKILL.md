@@ -2,7 +2,7 @@
 name: talk
 description: >-
   Orchestrates VAD-driven voice conversation (Silero listen, Parakeet STT,
-  xAI TTS default with VibeVoice fallback on macOS. Use when the user says talk,
+  NeuTTS default with xAI cloud fallback). Use when the user says talk,
   voice, speak, habla, voz, audio, talk mode, or wants spoken back-and-forth.
   Also when they ask to read a reply aloud (say it, speak that). Triggers on voice,
   talk, speak, habla, audio, tts, stt.
@@ -14,9 +14,9 @@ Load in OpenCode via `skill("talk")`. Codex uses the same skill at `~/.codex/ski
 
 **Default STT:** local Parakeet CoreML [`FluidInference/parakeet-tdt-0.6b-v3-coreml`](https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml) via `speech-server` on `127.0.0.1:5093` (ANE, offline).
 
-**Default TTS:** **xAI** (`api.x.ai`, voice `eve`, model `grok-2-audio`). Falls back to VibeVoice (local MLX, `:8010`) if xAI fails. Also supports **Supertonic** (local CoreML, `:8765`, `TTS_ENGINE=supertonic`). macOS `say` is intentionally disabled — not available as fallback. Requires `XAI_API_KEY` env var.
+**Default TTS:** **NeuTTS** (Neuphonic, local llama-cpp GGUF, `:8020`, launchd `com.op.neutts-server`). Preloads EN+ES Q4 models at boot (~1.4 GB RSS). Falls back to **xAI** (`api.x.ai`, voice `eve`, model `grok-2-audio`) if NeuTTS fails. Also supports **Supertonic** (local CoreML, `:8765`, `TTS_ENGINE=supertonic`). macOS `say` is intentionally disabled — not available as fallback. Requires `XAI_API_KEY` env var for xAI fallback.
 
-**Fallback chains:** xAI→VibeVoice | VibeVoice→xAI | Supertonic→xAI→VibeVoice. All engines try to recover before failing.
+**Fallback chains:** NeuTTS→xAI→Supertonic | xAI→NeuTTS→VibeVoice→Supertonic | VibeVoice→NeuTTS→xAI→Supertonic | Supertonic→NeuTTS→xAI→Supertonic. All engines try to recover before failing.
 
 **Barge-in:** During TTS playback, the mic is monitored via VAD. If the user starts speaking, playback is interrupted and the system switches to listening. Controlled by `TALK_BARGE_IN` (default: 1).
 
@@ -33,7 +33,7 @@ Load in OpenCode via `skill("talk")`. Codex uses the same skill at `~/.codex/ski
 
 ```bash
 ~/.config/opencode/skills/talk/talk.sh listen    # block until user stops; print transcript
-~/.config/opencode/skills/talk/talk.sh speak "…" # TTS (xAI default → VibeVoice fallback)
+~/.config/opencode/skills/talk/talk.sh speak "…" # TTS (NeuTTS default → xAI fallback)
 ~/.config/opencode/skills/talk/talk.sh status    # health check
 ~/.config/opencode/skills/talk/talk.sh devices   # list mics
 ~/.config/opencode/skills/talk/talk.sh loop      # continuous loop (tty or pipe stdin)
@@ -59,7 +59,7 @@ This pipelines conversation: the user can start talking again while you prepare 
 - Always invoke `talk.sh` via Shell; never fake transcription or audio.
 - Empty stdout from `speak` (no speech detected) → `talk.sh listen` once, then continue.
 - One-off read-aloud only (no mic): `TALK_AUTO_LISTEN=0 talk.sh speak '…'`.
-- TTS down (all engines failed) → fix xAI/VibeVoice; do not use macOS `say`.
+- TTS down (all engines failed) → fix NeuTTS/xAI; do not use macOS `say`.
 - First session turn: `talk.sh status` if services were recently restarted.
 
 ## Environment
@@ -70,16 +70,15 @@ This pipelines conversation: the user can start talking again while you prepare 
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Local CoreML STT |
 | `STT_MODEL` | `FluidInference/parakeet-tdt-0.6b-v3-coreml` | Model id for API |
 | `STT_TIMEOUT_SECONDS` | `45` | Curl timeout for one STT request |
-| `TTS_ENGINE` | `xai` | `xai` (default), `vibevoice`, `supertonic`, or `say` |
+| `TTS_ENGINE` | `neutts` | `neutts` (default), `xai`, `vibevoice`, `supertonic` |
 | `XAI_API_KEY` | (required) | API key for xAI TTS |
 | `XAI_TTS_VOICE` | `eve` | xAI voice: `ara`, `eve`, `leo`, `rex`, `sal` |
 | `XAI_TTS_MODEL` | `grok-2-audio` | xAI model for speech |
-| `VIBEVOICE_MODEL` | `vibe-realtime-8bit` | Model id on multimodel API |
-| `VIBEVOICE_VOICE` | `en-Emma_woman` | VibeVoice preset |
-| `VIBEVOICE_VOICE_AUTO` | `1` | Map language to bundled voice presets automatically |
-| `VIBEVOICE_CFG_SCALE` | `2.0` | Classifier-free guidance scale |
-| `VIBEVOICE_DDPM_STEPS` | `15` | Diffusion step count |
-| `VIBEVOICE_WS_URI` | `ws://127.0.0.1:8010/ws/tts` | WebSocket endpoint |
+| `NEUTTS_URL` | `http://127.0.0.1:8020` | NeuTTS server |
+| `NEUTTS_MODEL` | `neuphonic/neutts-nano-q4-gguf` | Default backbone (EN) |
+| `NEUTTS_MODEL_ES` | `neuphonic/neutts-nano-spanish-q4-gguf` | Spanish backbone |
+| `NEUTTS_PORT` | `8020` | NeuTTS server port |
+| `NEUTTS_PRELOAD_MODELS` | `neuphonic/neutts-nano-q4-gguf neuphonic/neutts-nano-spanish-q4-gguf` | Space-separated models to preload at boot (NO lazy loading) |
 | `TALK_READY_CUE` | 1 | Play a short tone before `listen` (set `0` to disable) |
 | `TALK_READY_SOUND` | Tink.aiff | macOS system sound for ready cue |
 | `TALK_READY_DELAY_MS` | 400 | Ignore mic after cue so speech is not clipped |
@@ -98,8 +97,8 @@ This pipelines conversation: the user can start talking again while you prepare 
 | Force alternate STT | Override `STT_URL` or `STT_REMOTE_URL`; default remains local `:5093` |
 | VAD misses speech | `talk.sh devices`; lower `VAD_THRESHOLD` |
 | Wrong microphone (e.g. NoMachine) | `talk.sh devices`; set `MIC_QUERY="MacBook Air Microphone"` |
-| xAI TTS fails | Check `XAI_API_KEY` is set; `talk.sh status` shows key status, then VibeVoice is tried automatically |
-| No VibeVoice speech | `talk.sh status` — API on :8010? `launchctl kickstart -k gui/$UID/com.op.tts-multimodel-api` |
+| xAI TTS fails | Check `XAI_API_KEY` is set; `talk.sh status` shows key status, then NeuTTS is tried automatically |
+| No NeuTTS speech | `talk.sh status` — API on :8020? `launchctl kickstart -k gui/$UID/com.op.neutts-server` |
 | Listen blocks forever | Set `TALK_IDLE_TIMEOUT_S` (default 30s); check that mic is working with `talk.sh devices` |
-| All TTS failed | Fix xAI or VibeVoice; macOS `say` is intentionally not used |
+| All TTS failed | Fix NeuTTS or xAI; macOS `say` is intentionally not used |
 | Barge-in false triggers | Raise `VAD_THRESHOLD` (default 0.5); or set `TALK_BARGE_IN=0` to disable |

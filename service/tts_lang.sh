@@ -1,4 +1,4 @@
-# tts_lang.sh — shared language + VibeVoice preset resolution (source, do not execute)
+# tts_lang.sh — shared language detection (source, do not execute)
 
 # Resolve BCP-47-ish lang code: explicit arg > text heuristic
 resolve_lang() {
