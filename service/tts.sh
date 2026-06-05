@@ -1,178 +1,251 @@
 #!/bin/bash
-# tts.sh — TTS CLI for OpenCode / talk skill
+# tts.sh — Multi-engine TTS CLI for OpenCode / talk skill.
 #
-# Default: xAI TTS (same contract as OpenVoiceApp VoiceBridge)
-#   POST https://api.x.ai/v1/tts  { text, voice_id, language }
-#
-# Optional: local Chatterbox via mlx-audio (TTS_ENGINE=chatterbox)
+# Engines: xai (default), vibevoice, supertonic, or neutts.
+# Set TTS_ENGINE to override. macOS say is intentionally not available.
 
+set -e
+
+# --- Engine config -----------------------------------------------------------
 : "${TTS_ENGINE:=xai}"
-: "${XAI_TTS_URL:=https://api.x.ai/v1/tts}"
+: "${XAI_API_KEY:=${XAI_API_KEY:-}}"
 : "${XAI_TTS_VOICE:=eve}"
-: "${XAI_TTS_LANGUAGE:=auto}"
-: "${TTS_ENABLE_CHATTERBOX_FALLBACK:=1}"
+: "${XAI_TTS_MODEL:=grok-2-audio}"
+: "${VIBEVOICE_WS_URI:=ws://127.0.0.1:8010/ws/tts}"
+: "${VIBEVOICE_MODEL:=vibe-realtime-8bit}"
+: "${VIBEVOICE_VOICE:=en-Emma_woman}"
+: "${VIBEVOICE_VOICE_AUTO:=1}"
+: "${VIBEVOICE_CFG_SCALE:=2.0}"
+: "${VIBEVOICE_DDPM_STEPS:=15}"
+: "${VIBEVOICE_SPEAK_PY:=$HOME/tts-multimodel-api/speak_vibevoice.py}"
+: "${SUPERTONIC_URL:=http://127.0.0.1:8765}"
+: "${SUPERTONIC_SH:=$HOME/.config/opencode/skills/supertonic-tts/supertonic.sh}"
+: "${NEUTTS_URL:=http://127.0.0.1:8020}"
+: "${NEUTTS_MODEL:=neuphonic/neutts-nano-q4-gguf}"
+# -----------------------------------------------------------------------------
 
-: "${TTS_HOST:=localhost}"
-: "${TTS_PORT:=8765}"
-: "${REF_DIR:=$HOME/.config/opencode}"
-: "${REF_AUDIO_DEFAULT:=$REF_DIR/ref_voice_monica.wav}"
-: "${REF_TEXT_FILE_DEFAULT:=$REF_DIR/ref_voice_monica.txt}"
+# shellcheck source=tts_lang.sh
+. "${TTS_LANG_SH:=$HOME/.config/opencode/tts_lang.sh}"
 
 TEXT="${1:-Hello.}"
-LANG="${2:-es}"
 OUTPUT="/tmp/opencode-speech.wav"
+LANG="$(resolve_lang "${2:-}" "$TEXT")"
 
-load_xai_api_key() {
-    if [ -n "${XAI_API_KEY:-}" ]; then
-        return 0
-    fi
-    local f
-    for f in \
-        "$HOME/Documents/IOSAPP/voice-bridge/.env" \
-        "$HOME/.hermes/.env" \
-        "$HOME/.config/opencode/.env"; do
-        [ -f "$f" ] || continue
-        # shellcheck disable=SC1090
-        set -a
-        # shellcheck source=/dev/null
-        . "$f"
-        set +a
-        [ -n "${XAI_API_KEY:-}" ] && return 0
-    done
-    return 1
-}
+# If TTS_NO_PLAY=1, generate the WAV but don't play it (let caller handle playback)
+: "${TTS_NO_PLAY:=0}"
 
 speak_xai() {
     local text="$1"
-    if ! load_xai_api_key; then
+    local lang="$2"
+    local voice="${XAI_TTS_VOICE:-eve}"
+
+    if [ -z "$XAI_API_KEY" ]; then
         echo "tts.sh: XAI_API_KEY not set" >&2
         return 1
     fi
 
-    local py="${HOME}/.config/opencode/tts-venv/bin/python3"
-    [ -x "$py" ] || py="python3"
+    echo "[tts] xAI lang=${lang} voice=${voice}" >&2
 
-    local ext
-    ext=$("$py" - "$XAI_TTS_URL" "$text" "$XAI_TTS_VOICE" "$XAI_TTS_LANGUAGE" "$OUTPUT" <<'PY'
-import json
-import sys
-import urllib.error
-import urllib.request
+    local input_json
+    input_json=$(printf '{"text":%s,"voice_id":"%s","language":"%s"}' \
+        "$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$text")" \
+        "$voice" "$lang")
 
-url, text, voice, language, output = sys.argv[1:6]
-allowed = {"ara", "eve", "leo", "rex", "sal"}
-voice = voice.strip().lower()
-if voice not in allowed:
-    voice = "eve"
+    local http_code
+    http_code=$(curl -sS -m 60 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "https://api.x.ai/v1/tts" \
+        -H "Authorization: Bearer $XAI_API_KEY"\
+        -H "Content-Type: application/json" \
+        -d "$input_json") || {
+        echo "tts.sh: xAI request failed (curl exit $?)" >&2
+        return 1
+    }
 
-payload = json.dumps(
-    {"text": text, "voice_id": voice, "language": language}
-).encode("utf-8")
-req = urllib.request.Request(
-    url,
-    data=payload,
-    headers={
-        "Authorization": f"Bearer {__import__('os').environ['XAI_API_KEY']}",
-        "Content-Type": "application/json",
-    },
-    method="POST",
-)
-try:
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        data = resp.read()
-        media = resp.headers.get("Content-Type", "audio/mpeg")
-except urllib.error.HTTPError as e:
-    body = e.read().decode("utf-8", errors="replace")[:500]
-    print(f"xAI TTS HTTP {e.code}: {body}", file=sys.stderr)
-    sys.exit(1)
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: xAI HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
 
-out = output
-if "mpeg" in media or "mp3" in media:
-    out = output.replace(".wav", ".mp3")
-elif "wav" in media:
-    out = output if output.endswith(".wav") else output + ".wav"
-
-with open(out, "wb") as f:
-    f.write(data)
-print(out)
-PY
-) || return 1
-
-    afplay "$ext"
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: xAI produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    afplay "$OUTPUT"
+    rm -f "$OUTPUT"
 }
 
-speak_chatterbox() {
+speak_vibevoice() {
     local text="$1"
     local lang="$2"
-    local ref_audio="${3:-$REF_AUDIO_DEFAULT}"
-    local ref_text_file="${4:-$REF_TEXT_FILE_DEFAULT}"
-
-    local ref_text
-    if [ -n "${5:-}" ]; then
-        ref_text="$5"
-    elif [ -f "$ref_text_file" ]; then
-        ref_text="$(tr '\n' ' ' < "$ref_text_file" | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
-    else
-        ref_text="Definitivamente el departamento tiene que tener terraza o balcón."
-    fi
-
-    local tts_url="http://${TTS_HOST}:${TTS_PORT}/v1/audio/speech"
-    local py="${HOME}/.config/opencode/tts-venv/bin/python3"
+    local py="${HOME}/tts-multimodel-api/venv/bin/python3"
+    [ -x "$py" ] || py="${HOME}/.config/opencode/tts-venv/bin/python3"
     [ -x "$py" ] || py="python3"
 
-    "$py" - "$tts_url" "$text" "$lang" "$ref_audio" "$ref_text" "$OUTPUT" <<'PY'
-import json
-import sys
-import urllib.request
-
-url, text, lang, ref_audio, ref_text, output = sys.argv[1:7]
-payload = {
-    "model": "theoracleguy/Chatterbox-Multilingual-MLX-v2-Q8",
-    "input": text,
-    "lang_code": lang,
-    "ref_audio": ref_audio,
-    "ref_text": ref_text,
-    "response_format": "wav",
-}
-req = urllib.request.Request(
-    url,
-    data=json.dumps(payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-with urllib.request.urlopen(req) as resp:
-    data = resp.read()
-with open(output, "wb") as f:
-    f.write(data)
-PY
-
-    afplay "$OUTPUT"
-}
-
-detect_lang() {
-    if echo "$TEXT" | LC_ALL=C grep -q '[áéíóúñü¿¡ÁÉÍÓÚÑÜ]'; then
-        echo "es"
-    else
-        echo "en"
+    if [ ! -f "$VIBEVOICE_SPEAK_PY" ]; then
+        echo "tts.sh: VibeVoice helper not found: $VIBEVOICE_SPEAK_PY" >&2
+        return 1
     fi
+
+    local voice
+    voice="$(resolve_vibevoice_voice "$lang")"
+    echo "[tts] VibeVoice lang=${lang} voice=${voice} (auto=${VIBEVOICE_VOICE_AUTO:-0})" >&2
+
+    "$py" "$VIBEVOICE_SPEAK_PY" "$text" "$OUTPUT" \
+        --uri "$VIBEVOICE_WS_URI" \
+        --model "$VIBEVOICE_MODEL" \
+        --language "$lang" \
+        --voice "$voice" \
+        --cfg-scale "$VIBEVOICE_CFG_SCALE" \
+        --ddpm-steps "$VIBEVOICE_DDPM_STEPS" >/dev/null
+
+    [ -f "$OUTPUT" ] || { echo "tts.sh: VibeVoice produced no wav" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    afplay "$OUTPUT"
+    rm -f "$OUTPUT"
 }
 
-[ -n "$LANG" ] || LANG="$(detect_lang "$TEXT")"
+speak_supertonic() {
+    local text="$1"
+    local lang="$2"
 
-_engine=$(printf '%s' "$TTS_ENGINE" | tr '[:upper:]' '[:lower:]')
-case "$_engine" in
-    chatterbox|local|mlx|chatterbox_mlx)
-        speak_chatterbox "$TEXT" "$LANG" || exit 1
-        ;;
-    xai|grok|*)
-        if speak_xai "$TEXT"; then
+    if [ ! -x "$SUPERTONIC_SH" ]; then
+        echo "tts.sh: Supertonic wrapper not found: $SUPERTONIC_SH" >&2
+        return 1
+    fi
+
+    echo "[tts] Supertonic lang=${lang} url=${SUPERTONIC_URL}" >&2
+
+    local payload
+    payload=$(python3 -c "
+import json, sys
+d = {'text': sys.argv[1]}
+if sys.argv[2]:
+    d['language'] = sys.argv[2]
+print(json.dumps(d))
+" "$text" "$lang" 2>/dev/null || printf '{"text":"%s"}' "$text")
+
+    local http_code
+    http_code=$(curl -sS -m 60 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "${SUPERTONIC_URL}/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d "$payload") || {
+        echo "tts.sh: Supertonic request failed (curl exit $?)" >&2
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: Supertonic HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
+
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: Supertonic produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    afplay "$OUTPUT"
+    rm -f "$OUTPUT"
+}
+
+speak_neutts() {
+    local text="$1"
+    local lang="$2"
+    local model="$NEUTTS_MODEL"
+
+    case "$lang" in
+        es*)  model="neuphonic/neutts-nano-spanish-q4-gguf" ;;
+        de*)  model="neuphonic/neutts-nano-german-q4-gguf" ;;
+        fr*)  model="neuphonic/neutts-nano-french-q4-gguf" ;;
+        en*|*) model="${NEUTTS_MODEL}" ;;
+    esac
+
+    echo "[tts] NeuTTS lang=${lang} model=${model}" >&2
+
+    local payload
+    payload=$(python3 -c "
+import json, sys
+d = {'text': sys.argv[1], 'model': sys.argv[3]}
+if sys.argv[2]:
+    d['language'] = sys.argv[2]
+print(json.dumps(d))
+" "$text" "$lang" "$model" 2>/dev/null || printf '{"text":"%s","model":"%s"}' "$text" "$model")
+
+    local http_code
+    http_code=$(curl -sS -m 120 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "${NEUTTS_URL}/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d "$payload") || {
+        echo "tts.sh: NeuTTS request failed (curl exit $?)" >&2
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: NeuTTS HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
+
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: NeuTTS produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    afplay "$OUTPUT"
+    rm -f "$OUTPUT"
+}
+
+engine="$(printf '%s' "${TTS_ENGINE}" | tr '[:upper:]' '[:lower:]')"
+case "$engine" in
+    xai)
+        if speak_xai "$TEXT" "$LANG"; then
             exit 0
         fi
-        if [ "${TTS_ENABLE_CHATTERBOX_FALLBACK}" = "1" ]; then
-            echo "tts.sh: xAI failed, trying Chatterbox fallback" >&2
-            speak_chatterbox "$TEXT" "$LANG" || exit 1
+        echo "[tts] xAI failed, trying VibeVoice fallback…" >&2
+        if speak_vibevoice "$TEXT" "$LANG"; then
             exit 0
         fi
+        echo "tts.sh: xAI and VibeVoice failed; no macOS say fallback is available" >&2
         exit 1
+        ;;
+    vibevoice|vibe|mlx-vibe)
+        if speak_vibevoice "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "[tts] VibeVoice failed, trying xAI fallback…" >&2
+        if speak_xai "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "tts.sh: VibeVoice and xAI failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    supertonic|coreml-tts)
+        if speak_supertonic "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "[tts] Supertonic failed, trying xAI fallback…" >&2
+        if speak_xai "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "[tts] xAI also failed, trying VibeVoice…" >&2
+        if speak_vibevoice "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    neutts|neuphonic)
+        if speak_neutts "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "[tts] NeuTTS failed, trying VibeVoice fallback…" >&2
+        if speak_vibevoice "$TEXT" "$LANG"; then
+            exit 0
+        fi
+        echo "tts.sh: NeuTTS and VibeVoice failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    *)
+        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: xai, vibevoice, supertonic, neutts." >&2
+        exit 2
         ;;
 esac

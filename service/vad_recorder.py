@@ -7,10 +7,13 @@ Models OpenVoiceApp endpointing:
 - Configurable trailing silence threshold (default 500ms)
 - Pre-speech audio padding for natural starts
 - Ring buffer avoids unbounded memory growth
+- Idle timeout exits cleanly if no speech detected
+- Thread-safe state via threading primitives
 
 Protocol (JSON lines on stdout):
   {"event":"listening"}
   {"event":"speech_end","file":"/tmp/opencode-turn.wav","duration_ms":2500}
+  {"event":"idle_timeout","elapsed_s":30}
 
 --oneshot: record one utterance, exit with path on stdout.
 --continuous: loop forever, printing JSON events per turn.
@@ -23,6 +26,7 @@ import json
 import os
 import signal
 import sys
+import threading
 import time
 import wave
 from pathlib import Path
@@ -107,6 +111,14 @@ def save_wav(path: str, audio: np.ndarray, normalize: bool = True):
         wf.writeframes(int_data.tobytes())
 
 
+def unique_output_path(output_dir: str, output_file: str) -> str:
+    """Generate a unique output path using PID + timestamp to avoid collisions."""
+    stem = Path(output_file).stem
+    suffix = Path(output_file).suffix or ".wav"
+    unique_name = f"{stem}-{os.getpid()}-{int(time.time() * 1000) % 100000}{suffix}"
+    return str(Path(output_dir) / unique_name)
+
+
 def list_devices():
     """Print available audio input devices to stderr."""
     devices = sd.query_devices()
@@ -121,18 +133,45 @@ def list_devices():
 def find_mic(query=None):
     """Find a suitable microphone device index.
 
-    Priority: query match > MacBook Air Microphone > first input device.
+    Always prefer the MacBook Air Microphone.
+    Explicitly never select NoMachine (or other virtual/remote) adapters.
+
+    Priority:
+      1. Substring match on --mic-query (if provided), but only non-NoMachine devices.
+      2. Exact "MacBook Air Microphone" (strong built-in preference).
+      3. First non-NoMachine input device.
+      4. (last resort) first input device.
     """
     devices = sd.query_devices()
-    for i, dev in enumerate(devices):
-        if dev["max_input_channels"] <= 0:
-            continue
-        if query and query.lower() in dev["name"].lower():
-            return i
+
+    def _is_blocked(name: str) -> bool:
+        n = name.lower()
+        return "nomachine" in n
+
+    # 1. Query match (precise), skip blocked devices
+    if query:
+        q = query.lower()
+        for i, dev in enumerate(devices):
+            if dev["max_input_channels"] <= 0:
+                continue
+            name = dev["name"]
+            if q in name.lower() and not _is_blocked(name):
+                return i
+
+    # 2. Hard preference for the built-in MacBook Air Microphone
     for i, dev in enumerate(devices):
         if dev["max_input_channels"] > 0:
-            if "macbook air microphone" in dev["name"].lower():
+            name = dev["name"]
+            if "macbook air microphone" in name.lower() and not _is_blocked(name):
                 return i
+
+    # 3. First non-blocked input device
+    for i, dev in enumerate(devices):
+        if dev["max_input_channels"] > 0:
+            if not _is_blocked(dev["name"]):
+                return i
+
+    # 4. Absolute fallback (only if no other choice)
     for i, dev in enumerate(devices):
         if dev["max_input_channels"] > 0:
             return i
@@ -149,6 +188,9 @@ def emit_json(event, **kwargs):
 class VADRecorder:
     """Silero VAD-driven continuous voice recorder.
 
+    Thread-safe: uses threading.Event for stop signaling and
+    threading.Lock for shared state accessed from the audio callback.
+
     Usage:
         recorder = VADRecorder(args)
         recorder.run()
@@ -156,7 +198,7 @@ class VADRecorder:
 
     def __init__(self, args):
         self.args = args
-        self.output_path = str(Path(args.output_dir) / args.output_file)
+        self.output_path = unique_output_path(args.output_dir, args.output_file)
         self.pre_speech_padding = int(args.pre_speech_ms * SAMPLE_RATE / 1000)
         self.max_duration_frames = int(args.max_duration_s * SAMPLE_RATE / FRAME_SIZE)
 
@@ -164,11 +206,19 @@ class VADRecorder:
         self.ring = RingBuffer(capacity_frames=3000)
         self.stream = None
 
+        # Thread-safe state: audio_callback runs on audio thread
+        self._stop_event = threading.Event()
+        self._lock = threading.Lock()
         self.speech_active = False
         self.speech_start_sample = 0
         self.frames_since_speech = 0
-        self._stop_requested = False
+        self._heard_speech = False  # for idle timeout tracking
+        self._listen_start = 0.0
         self._ignore_until = 0.0
+
+    @property
+    def _stop_requested(self):
+        return self._stop_event.is_set()
 
     def load_vad(self):
         """Lazily load the Silero VAD model."""
@@ -189,27 +239,35 @@ class VADRecorder:
         if self._ignore_until:
             self._ignore_until = 0.0
             self.vad.reset_states()
-            self.speech_active = False
-            self.frames_since_speech = 0
+            with self._lock:
+                self.speech_active = False
+                self.frames_since_speech = 0
 
         tensor = torch.from_numpy(frame).unsqueeze(0)
         result = self.vad(tensor)
 
-        if self.speech_active:
-            self.frames_since_speech += 1
-            if self.frames_since_speech > self.max_duration_frames:
-                end_sample = self.ring.first_sample + sum(len(f) for f in self.ring.frames)
-                self._finalize_turn(end_sample, reason="max_duration")
-                self.speech_active = False
+        with self._lock:
+            if self.speech_active:
+                self.frames_since_speech += 1
+                if self.frames_since_speech > self.max_duration_frames:
+                    end_sample = self.ring.first_sample + sum(len(f) for f in self.ring.frames)
+                    self._finalize_turn(end_sample, reason="max_duration")
+                    self.speech_active = False
 
-        if result is not None:
-            if "start" in result:
-                self.speech_active = True
-                self.speech_start_sample = result["start"]
-                self.frames_since_speech = 0
-            elif "end" in result:
-                self._finalize_turn(result["end"])
-                self.speech_active = False
+            if result is not None:
+                if "start" in result:
+                    self.speech_active = True
+                    self.speech_start_sample = result["start"]
+                    self.frames_since_speech = 0
+                    self._heard_speech = True
+                    # Barge-in mode: just detect speech start and exit
+                    if self.args.barge_in:
+                        emit_json("barge_in", sample=result["start"])
+                        self._stop_event.set()
+                        return
+                elif "end" in result:
+                    self._finalize_turn(result["end"])
+                    self.speech_active = False
 
     def _finalize_turn(self, end_sample: int, reason=None):
         """Save the recorded utterance and signal completion."""
@@ -228,15 +286,28 @@ class VADRecorder:
         emit_json("speech_end", **payload)
 
         if self.args.oneshot:
-            self._stop_requested = True
+            self._stop_event.set()
 
         self.vad.reset_states()
         self.ring.clear()
         self.frames_since_speech = 0
 
+    def _check_idle_timeout(self) -> bool:
+        """Check if idle timeout has been exceeded (no speech heard). Returns True if timed out."""
+        idle_timeout = getattr(self.args, 'idle_timeout_s', 0)
+        if idle_timeout <= 0:
+            return False
+        if self._heard_speech:
+            return False
+        elapsed = time.time() - self._listen_start
+        if elapsed >= idle_timeout:
+            emit_json("idle_timeout", elapsed_s=round(elapsed, 1))
+            return True
+        return False
+
     def audio_callback(self, indata, frames, time_info, status):
         """sounddevice.InputStream callback — called from audio thread."""
-        if self._stop_requested:
+        if self._stop_event.is_set():
             raise sd.CallbackStop()
 
         if status and self.args.debug:
@@ -264,6 +335,7 @@ class VADRecorder:
         self.load_vad()
         if self.args.ready_delay_ms > 0:
             self._ignore_until = time.time() + self.args.ready_delay_ms / 1000.0
+        self._listen_start = time.time()
         emit_json("listening")
 
         self.stream = sd.InputStream(
@@ -276,27 +348,27 @@ class VADRecorder:
         )
 
         with self.stream:
-            if self.args.oneshot:
-                while not self._stop_requested:
-                    sd.sleep(100)
-            else:
-                try:
-                    signal.pause()
-                except AttributeError:
-                    while True:
-                        sd.sleep(500)
+            # Unified loop for both oneshot and continuous modes
+            # Uses polling with sd.sleep instead of signal.pause()
+            # so it works reliably across platforms and checks idle timeout
+            while not self._stop_event.is_set():
+                sd.sleep(100)
+                if self._check_idle_timeout():
+                    self._stop_event.set()
+                    break
 
 
 def main():
     p = argparse.ArgumentParser(description="Silero VAD voice recorder")
-    p.add_argument("--oneshot", action="store_true", default=True,
-                   help="Record one turn and exit (default)")
-    p.add_argument("--continuous", action="store_true",
-                   help="Loop forever, output JSON per turn")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--oneshot", action="store_true", default=True,
+                       help="Record one turn and exit (default)")
+    mode.add_argument("--continuous", action="store_true",
+                       help="Loop forever, output JSON per turn")
     p.add_argument("--output-dir", default="/tmp",
                    help="Directory for WAV files")
     p.add_argument("--output-file", default="opencode-turn.wav",
-                   help="WAV filename")
+                   help="WAV filename (PID+timestamp appended for uniqueness)")
     p.add_argument("--min-silence-ms", type=int, default=500,
                    help="Silence after speech to end turn (default: 500ms)")
     p.add_argument("--vad-threshold", type=float, default=0.5,
@@ -307,12 +379,18 @@ def main():
                    help="Ignore mic/VAD for N ms after start (post ready-cue)")
     p.add_argument("--max-duration-s", type=float, default=30,
                    help="Max recording duration (default: 30s)")
+    p.add_argument("--idle-timeout-s", type=float, default=0,
+                   help="Exit if no speech detected within N seconds (0=disabled)")
     p.add_argument("--mic-device", type=int, default=None,
                    help="Audio input device index")
     p.add_argument("--mic-query", default=None,
                    help="Substring match for mic device name")
     p.add_argument("--list-devices", action="store_true",
                    help="List input devices and exit")
+    p.add_argument("--print-selected-mic", action="store_true",
+                   help="Print the mic that find_mic() + --mic-query would select and exit")
+    p.add_argument("--barge-in", action="store_true",
+                   help="Detect speech start only (for interrupt detection), then exit")
     p.add_argument("--debug", action="store_true",
                    help="Debug logging to stderr")
 
@@ -321,6 +399,27 @@ def main():
     if args.list_devices:
         list_devices()
         sys.exit(0)
+
+    if args.print_selected_mic:
+        dev_idx = args.mic_device
+        if dev_idx is None:
+            dev_idx = find_mic(args.mic_query)
+        if dev_idx is not None:
+            try:
+                info = sd.query_devices(dev_idx)
+                name = info.get("name", "?")
+                ins = int(info.get("max_input_channels", 0))
+                sr = int(info.get("default_samplerate", 0))
+                print(f"[{dev_idx}] {name}  inputs={ins}  default_sr={sr}")
+            except Exception as e:
+                print(f"[{dev_idx}] (query error: {e})")
+        else:
+            print("No suitable input device found")
+        sys.exit(0)
+
+    # --continuous overrides --oneshot (mutually exclusive group ensures only one)
+    if args.continuous:
+        args.oneshot = False
 
     recorder = VADRecorder(args)
     recorder.run()
