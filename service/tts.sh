@@ -87,6 +87,55 @@ speak_xai() {
 
     echo "[tts] xAI lang=${lang} voice=${voice}" >&2
 
+    # TTS_NO_PLAY (barge-in mode) — use single-request path
+    if [ "${TTS_NO_PLAY:-0}" = "1" ]; then
+        _speak_xai_single "$text" "$lang" "$voice"
+        return $?
+    fi
+
+    # Split into sentence chunks on . ! ?
+    local chunks_json
+    chunks_json=$(python3 -c "
+import sys, re, json
+text = sys.stdin.read().strip()
+parts = re.split(r'(?<=[.!?])\s+', text)
+merged, buf = [], ''
+for p in parts:
+    p = p.strip()
+    if not p:
+        continue
+    if buf:
+        buf = buf + ' ' + p
+    else:
+        buf = p
+    if len(buf.split()) >= 2:
+        merged.append(buf)
+        buf = ''
+if buf:
+    if merged:
+        merged[-1] = merged[-1] + ' ' + buf
+    else:
+        merged.append(buf)
+print(json.dumps(merged))
+" <<<"$text")
+
+    local count
+    count=$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$chunks_json")
+
+    if [ "$count" -le 1 ]; then
+        _speak_xai_single "$text" "$lang" "$voice"
+        return $?
+    fi
+
+    echo "[tts] Chunking into $count sentences (parallel xAI)" >&2
+    _speak_xai_chunked "$chunks_json" "$count" "$lang" "$voice"
+}
+
+_speak_xai_single() {
+    local text="$1"
+    local lang="$2"
+    local voice="$3"
+
     local input_json
     input_json=$(printf '{"text":%s,"voice_id":"%s","language":"%s"}' \
         "$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$text")" \
@@ -114,6 +163,52 @@ speak_xai() {
     [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
     afplay "$OUTPUT"
     rm -f "$OUTPUT"
+}
+
+_speak_xai_chunked() {
+    local chunks_json="$1"
+    local count="$2"
+    local lang="$3"
+    local voice="$4"
+
+    local chunk_dir
+    chunk_dir=$(mktemp -d /tmp/opencode-tts-chunks.XXXXXX)
+
+    # Fire all chunk TTS requests in parallel
+    local i chunk_text wav_prefix
+    for ((i=0; i<count; i++)); do
+        chunk_text=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[$i])" "$chunks_json")
+        wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $i)"
+        (
+            input_json=$(printf '{"text":%s,"voice_id":"%s","language":"%s"}' \
+                "$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$chunk_text")" \
+                "$voice" "$lang")
+            if curl -sS -m 30 -o "${wav_prefix}.wav" \
+                "https://api.x.ai/v1/tts" \
+                -H "Authorization: Bearer $XAI_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$input_json" 2>/dev/null && [ -f "${wav_prefix}.wav" ] && [ -s "${wav_prefix}.wav" ]; then
+                touch "${wav_prefix}.ready"
+            else
+                echo "[tts] xAI chunk $i failed" >&2
+                touch "${wav_prefix}.failed"
+            fi
+        ) &
+    done
+
+    # Play in order — starts faster vs single-path, may still wait for late chunks
+    for ((i=0; i<count; i++)); do
+        wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $i)"
+        while [ ! -f "${wav_prefix}.ready" ] && [ ! -f "${wav_prefix}.failed" ]; do
+            sleep 0.05
+        done
+        if [ -f "${wav_prefix}.ready" ]; then
+            afplay "${wav_prefix}.wav"
+        fi
+    done
+
+    rm -rf "$chunk_dir"
+    return 0
 }
 
 speak_supertonic() {
