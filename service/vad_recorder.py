@@ -215,6 +215,7 @@ class VADRecorder:
         self._heard_speech = False  # for idle timeout tracking
         self._listen_start = 0.0
         self._ignore_until = 0.0
+        self._vad_offset = 0  # ring-buffer sample count at VAD reset (fixes coordinate mismatch)
 
     @property
     def _stop_requested(self):
@@ -238,6 +239,10 @@ class VADRecorder:
             return
         if self._ignore_until:
             self._ignore_until = 0.0
+            # Capture VAD reset offset: ring._total includes the current frame.
+            # VAD.reset_states() zeroes current_sample, so VAD coordinates restart
+            # from the first sample of this frame = ring._total - FRAME_SIZE.
+            self._vad_offset = self.ring._total - FRAME_SIZE
             self.vad.reset_states()
             with self._lock:
                 self.speech_active = False
@@ -251,13 +256,13 @@ class VADRecorder:
                 self.frames_since_speech += 1
                 if self.frames_since_speech > self.max_duration_frames:
                     end_sample = self.ring.first_sample + sum(len(f) for f in self.ring.frames)
-                    self._finalize_turn(end_sample, reason="max_duration")
+                    self._finalize_turn(end_sample + self._vad_offset, reason="max_duration")
                     self.speech_active = False
 
             if result is not None:
                 if "start" in result:
                     self.speech_active = True
-                    self.speech_start_sample = result["start"]
+                    self.speech_start_sample = result["start"] + self._vad_offset
                     self.frames_since_speech = 0
                     self._heard_speech = True
                     # Barge-in mode: just detect speech start and exit
@@ -266,7 +271,7 @@ class VADRecorder:
                         self._stop_event.set()
                         return
                 elif "end" in result:
-                    self._finalize_turn(result["end"])
+                    self._finalize_turn(result["end"] + self._vad_offset)
                     self.speech_active = False
 
     def _finalize_turn(self, end_sample: int, reason=None):
@@ -373,7 +378,7 @@ def main():
                    help="Silence after speech to end turn (default: 500ms)")
     p.add_argument("--vad-threshold", type=float, default=0.5,
                    help="VAD speech probability threshold (default: 0.5)")
-    p.add_argument("--pre-speech-ms", type=int, default=400,
+    p.add_argument("--pre-speech-ms", type=int, default=800,
                    help="Audio before detected speech to include (default: 400ms)")
     p.add_argument("--ready-delay-ms", type=int, default=0,
                    help="Ignore mic/VAD for N ms after start (post ready-cue)")

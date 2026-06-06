@@ -25,7 +25,8 @@ SERVICE_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
 # TTS (NeuTTS default, xAI/VibeVoice/Supertonic fallback)
-: "${TTS_ENGINE:=neutts}"
+: "${TTS_ENGINE:=xai}"
+: "${XAI_TTS_VOICE:=rex}"
 : "${VIBEVOICE_MODEL:=vibe-realtime-8bit}"
 : "${VIBEVOICE_VOICE:=en-Emma_woman}"
 : "${VIBEVOICE_VOICE_AUTO:=1}"
@@ -48,7 +49,7 @@ export TTS_ENGINE
 # Ready cue before listen (short tone so user knows when to speak)
 : "${TALK_READY_CUE:=1}"
 : "${TALK_READY_SOUND:=/System/Library/Sounds/Tink.aiff}"
-: "${TALK_READY_DELAY_MS:=400}"
+: "${TALK_READY_DELAY_MS:=700}"
 # After speak finishes playback, immediately start listen (stdout = next user text)
 : "${TALK_AUTO_LISTEN:=1}"
 # Barge-in: detect user speech during TTS playback and interrupt
@@ -169,28 +170,43 @@ cmd_listen() {
     local ready_delay=0
     [ "${TALK_READY_CUE}" != "0" ] && ready_delay="${TALK_READY_DELAY_MS}"
 
-    cmd_ready_cue >&2
+    # Start VAD recorder BEFORE the ready cue so audio is captured
+    # from the moment the user hears the cue. --ready-delay-ms keeps
+    # VAD from triggering on cue bleed; ring buffer captures everything.
+    local vad_out
+    vad_out=$(mktemp /tmp/opencode-vad-output.XXXXXX)
 
-    # Run VAD recorder in oneshot mode, parse the last JSON line for the file path
-    local file
-    file=$("$PYTHON" "$VAD_PY" --oneshot \
+    "$PYTHON" "$VAD_PY" --oneshot \
         --mic-query "$MIC_QUERY" \
         --output-file "$outfile" \
         --vad-threshold "$VAD_THRESHOLD" \
         --min-silence-ms "$VAD_MIN_SILENCE_MS" \
         --ready-delay-ms "$ready_delay" \
         --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-30}" \
-        2>/dev/null | "$PYTHON" -c "
-import json,sys
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    try:
-        d = json.loads(line)
-        if d.get('event') == 'speech_end':
-            print(d.get('file',''))
-    except: pass
-")
+        2>/dev/null >"$vad_out" &
+    local vad_pid=$!
+
+    # Play the ready cue NOW — vad_recorder is already capturing
+    cmd_ready_cue >&2
+
+    # Wait for VAD to finish (speech_end, idle_timeout, or error)
+    wait "$vad_pid"
+
+    # Parse the JSON output for the WAV file path
+    local file
+    file=$("$PYTHON" -c "
+import json
+with open('$vad_out') as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            d = json.loads(line)
+            if d.get('event') == 'speech_end':
+                print(d.get('file',''))
+        except: pass
+    ")
+    rm -f "$vad_out"
 
     if [ -z "$file" ] || [ ! -f "$file" ]; then
         echo ""
