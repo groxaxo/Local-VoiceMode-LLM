@@ -595,7 +595,10 @@ fi
 # =============================================================================
 # Step 7: Generate reference voices (unless skipped)
 # =============================================================================
-if [ "$SKIP_VOICES" = false ]; then
+# Uses macOS `say`; on Linux/Windows this is skipped (the default Supertonic +
+# Parakeet engines don't need reference voices). Guarding it also prevents
+# `say: command not found` from aborting the install under `set -e`.
+if [ "$SKIP_VOICES" = false ] && [ "$PLATFORM" = "macos" ]; then
     if [ ! -f "$CONFIG_DIR/ref_voice_en.wav" ]; then
         info "Generating English reference voice (Samantha)..."
         say -v "Samantha" -o /tmp/opencode-ref.aiff \
