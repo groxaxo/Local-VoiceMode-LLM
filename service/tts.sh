@@ -26,12 +26,15 @@ play_wav() {
 }
 
 # --- Engine config -----------------------------------------------------------
-: "${TTS_ENGINE:=neutts}"
+: "${TTS_ENGINE:=supertonic}"
 : "${XAI_API_KEY:=${XAI_API_KEY:-}}"
 : "${XAI_TTS_VOICE:=eve}"
 : "${XAI_TTS_MODEL:=grok-2-audio}"
 : "${SUPERTONIC_URL:=http://127.0.0.1:8766}"
 : "${SUPERTONIC_SH:=$HOME/.config/opencode/skills/supertonic-tts/supertonic.sh}"
+: "${SUPERTONIC_VOICE:=M1}"   # Supertonic 3 voices: F1–F5 / M1–M5
+: "${SUPERTONIC_STEPS:=8}"    # denoising steps (1–20); 8 = quality baseline
+: "${SUPERTONIC_SPEED:=1.05}"
 : "${NEUTTS_URL:=http://127.0.0.1:8020}"
 : "${NEUTTS_MODEL:=neuphonic/neutts-nano-q8-gguf}"
 : "${NEUTTS_MODEL_ES:=neuphonic/neutts-nano-spanish-q8-gguf}"
@@ -234,21 +237,21 @@ speak_supertonic() {
     local text="$1"
     local lang="$2"
 
-    if [ ! -x "$SUPERTONIC_SH" ]; then
-        echo "tts.sh: Supertonic wrapper not found: $SUPERTONIC_SH" >&2
-        return 1
-    fi
+    echo "[tts] Supertonic voice=${SUPERTONIC_VOICE} lang=${lang} url=${SUPERTONIC_URL}" >&2
 
-    echo "[tts] Supertonic lang=${lang} url=${SUPERTONIC_URL}" >&2
-
+    # Supertonic Express 3 exposes an OpenAI-compatible /v1/audio/speech endpoint:
+    # required field is `input`; voice is one of F1–F5 / M1–M5; lang via `lang_code`.
     local payload
     payload=$(python3 -c "
 import json, sys
-d = {'text': sys.argv[1]}
+d = {'input': sys.argv[1], 'voice': sys.argv[3],
+     'response_format': 'wav', 'stream': False,
+     'total_steps': int(sys.argv[4]), 'speed': float(sys.argv[5])}
 if sys.argv[2]:
-    d['language'] = sys.argv[2]
+    d['lang_code'] = sys.argv[2]
 print(json.dumps(d))
-" "$text" "$lang" 2>/dev/null || printf '{"text":"%s"}' "$text")
+" "$text" "$lang" "$SUPERTONIC_VOICE" "$SUPERTONIC_STEPS" "$SUPERTONIC_SPEED" 2>/dev/null \
+        || printf '{"input":"%s","voice":"%s","response_format":"wav"}' "$text" "$SUPERTONIC_VOICE")
 
     local http_code
     http_code=$(curl -sS -m 60 \

@@ -25,7 +25,7 @@ each agent's skills directory by `setup.sh` / `setup.ps1`.
 
 **Default STT:** local Parakeet ONNX via `parakeet-tdt-0.6b-v3-fastapi-openai` on `127.0.0.1:5093` (auto-installed by `setup.sh` / `setup.ps1`). OpenAI-compatible API, 25 languages, CPU-only ONNX INT8.
 
-**Default TTS:** **Supertonic ONNX** via `supertonic-express` on `:8766` (auto-installed). CPU-only ONNX. Falls back to **NeuTTS** (local GGUF, `:8020`) then **xAI** (cloud, `api.x.ai`, voice `eve`). `say`/TTS-system fallback intentionally disabled.
+**Default TTS:** **Supertonic 3 ONNX** via `supertonic-express-3` on `:8766` (auto-installed, FP16, CPU-only, voices F1–F5 / M1–M5). Falls back to **NeuTTS** (local GGUF, `:8020`) then **xAI** (cloud, `api.x.ai`, voice `eve`). `say`/TTS-system fallback intentionally disabled.
 
 **Audio playback:** `afplay` (macOS), `ffplay`/`aplay`/`paplay` (Linux), `ffplay`/SoundPlayer (Windows via `talk.ps1`).
 

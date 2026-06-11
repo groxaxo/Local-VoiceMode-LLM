@@ -80,19 +80,23 @@ sounddevice.InputStream ──▶ Silero VAD (ONNX) ──▶ Endpointer ──�
   ──────────▶ http://127.0.0.1:8766/v1/audio/speech  (OpenAI-compatible)
   text + voice style + lang            │
                                         ▼
-  Supertonic-TTS-2-ONNX
-  (onnx-community/Supertonic-TTS-2-ONNX)
+  Supertonic 3 (FP16 ONNX)
+  (groxaxo/supertonic-3-v2 · Supertone/supertonic-3)
                                         │
                                         ▼
   WAV ──▶ afplay
 ```
 
-- Local ONNX-based inference via [supertonic-express](https://github.com/groxaxo/supertonic-express)
-- Auto-installed by `setup.sh` into `~/.config/opencode/supertonic-tts/`
-- launchd auto-start on `:8766` (`:8765` is reserved for the existing Chatterbox
-  TTS server; both can coexist because they have different labels)
-- Fast: measured 3–13× realtime on an Intel i7-12700KF (CPU only)
-- Multilingual: EN, ES, KO, PT, FR
+- Local ONNX-based inference via [supertonic-express-3](https://github.com/groxaxo/supertonic-express-3)
+  (graph: `text_encoder → duration_predictor → vector_estimator → vocoder`,
+  auto-detected as v3 by the presence of `onnx/tts.json`)
+- FP16 model (~196 MB) pulled from [groxaxo/supertonic-3-v2](https://github.com/groxaxo/supertonic-3-v2)
+  (CPU-optimized), with `Supertone/supertonic-3` on Hugging Face as fallback
+- Auto-installed by `setup.sh` into `~/.config/opencode/supertonic-tts/`; forced to the
+  CPU ONNX Runtime backend (`SUPERTONIC_ORT_BACKEND=cpu`)
+- launchd / systemd auto-start on `:8766`
+- Measured 1.6–2.8× realtime on an Intel i7-12700KF (CPU only); FP16, 8 denoising steps
+- Multilingual: EN, ES, KO, PT, FR; voices F1–F5 / M1–M5
 
 ### TTS Fallback Chain
 
@@ -152,9 +156,9 @@ Measured on an Intel Core i7-12700KF (CPU only, no GPU); see the
 | VAD per-frame | ~0.09ms per 32ms frame (~350× realtime) |
 | VAD endpointing | ~500ms trailing silence (configurable) |
 | STT (Parakeet ONNX, local) | ~280ms short → ~810ms long (8–21× realtime) |
-| TTS (Supertonic ONNX, local) | ~0.8s short → ~1.4s long (3–13× realtime) |
+| TTS (Supertonic 3 ONNX, local) | ~1.7s short → ~5.5s long (1.6–2.8× realtime) |
 | TTS (xAI, cloud) | ~500–2000ms |
-| **E2E voice overhead (speak → hear, excl. LLM)** | **~1–1.5s** local |
+| **E2E voice overhead (speak → hear, excl. LLM)** | **~2s** local |
 
 ## Web Dashboard (frontend/)
 
