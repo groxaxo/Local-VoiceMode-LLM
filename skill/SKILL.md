@@ -83,7 +83,9 @@ When the user enters talk/voice mode:
 | `STT_ENGINE` | `coreml` | STT backend (local Parakeet ONNX `:5093`) |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Parakeet ONNX endpoint |
 | `TTS_ENGINE` | `supertonic` | `supertonic` (local ONNX), `neutts` (local GGUF), `xai` (cloud) |
-| `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic TTS endpoint (auto-installed) |
+| `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic 3 TTS endpoint (auto-installed) |
+| `SUPERTONIC_VOICE` | `F4` | Voice style `F1`–`F5` / `M1`–`M5` |
+| `TTS_QUALITY` | `normal` | `normal` = 8 steps, `high` = 20 steps; `SUPERTONIC_STEPS=<1-20>` overrides |
 | `XAI_API_KEY` | (required) | API key for xAI TTS fallback |
 | `XAI_TTS_VOICE` | `eve` | xAI voice: `ara`, `eve`, `leo`, `rex`, `sal` |
 | `TALK_READY_CUE` | 1 | Play a short tone before `listen` |

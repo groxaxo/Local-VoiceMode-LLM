@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="img/banner.png" alt="OpenCode Voice Service — talk to your AI, 100% on CPU" width="100%">
+</p>
+
 # OpenCode Voice Service
 
 **Local voice conversation for AI agents — 100% CPU-only, no GPU required.**  
@@ -22,24 +26,32 @@ The VAD and ONNX stack are optimized for Intel, AMD, and Apple Silicon CPUs. No 
 
 ## Benchmarks
 
-Measured end-to-end on an **Intel Core i7-12700KF** (12-core/20-thread desktop
-CPU), all engines on **CPU only**, no GPU, with the default ONNX models:
+Reproducible — run it yourself against your own services:
 
-| Stage | Input | Latency (median of 5) | Speed vs realtime |
-|-------|-------|-----------------------|-------------------|
-| **Silero VAD** | one 512-sample frame (32 ms) | **0.09 ms** | ~350× |
-| **Parakeet STT** | 2.5 s utterance | **282 ms** | 8.9× |
-| **Parakeet STT** | 7.7 s utterance | **511 ms** | 15× |
-| **Parakeet STT** | 17 s utterance | **812 ms** | 21× |
-| **Supertonic TTS 3** | short reply (→2.75 s audio) | **1.72 s** | 1.6× |
-| **Supertonic TTS 3** | medium reply (→7.65 s audio) | **3.08 s** | 2.5× |
-| **Supertonic TTS 3** | long reply (→15.6 s audio) | **5.54 s** | 2.8× |
+```bash
+python benchmarks/run_benchmark.py     # writes benchmarks/RESULTS.md
+```
 
-Supertonic 3 (FP16, 8 denoising steps) is the official quality baseline — heavier
-than v2 but noticeably nicer, and still faster than realtime on CPU. A short spoken
-reply lands in well under two seconds, and a TTS→STT round-trip transcribes back
-verbatim. The **voice overhead around your LLM is ~2 s** (STT + TTS); the slowest
-part of the loop is usually the LLM itself.
+Measured on an **Intel Core i7-12700KF** (12-core/20-thread desktop CPU), all
+engines **CPU only**, no GPU, median of 5 runs (full results in
+[`benchmarks/RESULTS.md`](benchmarks/RESULTS.md)):
+
+| Stage | Input | Latency | Speed vs realtime |
+|-------|-------|---------|-------------------|
+| **Silero VAD** | one 512-sample frame (32 ms) | **0.09 ms** | ~347× |
+| **Parakeet STT** | 2.4 s utterance | **307 ms** | 7.9× |
+| **Parakeet STT** | 6.6 s utterance | **441 ms** | 14.9× |
+| **Parakeet STT** | 13.4 s utterance | **729 ms** | 18.4× |
+| **Supertonic TTS 3** · normal (8 steps) | short reply (→2.4 s audio) | **1.39 s** | 1.7× |
+| **Supertonic TTS 3** · normal (8 steps) | long reply (→13.4 s audio) | **5.18 s** | 2.6× |
+| **Supertonic TTS 3** · high (20 steps) | short reply (→2.4 s audio) | **2.46 s** | ~1× |
+| **Supertonic TTS 3** · high (20 steps) | long reply (→13.4 s audio) | **10.2 s** | 1.3× |
+
+Supertonic 3 (FP16) defaults to **8 denoising steps** for a fast, good-quality
+reply (short replies in ~1.4 s, faster than realtime). Set `TTS_QUALITY=high` for
+**20 steps** when you want maximum quality. A TTS→STT round-trip transcribes back
+verbatim. The **voice overhead around your LLM is ~1.5–2 s** (STT + TTS); the
+slowest part of the loop is usually the LLM itself.
 
 **GPU?** You don't need one — that's the point. On the test machine both GPUs
 were fully committed to the local LLM (a vLLM tensor-parallel deployment), so the
@@ -242,10 +254,13 @@ See `skill/SKILL.md` for full agent rules.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STT_ENGINE` | `coreml` | STT backend (Parakeet ONNX on `:5093`) |
+| `STT_ENGINE` | `local` | STT backend (Parakeet on `:5093`; ONNX/CPU on Linux, CoreML on macOS) |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Local Parakeet STT |
 | `TTS_ENGINE` | `supertonic` | `supertonic` (local ONNX), `neutts` (local GGUF), `xai` (cloud) |
-| `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic endpoint |
+| `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic 3 endpoint |
+| `SUPERTONIC_VOICE` | `F4` | Voice style: `F1`–`F5` / `M1`–`M5` |
+| `TTS_QUALITY` | `normal` | `normal` = 8 steps (fast), `high` = 20 steps (best) |
+| `SUPERTONIC_STEPS` | (from quality) | Denoising steps `1`–`20`; set explicitly to override the preset |
 | `XAI_API_KEY` | (from env) | Bearer token for xAI TTS cloud fallback |
 | `XAI_TTS_VOICE` | `eve` | `ara`, `eve`, `leo`, `rex`, `sal` |
 | `TALK_AUTO_LISTEN` | `1` | After `speak`, run `listen` |

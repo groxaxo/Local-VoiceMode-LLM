@@ -281,10 +281,14 @@
       </div>
     </div>
 
-    <label>Inference steps: <span id="tts-steps-val">15</span></label>
+    <label>Inference steps: <span id="tts-steps-val">8</span></label>
     <div class="slider-row">
-      <input type="range" id="tts-steps" min="1" max="20" value="15" step="1">
-      <span class="slider-val" id="tts-steps-disp">15</span>
+      <input type="range" id="tts-steps" min="1" max="20" value="8" step="1">
+      <span class="slider-val" id="tts-steps-disp">8</span>
+    </div>
+    <div class="preset-row">
+      <button type="button" id="preset-normal" onclick="setSteps(8)">Normal (8)</button>
+      <button type="button" id="preset-hq" onclick="setSteps(20)">High quality (20)</button>
     </div>
 
     <label>Speed: <span id="tts-speed-val">1.00</span>×</label>
@@ -431,7 +435,7 @@ async function loadVoices() {
       opt.value = v;
       const gender = v.startsWith('F') ? 'Female' : 'Male';
       opt.textContent = `${v} — ${gender}`;
-      if (v === 'M1') opt.selected = true;
+      if (v === 'F4') opt.selected = true;
       sel.appendChild(opt);
     }
   } catch(e) {
@@ -453,6 +457,18 @@ async function loadConfig() {
   } catch(e) {
     console.warn('loadConfig failed', e);
   }
+}
+
+// Quality presets: Normal = 8 steps, High quality = 20 steps.
+function setSteps(n) {
+  const el = document.getElementById('tts-steps');
+  if (!el) return;
+  el.value = n;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  const a = document.getElementById('tts-steps-val');
+  const b = document.getElementById('tts-steps-disp');
+  if (a) a.textContent = n;
+  if (b) b.textContent = n;
 }
 
 function setSlider(id, value, valId, dispId, fmt) {

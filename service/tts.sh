@@ -32,8 +32,15 @@ play_wav() {
 : "${XAI_TTS_MODEL:=grok-2-audio}"
 : "${SUPERTONIC_URL:=http://127.0.0.1:8766}"
 : "${SUPERTONIC_SH:=$HOME/.config/opencode/skills/supertonic-tts/supertonic.sh}"
-: "${SUPERTONIC_VOICE:=M1}"   # Supertonic 3 voices: F1–F5 / M1–M5
-: "${SUPERTONIC_STEPS:=8}"    # denoising steps (1–20); 8 = quality baseline
+: "${SUPERTONIC_VOICE:=F4}"   # Supertonic 3 voices: F1–F5 / M1–M5 (default F4)
+# Quality presets: normal = 8 steps (fast), high = 20 steps (best). Set
+# TTS_QUALITY=high for HQ, or override SUPERTONIC_STEPS=<1-20> directly (wins).
+: "${TTS_QUALITY:=normal}"
+case "$(printf '%s' "${TTS_QUALITY}" | tr '[:upper:]' '[:lower:]')" in
+    high|hq|best) _q_steps=20 ;;
+    *)            _q_steps=8  ;;
+esac
+: "${SUPERTONIC_STEPS:=$_q_steps}"   # denoising steps (1–20)
 : "${SUPERTONIC_SPEED:=1.05}"
 : "${NEUTTS_URL:=http://127.0.0.1:8020}"
 : "${NEUTTS_MODEL:=neuphonic/neutts-nano-q8-gguf}"
@@ -237,7 +244,7 @@ speak_supertonic() {
     local text="$1"
     local lang="$2"
 
-    echo "[tts] Supertonic voice=${SUPERTONIC_VOICE} lang=${lang} url=${SUPERTONIC_URL}" >&2
+    echo "[tts] Supertonic voice=${SUPERTONIC_VOICE} steps=${SUPERTONIC_STEPS} (${TTS_QUALITY}) lang=${lang} url=${SUPERTONIC_URL}" >&2
 
     # Supertonic Express 3 exposes an OpenAI-compatible /v1/audio/speech endpoint:
     # required field is `input`; voice is one of F1–F5 / M1–M5; lang via `lang_code`.

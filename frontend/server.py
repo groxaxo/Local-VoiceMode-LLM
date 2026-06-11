@@ -26,7 +26,7 @@ from pydantic import BaseModel
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 HOME = Path.home()
-VOICES_DIR = HOME / ".config/opencode/supertonic-tts/assets/voices"
+VOICES_DIR = HOME / ".config/opencode/supertonic-tts/assets/supertonic-3/voice_styles"
 CONFIG_FILE = HOME / ".config/opencode/frontend-config.json"
 SYSTEMD_USER_DIR = HOME / ".config/systemd/user"
 FRONTEND_DIR = Path(__file__).parent
@@ -144,10 +144,10 @@ async def get_status():
 
 class TTSRequest(BaseModel):
     input: str
-    voice: str = "M1"
+    voice: str = "F4"
     lang_code: Optional[str] = None
-    total_steps: int = 15
-    speed: float = 1.0
+    total_steps: int = 8
+    speed: float = 1.05
     response_format: str = "wav"
     stream: bool = False
 

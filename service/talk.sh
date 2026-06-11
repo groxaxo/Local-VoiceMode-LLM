@@ -8,7 +8,7 @@
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
 #   tts.sh           (NeuTTS / xAI / VibeVoice / Supertonic)
-#   Parakeet STT     (local CoreML default :5093)
+#   Parakeet STT     (local :5093 — ONNX/CPU on Linux/Windows, CoreML on macOS)
 #
 # Usage:
 #   talk.sh listen                  — record one utterance, transcribe, print text
@@ -61,12 +61,17 @@ play_wav() {
 : "${VIBEVOICE_CFG_SCALE:=2.0}"
 : "${VIBEVOICE_DDPM_STEPS:=15}"
 export TTS_ENGINE
-# STT: local Parakeet CoreML (FluidInference/parakeet-tdt-0.6b-v3-coreml via speech-server)
-: "${STT_ENGINE:=coreml}"   # coreml | remote; both default to local :5093 unless env overrides
+# STT: local Parakeet on :5093 — ONNX (CPU) on Linux/Windows, CoreML on macOS.
+# The model name is sent as the `model` param, so default it per platform.
+if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    : "${STT_MODEL:=FluidInference/parakeet-tdt-0.6b-v3-coreml}"
+else
+    : "${STT_MODEL:=parakeet-tdt-0.6b-v3}"
+fi
+: "${STT_ENGINE:=local}"    # local | remote; both default to local :5093 unless env overrides
 : "${STT_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
-: "${STT_MODEL:=FluidInference/parakeet-tdt-0.6b-v3-coreml}"
 : "${STT_REMOTE_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
-: "${STT_REMOTE_MODEL:=FluidInference/parakeet-tdt-0.6b-v3-coreml}"
+: "${STT_REMOTE_MODEL:=${STT_MODEL}}"
 # VAD parameters (passed to vad_recorder.py)
 : "${VAD_MIN_SILENCE_MS:=500}"
 : "${VAD_THRESHOLD:=0.5}"
@@ -242,7 +247,7 @@ with open('$vad_out') as f:
         exit 0
     fi
 
-    # Transcribe (local CoreML Parakeet by default)
+    # Transcribe (local Parakeet on :5093 — ONNX/CPU on Linux, CoreML on macOS)
     local stt_info stt_url stt_model text
     stt_info="$(resolve_stt)"
     stt_url="$(printf '%s\n' "$stt_info" | sed -n '1p')"
@@ -388,6 +393,25 @@ cmd_loop() {
 }
 
 stt_memory_stats() {
+    # Linux/Windows: ONNX Parakeet served by the systemd/Task-Scheduler service.
+    if [ "$(uname -s 2>/dev/null)" != "Darwin" ]; then
+        local onnx_cache="$HOME/.cache/huggingface/hub/models--istupakov--parakeet-tdt-0.6b-v3-onnx"
+        if [ -d "$onnx_cache" ]; then
+            echo "  ONNX model on disk: $(du -sh "$onnx_cache" 2>/dev/null | awk '{print $1}')"
+        else
+            echo "  ONNX model on disk: not found (first STT run will download)"
+        fi
+        if command -v systemctl >/dev/null 2>&1; then
+            local mem
+            mem=$(systemctl --user show opencode-parakeet-stt -p MemoryCurrent --value 2>/dev/null)
+            if [ -n "$mem" ] && [ "$mem" != "[not set]" ] && [ "$mem" -gt 0 ] 2>/dev/null; then
+                awk -v m="$mem" 'BEGIN{printf "  service RSS: %.0f MB\n", m/1048576}'
+            fi
+        fi
+        return 0
+    fi
+
+    # macOS: compiled CoreML model via FluidAudio.
     local parakeet_dir="$HOME/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3"
     if [ -d "$parakeet_dir" ]; then
         echo "  Model on disk (compiled CoreML): $(du -sh "$parakeet_dir" 2>/dev/null | awk '{print $1}')"
@@ -452,9 +476,13 @@ cmd_status() {
         echo "  CFG scale: ${VIBEVOICE_CFG_SCALE:-2.0}"
         echo "  DDPM steps: ${VIBEVOICE_DDPM_STEPS:-15}"
     elif [ "$TTS_ENGINE" = "supertonic" ] || [ "$TTS_ENGINE" = "coreml-tts" ]; then
-        echo "  Supertonic URL: ${SUPERTONIC_URL:-http://127.0.0.1:8766}"
-        echo "  Supertonic voice: ${SUPERTONIC_VOICE_STYLE:-voice_styles/F4.json}"
-        echo "  Compute: ${SUPERTONIC_COMPUTE_UNITS:-CPU_AND_NE}"
+        echo "  Supertonic 3 URL: ${SUPERTONIC_URL:-http://127.0.0.1:8766}"
+        echo "  Voice: ${SUPERTONIC_VOICE:-F4}   Steps: ${SUPERTONIC_STEPS:-8} (${TTS_QUALITY:-normal})"
+        if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+            echo "  Compute: ${SUPERTONIC_COMPUTE_UNITS:-CPU_AND_NE}"
+        else
+            echo "  Compute: CPU (ONNX Runtime)"
+        fi
     fi
     local vibevoice_http_url="${VIBEVOICE_WS_URI:-ws://127.0.0.1:8010/ws/tts}"
     vibevoice_http_url="$(printf '%s' "$vibevoice_http_url" | sed 's|^ws://|http://|')"
