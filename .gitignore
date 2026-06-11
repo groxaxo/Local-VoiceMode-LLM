@@ -32,3 +32,6 @@ venv_*/
 # Logs
 *.log
 *.pid
+
+# Ollama upstream clone (kept local; integration ships as a patch under integrations/ollama/)
+/ollama/
