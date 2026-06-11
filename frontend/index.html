@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Service Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #f0883e;
+    --danger: #f85149;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --input-bg: #0d1117;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .icon { font-size: 16px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  label:first-child { margin-top: 0; }
+
+  input[type=text], textarea, select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type=text]:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  select option { background: var(--surface); }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+  .slider-val {
+    font-size: 13px;
+    color: var(--accent);
+    min-width: 42px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+  button.danger { background: var(--danger); color: #fff; }
+  button.success { background: var(--accent2); color: #0d1117; }
+  button.warn { background: var(--warn); color: #0d1117; }
+  button.recording {
+    background: var(--danger);
+    color: #fff;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .btn-row {
+    margin-top: 14px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .status-line {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 18px;
+    font-family: ui-monospace, monospace;
+  }
+  .status-line.ok { color: var(--accent2); }
+  .status-line.err { color: var(--danger); }
+  .status-line.warn { color: var(--warn); }
+
+  audio {
+    width: 100%;
+    margin-top: 12px;
+    border-radius: 6px;
+    accent-color: var(--accent);
+  }
+  audio:not([src]) { display: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+  .badge.up { background: rgba(63,185,80,0.15); color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
+  .badge.down { background: rgba(248,81,73,0.15); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+  .badge.checking { background: rgba(139,148,158,0.15); color: var(--muted); border: 1px solid var(--border); }
+
+  .status-badges {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .toggle-row label {
+    margin: 0;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  input[type=checkbox] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  .file-upload-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .file-upload-label:hover { opacity: 0.8; }
+  input[type=file] { display: none; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+  .gpu-warn {
+    background: rgba(240,136,62,0.1);
+    border: 1px solid rgba(240,136,62,0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--warn);
+    margin-top: 12px;
+    display: none;
+  }
+  .gpu-warn.visible { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Voice Service Dashboard</h1>
+<p class="subtitle">Supertonic TTS · Parakeet STT · Silero VAD</p>
+
+<div class="grid">
+
+  <!-- ── TTS Card ───────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="icon">🔊</span> TTS Test — Supertonic</h2>
+
+    <label>Text to synthesize</label>
+    <textarea id="tts-text" placeholder="Hello, this is a test of the Supertonic voice engine."></textarea>
+
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="tts-voice"></select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="tts-lang">
+          <option value="">Auto-detect</option>
+          <option value="en">English (en)</option>
+          <option value="es">Spanish (es)</option>
+          <option value="ko">Korean (ko)</option>
+          <option value="pt">Portuguese (pt)</option>
+          <option value="fr">French (fr)</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Inference steps: <span id="tts-steps-val">15</span></label>
+    <div class="slider-row">
+      <input type="range" id="tts-steps" min="1" max="20" value="15" step="1">
+      <span class="slider-val" id="tts-steps-disp">15</span>
+    </div>
+
+    <label>Speed: <span id="tts-speed-val">1.00</span>×</label>
+    <div class="slider-row">
+      <input type="range" id="tts-speed" min="0.5" max="2.0" value="1.0" step="0.05">
+      <span class="slider-val" id="tts-speed-disp">1.00×</span>
+    </div>
+
+    <div class="btn-row">
+      <button id="tts-btn" onclick="synthesize()">▶ Synthesize</button>
+    </div>
+
+    <audio id="tts-audio" controls></audio>
+    <div class="status-line" id="tts-status"></div>
+  </div>
+
+  <!-- ── STT Card ───────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="icon">🎙️</span> STT Test — Parakeet</h2>
+
+    <label>Record from microphone</label>
+    <div class="btn-row" style="margin-top:0">
+      <button id="rec-btn" onclick="toggleRecord()">⏺ Record</button>
+      <span id="rec-timer" style="font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;"></span>
+    </div>
+
+    <hr class="divider">
+
+    <label>Or upload a WAV / audio file</label>
+    <div class="btn-row" style="margin-top:0">
+      <label class="file-upload-label" for="stt-file">▲ Choose file</label>
+      <input type="file" id="stt-file" accept="audio/*" onchange="onFileChosen(this)">
+      <span id="stt-filename" style="font-size:12px;color:var(--muted);align-self:center;"></span>
+    </div>
+
+    <hr class="divider">
+
+    <div class="btn-row" style="margin-top:0">
+      <button id="stt-btn" onclick="transcribe()" disabled>Transcribe</button>
+    </div>
+
+    <label style="margin-top:14px">Transcription result</label>
+    <textarea id="stt-result" readonly placeholder="Result will appear here…" style="min-height:80px;"></textarea>
+    <div class="status-line" id="stt-status"></div>
+  </div>
+
+  <!-- ── VAD Card ───────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="icon">📡</span> VAD Settings — Silero</h2>
+
+    <label>Speech threshold: <span id="vad-thr-disp">0.50</span></label>
+    <div class="slider-row">
+      <input type="range" id="vad-threshold" min="0.1" max="0.9" value="0.5" step="0.05">
+      <span class="slider-val" id="vad-thr-val">0.50</span>
+    </div>
+
+    <label>Min silence after speech (ms): <span id="vad-sil-disp">500</span></label>
+    <div class="slider-row">
+      <input type="range" id="vad-min-silence" min="100" max="2000" value="500" step="50">
+      <span class="slider-val" id="vad-sil-val">500</span>
+    </div>
+
+    <label>Pre-speech padding (ms): <span id="vad-pre-disp">800</span></label>
+    <div class="slider-row">
+      <input type="range" id="vad-pre-speech" min="100" max="2000" value="800" step="50">
+      <span class="slider-val" id="vad-pre-val">800</span>
+    </div>
+
+    <label>Max recording duration (s): <span id="vad-max-disp">30</span></label>
+    <div class="slider-row">
+      <input type="range" id="vad-max-dur" min="5" max="120" value="30" step="5">
+      <span class="slider-val" id="vad-max-val">30</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="success" onclick="saveVad()">💾 Save VAD config</button>
+    </div>
+
+    <p class="note">Values saved to ~/.config/opencode/frontend-config.json and applied to the next talk.sh invocation.</p>
+    <div class="status-line" id="vad-status"></div>
+  </div>
+
+  <!-- ── Backend Card ───────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="icon">⚙️</span> Backend Settings</h2>
+
+    <div class="status-badges">
+      <span class="badge checking" id="badge-supertonic">● Supertonic :8766</span>
+      <span class="badge checking" id="badge-parakeet">● Parakeet :5093</span>
+    </div>
+
+    <label style="margin-top:0">Supertonic TTS compute</label>
+    <div class="toggle-row">
+      <input type="checkbox" id="gpu-supertonic" onchange="onGpuChange()">
+      <label for="gpu-supertonic">Use GPU for TTS (requires CUDA / restart)</label>
+    </div>
+
+    <label>Parakeet STT compute</label>
+    <div class="toggle-row">
+      <input type="checkbox" id="gpu-parakeet" onchange="onGpuChange()">
+      <label for="gpu-parakeet">Use GPU for STT (requires CUDA / restart)</label>
+    </div>
+
+    <div class="gpu-warn" id="gpu-warn">
+      ⚠ Changing GPU settings will write a systemd override and restart the affected service (~5s downtime).
+    </div>
+
+    <div class="btn-row">
+      <button class="warn" id="restart-btn" onclick="applyBackend()" disabled>Apply &amp; Restart</button>
+    </div>
+
+    <div class="status-line" id="backend-status"></div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingStart = null;
+let recTimerInterval = null;
+let pendingAudioBlob = null;
+let pendingAudioFile = null; // from file upload
+let gpuChanged = false;
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function boot() {
+  await Promise.all([loadVoices(), loadConfig(), refreshStatus()]);
+  bindSliders();
+  // Auto-refresh status every 12s
+  setInterval(refreshStatus, 12000);
+}
+
+// ── Voices ────────────────────────────────────────────────────────────────────
+async function loadVoices() {
+  try {
+    const r = await fetch('/api/voices');
+    const data = await r.json();
+    const sel = document.getElementById('tts-voice');
+    sel.innerHTML = '';
+    for (const v of data.voices) {
+      const opt = document.createElement('option');
+      opt.value = v;
+      const gender = v.startsWith('F') ? 'Female' : 'Male';
+      opt.textContent = `${v} — ${gender}`;
+      if (v === 'M1') opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch(e) {
+    console.warn('loadVoices failed', e);
+  }
+}
+
+// ── Config ─────────────────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    setSlider('vad-threshold', cfg.vad_threshold, 'vad-thr-val', 'vad-thr-disp', v => v.toFixed(2));
+    setSlider('vad-min-silence', cfg.vad_min_silence_ms, 'vad-sil-val', 'vad-sil-disp');
+    setSlider('vad-pre-speech', cfg.vad_pre_speech_ms, 'vad-pre-val', 'vad-pre-disp');
+    setSlider('vad-max-dur', cfg.vad_max_duration_s, 'vad-max-val', 'vad-max-disp');
+    document.getElementById('gpu-supertonic').checked = !!cfg.use_gpu_supertonic;
+    document.getElementById('gpu-parakeet').checked = !!cfg.use_gpu_parakeet;
+  } catch(e) {
+    console.warn('loadConfig failed', e);
+  }
+}
+
+function setSlider(id, value, valId, dispId, fmt) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value;
+  const formatted = fmt ? fmt(+value) : String(value);
+  if (valId) document.getElementById(valId).textContent = formatted;
+  if (dispId) document.getElementById(dispId).textContent = formatted;
+}
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+function bindSliders() {
+  const sliders = [
+    { id: 'tts-steps',     val: 'tts-steps-disp',  label: 'tts-steps-val',  fmt: v => v },
+    { id: 'tts-speed',     val: 'tts-speed-disp',  label: 'tts-speed-val',  fmt: v => (+v).toFixed(2) + '×' },
+    { id: 'vad-threshold', val: 'vad-thr-val',      label: 'vad-thr-disp',   fmt: v => (+v).toFixed(2) },
+    { id: 'vad-min-silence',val:'vad-sil-val',      label: 'vad-sil-disp',   fmt: v => v },
+    { id: 'vad-pre-speech', val:'vad-pre-val',      label: 'vad-pre-disp',   fmt: v => v },
+    { id: 'vad-max-dur',   val: 'vad-max-val',      label: 'vad-max-disp',   fmt: v => v },
+  ];
+  for (const s of sliders) {
+    const el = document.getElementById(s.id);
+    if (!el) continue;
+    el.addEventListener('input', () => {
+      const fv = s.fmt(el.value);
+      if (s.val) document.getElementById(s.val).textContent = fv;
+      if (s.label) document.getElementById(s.label).textContent = fv;
+    });
+  }
+}
+
+// ── Status ─────────────────────────────────────────────────────────────────────
+async function refreshStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const data = await r.json();
+    setBadge('badge-supertonic', data.supertonic, 'Supertonic :8766');
+    setBadge('badge-parakeet', data.parakeet, 'Parakeet :5093');
+  } catch(e) {
+    setBadge('badge-supertonic', null, 'Supertonic :8766');
+    setBadge('badge-parakeet', null, 'Parakeet :5093');
+  }
+}
+
+function setBadge(id, up, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'badge ' + (up === null ? 'checking' : up ? 'up' : 'down');
+  el.textContent = (up === null ? '◌' : up ? '●' : '●') + ' ' + label;
+}
+
+// ── TTS ───────────────────────────────────────────────────────────────────────
+async function synthesize() {
+  const text = document.getElementById('tts-text').value.trim();
+  if (!text) { setStatus('tts-status', 'err', 'Enter some text first.'); return; }
+
+  const btn = document.getElementById('tts-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Synthesizing…';
+
+  const audio = document.getElementById('tts-audio');
+  audio.removeAttribute('src');
+  setStatus('tts-status', '', '');
+
+  const t0 = Date.now();
+  try {
+    const body = {
+      input: text,
+      voice: document.getElementById('tts-voice').value,
+      lang_code: document.getElementById('tts-lang').value || null,
+      total_steps: parseInt(document.getElementById('tts-steps').value),
+      speed: parseFloat(document.getElementById('tts-speed').value),
+      response_format: 'wav',
+      stream: false,
+    };
+
+    const r = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!r.ok) {
+      const err = await r.text();
+      setStatus('tts-status', 'err', `Error ${r.status}: ${err.slice(0,120)}`);
+      return;
+    }
+
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    audio.src = url;
+    audio.play();
+
+    const ms = Date.now() - t0;
+    setStatus('tts-status', 'ok', `✓ Done in ${ms}ms — ${(blob.size/1024).toFixed(1)} KB`);
+  } catch(e) {
+    setStatus('tts-status', 'err', `Request failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Synthesize';
+  }
+}
+
+// ── STT: Recording ─────────────────────────────────────────────────────────────
+async function toggleRecord() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedChunks = [];
+    pendingAudioBlob = null;
+    pendingAudioFile = null;
+    document.getElementById('stt-filename').textContent = '';
+
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      pendingAudioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+      stream.getTracks().forEach(t => t.stop());
+      document.getElementById('stt-btn').disabled = false;
+      document.getElementById('stt-filename').textContent = `Recording (${(pendingAudioBlob.size/1024).toFixed(0)} KB)`;
+      setStatus('stt-status', 'ok', 'Recording ready — click Transcribe.');
+    };
+
+    mediaRecorder.start(100);
+    recordingStart = Date.now();
+    recTimerInterval = setInterval(updateTimer, 500);
+
+    const btn = document.getElementById('rec-btn');
+    btn.textContent = '⏹ Stop';
+    btn.className = 'recording';
+    setStatus('stt-status', '', 'Recording…');
+  } catch(e) {
+    setStatus('stt-status', 'err', `Mic error: ${e.message}`);
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder) { mediaRecorder.stop(); mediaRecorder = null; }
+  clearInterval(recTimerInterval);
+  document.getElementById('rec-timer').textContent = '';
+  const btn = document.getElementById('rec-btn');
+  btn.textContent = '⏺ Record';
+  btn.className = '';
+}
+
+function updateTimer() {
+  const s = ((Date.now() - recordingStart) / 1000).toFixed(1);
+  document.getElementById('rec-timer').textContent = `${s}s`;
+}
+
+function onFileChosen(input) {
+  if (!input.files.length) return;
+  pendingAudioFile = input.files[0];
+  pendingAudioBlob = null;
+  document.getElementById('stt-filename').textContent = pendingAudioFile.name;
+  document.getElementById('stt-btn').disabled = false;
+  setStatus('stt-status', '', '');
+}
+
+// ── STT: Transcribe ────────────────────────────────────────────────────────────
+async function transcribe() {
+  const source = pendingAudioBlob || pendingAudioFile;
+  if (!source) { setStatus('stt-status', 'err', 'Record or upload audio first.'); return; }
+
+  const btn = document.getElementById('stt-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Transcribing…';
+  setStatus('stt-status', '', '');
+
+  const t0 = Date.now();
+  try {
+    const fd = new FormData();
+    const filename = pendingAudioFile ? pendingAudioFile.name : 'recording.webm';
+    fd.append('file', source, filename);
+    fd.append('model', 'parakeet-tdt-0.6b-v3');
+
+    const r = await fetch('/api/stt', { method: 'POST', body: fd });
+    if (!r.ok) {
+      const err = await r.text();
+      setStatus('stt-status', 'err', `Error ${r.status}: ${err.slice(0,120)}`);
+      return;
+    }
+    const data = await r.json();
+    const text = data.text || JSON.stringify(data);
+    document.getElementById('stt-result').value = text;
+    const ms = Date.now() - t0;
+    setStatus('stt-status', 'ok', `✓ Done in ${ms}ms`);
+  } catch(e) {
+    setStatus('stt-status', 'err', `Request failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Transcribe';
+  }
+}
+
+// ── VAD ───────────────────────────────────────────────────────────────────────
+async function saveVad() {
+  setStatus('vad-status', '', 'Saving…');
+  try {
+    const body = {
+      vad_threshold: parseFloat(document.getElementById('vad-threshold').value),
+      vad_min_silence_ms: parseInt(document.getElementById('vad-min-silence').value),
+      vad_pre_speech_ms: parseInt(document.getElementById('vad-pre-speech').value),
+      vad_max_duration_s: parseInt(document.getElementById('vad-max-dur').value),
+    };
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setStatus('vad-status', 'ok', '✓ Saved to frontend-config.json');
+  } catch(e) {
+    setStatus('vad-status', 'err', `Save failed: ${e.message}`);
+  }
+}
+
+// ── Backend ───────────────────────────────────────────────────────────────────
+function onGpuChange() {
+  gpuChanged = true;
+  document.getElementById('restart-btn').disabled = false;
+  document.getElementById('gpu-warn').classList.add('visible');
+}
+
+async function applyBackend() {
+  const btn = document.getElementById('restart-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Restarting…';
+  setStatus('backend-status', 'warn', 'Applying changes and restarting services…');
+
+  try {
+    const body = {
+      use_gpu_supertonic: document.getElementById('gpu-supertonic').checked,
+      use_gpu_parakeet: document.getElementById('gpu-parakeet').checked,
+    };
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+
+    const msgs = [];
+    if (data.restarted.length) msgs.push(`✓ Restarted: ${data.restarted.join(', ')}`);
+    if (data.errors.length) msgs.push(`⚠ ${data.errors.join('; ')}`);
+    if (!msgs.length) msgs.push('✓ Config saved (no services needed restart)');
+
+    setStatus('backend-status', data.errors.length ? 'warn' : 'ok', msgs.join(' — '));
+    gpuChanged = false;
+    document.getElementById('gpu-warn').classList.remove('visible');
+
+    // Refresh badges after ~6s for service to come back up
+    setTimeout(refreshStatus, 6000);
+  } catch(e) {
+    setStatus('backend-status', 'err', `Failed: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Apply & Restart';
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function setStatus(id, cls, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'status-line' + (cls ? ' ' + cls : '');
+  el.textContent = msg;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

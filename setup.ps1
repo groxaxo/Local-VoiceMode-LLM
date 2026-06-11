@@ -286,9 +286,9 @@ function Install-Supertonic {
         info "Supertonic repo exists, pulling..."
         & git -C $SupertonicDir pull --ff-only 2>&1 | ForEach-Object { "  $_" } | Write-Host
     } else {
-        info "Cloning Supertonic Express repo..."
+        info "Cloning Supertonic Express 3 repo..."
         Remove-Item $SupertonicDir -Recurse -Force -ErrorAction SilentlyContinue
-        & git clone https://github.com/groxaxo/supertonic-express $SupertonicDir 2>&1 | ForEach-Object { "  $_" } | Write-Host
+        & git clone https://github.com/groxaxo/supertonic-express-3 $SupertonicDir 2>&1 | ForEach-Object { "  $_" } | Write-Host
     }
 
     if (-not (Test-Path $SupertonicVenv)) {
@@ -306,20 +306,34 @@ function Install-Supertonic {
     & "$SupertonicVenv\Scripts\pip" install --quiet huggingface-hub transformers 2>$null
     ok "Supertonic dependencies installed"
 
-    # Download ONNX model
-    $onnxDir = "$SupertonicDir\assets"
-    if (-not (Test-Path "$onnxDir\model_q4.onnx") -and -not (Test-Path "$onnxDir\model.onnx")) {
-        info "Downloading Supertonic ONNX model (~500MB, one-time)..."
-        New-Item -ItemType Directory -Force -Path $onnxDir | Out-Null
-        & "$SupertonicVenv\Scripts\python" -c @"
-from huggingface_hub import snapshot_download
-print('Downloading Supertonic-TTS-2-ONNX...')
-snapshot_download('onnx-community/Supertonic-TTS-2-ONNX', local_dir=r'$onnxDir', ignore_patterns=['*.md','.gitattributes'])
-print('Model download complete.')
-"@
-        ok "Supertonic ONNX model downloaded"
+    # Download Supertonic 3 FP16 ONNX model (groxaxo/supertonic-3-v2, ~196MB).
+    # Large weights via the GitHub LFS media endpoint; JSON configs via raw.
+    $modelDir = "$SupertonicDir\assets\supertonic-3"
+    if (-not (Test-Path "$modelDir\onnx\tts.json")) {
+        info "Downloading Supertonic 3 ONNX model (~196MB FP16, one-time)..."
+        New-Item -ItemType Directory -Force -Path "$modelDir\onnx", "$modelDir\voice_styles" | Out-Null
+        $media = "https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main"
+        $raw   = "https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main"
+        try {
+            foreach ($f in "duration_predictor.onnx","text_encoder.onnx","vector_estimator.onnx","vocoder.onnx") {
+                Invoke-WebRequest -Uri "$media/onnx/$f" -OutFile "$modelDir\onnx\$f" -UseBasicParsing
+            }
+            foreach ($f in "tts.json","unicode_indexer.json") {
+                Invoke-WebRequest -Uri "$raw/onnx/$f" -OutFile "$modelDir\onnx\$f" -UseBasicParsing
+            }
+            foreach ($v in "F1","F2","F3","F4","F5","M1","M2","M3","M4","M5") {
+                Invoke-WebRequest -Uri "$raw/voice_styles/$v.json" -OutFile "$modelDir\voice_styles\$v.json" -UseBasicParsing
+            }
+        } catch { warn "FP16 download issue: $_" }
+        if (-not (Test-Path "$modelDir\onnx\tts.json") -or ((Get-Item "$modelDir\onnx\vocoder.onnx" -ErrorAction SilentlyContinue).Length -lt 1000000)) {
+            warn "FP16 download incomplete — falling back to Hugging Face (Supertone/supertonic-3)..."
+            Remove-Item $modelDir -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
+            & "$SupertonicVenv\Scripts\python" "$SupertonicDir\scripts\download_supertonic3.py" --repo-id Supertone/supertonic-3 --dest $modelDir
+        }
+        ok "Supertonic 3 model ready"
     } else {
-        ok "Supertonic ONNX model already present"
+        ok "Supertonic 3 model already present"
     }
 
     # Register Task Scheduler task
@@ -331,9 +345,11 @@ print('Model download complete.')
         if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
         $wrapperScript = "$SupertonicDir\start-windows.ps1"
         Set-Content $wrapperScript @"
-`$env:ONNX_DIR = '$SupertonicDir\assets'
-`$env:VOICE_STYLES_DIR = '$SupertonicDir\assets'
+`$env:SUPERTONIC_MODEL_DIR = '$SupertonicDir\assets\supertonic-3'
+`$env:ONNX_DIR = '$SupertonicDir\assets\supertonic-3\onnx'
+`$env:VOICE_STYLES_DIR = '$SupertonicDir\assets\supertonic-3\voice_styles'
 `$env:USE_GPU = 'false'
+`$env:SUPERTONIC_ORT_BACKEND = 'cpu'
 `$env:HOME = `$env:USERPROFILE
 `$logFile = '$ConfigDir\supertonic.log'
 Set-Location '$SupertonicDir\py'

@@ -398,9 +398,9 @@ install_supertonic() {
         info "Supertonic repo exists, pulling latest..."
         git -C "$SUPERTONIC_DIR" pull --ff-only 2>&1 | sed 's/^/  /'
     else
-        info "Cloning Supertonic Express repo..."
+        info "Cloning Supertonic Express 3 repo..."
         rm -rf "$SUPERTONIC_DIR"
-        git clone https://github.com/groxaxo/supertonic-express "$SUPERTONIC_DIR" 2>&1 | sed 's/^/  /'
+        git clone https://github.com/groxaxo/supertonic-express-3 "$SUPERTONIC_DIR" 2>&1 | sed 's/^/  /'
     fi
 
     # Create venv
@@ -426,20 +426,39 @@ install_supertonic() {
 
     ok "Supertonic dependencies installed"
 
-    # Download ONNX model if not present
-    local ONNX_DIR="$SUPERTONIC_DIR/assets"
-    if [ ! -f "$ONNX_DIR/model_q4.onnx" ] && [ ! -f "$ONNX_DIR/model.onnx" ]; then
-        info "Downloading Supertonic ONNX model (~500MB, one-time)..."
-        mkdir -p "$ONNX_DIR"
-        "$SUPERTONIC_VENV/bin/python" -c "
-from huggingface_hub import snapshot_download
-print('Downloading Supertonic-TTS-2-ONNX from Hugging Face...')
-snapshot_download('onnx-community/Supertonic-TTS-2-ONNX', local_dir='$ONNX_DIR', ignore_patterns=['*.md','.gitattributes'])
-print('Model download complete.')
-" || warn "Model download failed — run setup.sh again or download manually"
-        ok "Supertonic ONNX model downloaded to $ONNX_DIR"
+    # Download Supertonic 3 FP16 ONNX model if not present.
+    # Primary source: groxaxo/supertonic-3-v2 (FP16, CPU-optimized, ~196MB) via the
+    # GitHub LFS media endpoint (no git-lfs needed). Fallback: the official ONNX on
+    # Hugging Face (Supertone/supertonic-3, FP32) via the repo's download script.
+    local MODEL_DIR="$SUPERTONIC_DIR/assets/supertonic-3"
+    if [ ! -f "$MODEL_DIR/onnx/tts.json" ]; then
+        info "Downloading Supertonic 3 ONNX model (~196MB FP16, one-time)..."
+        mkdir -p "$MODEL_DIR/onnx" "$MODEL_DIR/voice_styles"
+        local MEDIA="https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main"
+        local RAW="https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main"
+        local ok_dl=true
+        # Large weights are git-LFS -> media endpoint serves the real bytes
+        for f in duration_predictor.onnx text_encoder.onnx vector_estimator.onnx vocoder.onnx; do
+            curl -fsSL -o "$MODEL_DIR/onnx/$f" "$MEDIA/onnx/$f" || ok_dl=false
+        done
+        # Small JSON configs are plain files -> raw endpoint
+        for f in tts.json unicode_indexer.json; do
+            curl -fsSL -o "$MODEL_DIR/onnx/$f" "$RAW/onnx/$f" || ok_dl=false
+        done
+        for v in F1 F2 F3 F4 F5 M1 M2 M3 M4 M5; do
+            curl -fsSL -o "$MODEL_DIR/voice_styles/$v.json" "$RAW/voice_styles/$v.json" || ok_dl=false
+        done
+        # Verify the big weights are real (not LFS pointer stubs ~130 bytes)
+        if [ "$ok_dl" != true ] || [ "$(wc -c < "$MODEL_DIR/onnx/vocoder.onnx" 2>/dev/null || echo 0)" -lt 1000000 ]; then
+            warn "FP16 download incomplete — falling back to Hugging Face (Supertone/supertonic-3)..."
+            rm -rf "$MODEL_DIR"; mkdir -p "$MODEL_DIR"
+            "$SUPERTONIC_VENV/bin/python" "$SUPERTONIC_DIR/scripts/download_supertonic3.py" \
+                --repo-id Supertone/supertonic-3 --dest "$MODEL_DIR" 2>&1 | sed 's/^/  /' \
+                || warn "Model download failed — re-run setup.sh or download manually"
+        fi
+        [ -f "$MODEL_DIR/onnx/tts.json" ] && ok "Supertonic 3 model ready at $MODEL_DIR"
     else
-        ok "Supertonic ONNX model already present at $ONNX_DIR"
+        ok "Supertonic 3 model already present at $MODEL_DIR"
     fi
 
     # launchd is macOS-only; Linux auto-start is handled by systemd (Step 7c).
@@ -489,12 +508,16 @@ print('Model download complete.')
         <string>$HOME</string>
         <key>PATH</key>
         <string>$SUPERTONIC_VENV/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>SUPERTONIC_MODEL_DIR</key>
+        <string>$SUPERTONIC_DIR/assets/supertonic-3</string>
         <key>ONNX_DIR</key>
-        <string>$SUPERTONIC_DIR/assets</string>
+        <string>$SUPERTONIC_DIR/assets/supertonic-3/onnx</string>
         <key>VOICE_STYLES_DIR</key>
-        <string>$SUPERTONIC_DIR/assets</string>
+        <string>$SUPERTONIC_DIR/assets/supertonic-3/voice_styles</string>
         <key>USE_GPU</key>
         <string>false</string>
+        <key>SUPERTONIC_ORT_BACKEND</key>
+        <string>cpu</string>
         <key>LOG_LEVEL</key>
         <string>INFO</string>
     </dict>
@@ -687,9 +710,11 @@ WorkingDirectory=${SUPERTONIC_DIR}/py
 Restart=always
 RestartSec=5
 Environment=HOME=${HOME}
-Environment=ONNX_DIR=${SUPERTONIC_DIR}/assets
-Environment=VOICE_STYLES_DIR=${SUPERTONIC_DIR}/assets
+Environment=SUPERTONIC_MODEL_DIR=${SUPERTONIC_DIR}/assets/supertonic-3
+Environment=ONNX_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/onnx
+Environment=VOICE_STYLES_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/voice_styles
 Environment=USE_GPU=false
+Environment=SUPERTONIC_ORT_BACKEND=cpu
 Environment=LOG_LEVEL=INFO
 StandardOutput=append:${CONFIG_DIR}/supertonic.log
 StandardError=append:${CONFIG_DIR}/supertonic.log
