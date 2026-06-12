@@ -33,6 +33,8 @@ OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 STT_PROBE="${STT_PROBE:-http://127.0.0.1:5093/}"
 TTS_PROBE="${TTS_PROBE:-http://127.0.0.1:8766/}"
 TALK_SH_PATH="$HOME/.config/opencode/skills/talk/talk.sh"
+ENV_FILE="${OLLAMA_VOICE_ENV:-$HOME/.config/opencode/ollama-voice.env}"
+SUPERTONIC_FOUND=""
 
 # --- options -----------------------------------------------------------------
 BINDIR=""
@@ -96,6 +98,56 @@ pick_bindir() {
         printf '%s\n' /usr/local/bin; return
     fi
     printf '%s\n' "$local_bin"   # default; created + PATH-warned below
+}
+
+# POST a tiny synth request; success = HTTP 200 returning WAV (RIFF) audio. This
+# positively identifies a Supertonic TTS server and rejects whatever else might
+# hold the port (e.g. an unrelated API that 404s or returns JSON).
+synth_ok() {
+    local url="$1" tmp code
+    tmp="$(mktemp)"
+    code=$(curl -sS -m 20 -o "$tmp" -w '%{http_code}' "$url/v1/audio/speech" \
+        -H 'Content-Type: application/json' \
+        -d '{"input":"hi","voice":"F4","response_format":"wav","stream":false,"total_steps":4,"speed":1.0,"lang_code":"en"}' \
+        2>/dev/null) || { rm -f "$tmp"; return 1; }
+    if [ "$code" = "200" ] && [ "$(head -c 4 "$tmp" 2>/dev/null)" = "RIFF" ]; then
+        rm -f "$tmp"; return 0
+    fi
+    rm -f "$tmp"; return 1
+}
+
+# Find a working local TTS and persist it as ollama-voice's defaults, so the
+# voice loop prefers local synthesis over the xAI cloud. The project default is
+# Supertonic on :8766, but that port is sometimes taken by another service — we
+# probe the user's SUPERTONIC_URL, then :8766, then :8765. Honors an existing env.
+detect_and_persist_tts() {
+    local cands="${SUPERTONIC_URL:-} http://127.0.0.1:8766 http://127.0.0.1:8765" u
+    for u in $cands; do
+        [ -n "$u" ] || continue
+        u="${u%/}"
+        if synth_ok "$u"; then SUPERTONIC_FOUND="$u"; break; fi
+    done
+    mkdir -p "$(dirname "$ENV_FILE")" 2>/dev/null || true
+    if [ -n "$SUPERTONIC_FOUND" ]; then
+        ok "Local Supertonic TTS synthesizes at $SUPERTONIC_FOUND"
+        if printf '%s\n' \
+            "# ollama-voice defaults — written by integrations/ollama/install.sh" \
+            "# Your shell environment overrides anything here." \
+            "TTS_ENGINE=supertonic" \
+            "SUPERTONIC_URL=$SUPERTONIC_FOUND" > "$ENV_FILE" 2>/dev/null; then
+            ok "Pinned local TTS for ollama-voice -> $ENV_FILE"
+        else
+            warn "Supertonic found at $SUPERTONIC_FOUND but could not write $ENV_FILE; set SUPERTONIC_URL yourself."
+        fi
+    elif reachable "http://127.0.0.1:8020/"; then
+        warn "Supertonic not reachable on :8766/:8765 — defaulting ollama-voice to local NeuTTS (:8020)."
+        printf '%s\n' \
+            "# ollama-voice defaults — written by integrations/ollama/install.sh" \
+            "TTS_ENGINE=neutts" > "$ENV_FILE" 2>/dev/null || true
+    else
+        warn "No local TTS (Supertonic :8766/:8765, NeuTTS :8020) detected — talk.sh's own"
+        warn "engine chain applies (will use xAI cloud if XAI_API_KEY is set)."
+    fi
 }
 
 # --- uninstall ---------------------------------------------------------------
@@ -232,7 +284,7 @@ fi
 info "── Verification ───────────────────────────────────────────────"
 reachable "$OLLAMA_HOST/api/version" && ok "Ollama API reachable ($OLLAMA_HOST)" || warn "Ollama API not reachable (start with: ollama serve)"
 reachable "$STT_PROBE" && ok "STT backend reachable (:5093)" || warn "STT backend not reachable (:5093) — check: bash $RESOLVED_TALK status"
-reachable "$TTS_PROBE" && ok "TTS backend reachable (:8766)" || warn "TTS backend not reachable (:8766) — check: bash $RESOLVED_TALK status"
+detect_and_persist_tts
 
 # --- done --------------------------------------------------------------------
 echo ""
@@ -247,6 +299,9 @@ echo "    $RUN_HINT --text          # type instead of speaking (mic-free test)"
 echo "    $RUN_HINT --list          # list local models"
 echo "    $RUN_HINT --status        # check Ollama + voice backends"
 echo ""
+if [ -n "$SUPERTONIC_FOUND" ]; then
+    echo "  Voice replies use local Supertonic TTS ($SUPERTONIC_FOUND) — pinned in $ENV_FILE."
+fi
 echo "  Speak after the tone; pause to send your turn; press Ctrl-C to exit."
 echo "  Tip: for an \`ollama voice <model>\` feel, add this shell function:"
 echo "      ollama(){ [ \"\$1\" = voice ] && { shift; command ollama-voice \"\$@\"; } || command ollama \"\$@\"; }"

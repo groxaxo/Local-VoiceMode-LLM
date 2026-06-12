@@ -35,6 +35,9 @@
 #   OLLAMA_VOICE_KEEPALIVE keep-alive for the model, e.g. 10m (default: server default)
 #   OLLAMA_VOICE_NUM_PREDICT  cap reply length in tokens (default: model default)
 #   TALK_SH                path to talk.sh (default: the installed copy)
+#   OLLAMA_VOICE_ENV       KEY=VALUE defaults file applied when those keys are unset
+#                          (default ~/.config/opencode/ollama-voice.env; written by install.sh,
+#                          e.g. the auto-detected local Supertonic URL/engine)
 #   TALK_IDLE_TIMEOUT_S, VAD_THRESHOLD, MIC_QUERY, TTS_ENGINE, SUPERTONIC_VOICE, ...
 #                          forwarded to talk.sh unchanged.
 
@@ -94,6 +97,30 @@ def fail(msg, code=1):
     sys.stderr.write(_c("1;31", "[voice] ") + msg + "\n")
     sys.stderr.flush()
     sys.exit(code)
+
+
+def load_env_defaults():
+    """Apply KEY=VALUE defaults from the install-time env file.
+
+    The real environment always wins (setdefault semantics), so the user can
+    override any value. install.sh writes this file with, e.g., the detected
+    local Supertonic URL so the voice loop prefers local TTS over the cloud.
+    """
+    path = os.environ.get("OLLAMA_VOICE_ENV") or os.path.expanduser(
+        "~/.config/opencode/ollama-voice.env")
+    try:
+        fh = open(path, "r", encoding="utf-8")
+    except OSError:
+        return
+    with fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key, value = key.strip(), value.strip()
+            if key and os.environ.get(key) is None:
+                os.environ[key] = value
 
 
 # --------------------------------------------------------------------------- #
@@ -507,6 +534,7 @@ def build_parser():
 
 
 def main():
+    load_env_defaults()
     args = build_parser().parse_args()
     host = _normalize_host(args.host or os.environ.get("OLLAMA_HOST", DEFAULT_HOST))
 

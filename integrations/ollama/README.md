@@ -96,13 +96,19 @@ of the upstream `ollama voice` Go command (Option B), minus the rebuild.
 | `OLLAMA_VOICE_KEEPALIVE` | _(server default)_ | keep the model warm between turns, e.g. `10m` |
 | `OLLAMA_VOICE_NUM_PREDICT` | _(model default)_ | cap reply length in tokens |
 | `TALK_SH` | _(installed copy)_ | path to `talk.sh` if not in the standard location |
+| `OLLAMA_VOICE_ENV` | `~/.config/opencode/ollama-voice.env` | `KEY=VALUE` defaults file (your shell env overrides it) |
 
-**Keeping TTS fully local:** the voice reply is synthesized by `talk.sh`/`tts.sh`, whose
-default engine is local **Supertonic** with a fallback chain to **xAI** (cloud) if a local
-engine can't synthesize. If you have `XAI_API_KEY` set and the local Supertonic server isn't
-answering, you'll hear the cloud voice. For local-only output, make sure the Supertonic
-server on `:8766` is healthy (`bash ~/.config/opencode/skills/talk/talk.sh status`) and
-optionally `unset XAI_API_KEY` for that session.
+**Local TTS, automatically:** voice replies are synthesized by `talk.sh`/`tts.sh`, whose
+engine chain is local **Supertonic** → local **NeuTTS** → **xAI** (cloud). To keep you on
+local synthesis, `install.sh` probes for a working Supertonic server and **pins the engine
+and URL** in `~/.config/opencode/ollama-voice.env`, which `ollama-voice` loads as defaults.
+
+This matters because the project default `SUPERTONIC_URL` is `:8766`, but that port is
+sometimes taken by an unrelated service — the installer probes `:8766` then `:8765` and
+writes whichever actually returns audio. To re-detect (e.g. after starting Supertonic), run
+`bash integrations/ollama/install.sh` again. If you have `XAI_API_KEY` set and no local TTS
+is found, replies fall back to the cloud voice; `unset XAI_API_KEY` to force local-only.
+Check engine health with `bash ~/.config/opencode/skills/talk/talk.sh status`.
 
 ### Uninstall
 
