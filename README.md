@@ -103,7 +103,7 @@ On the Neural Engine, Supertonic 3 TTS synthesizes **8–30× faster than CPU ON
 ## Features
 
 - **Three CPU-native engines** — Silero VAD, Parakeet STT (25 languages), Supertonic TTS (EN/ES/KO/PT/FR)
-- **Multi-engine TTS with fallbacks** — Supertonic (local ONNX) → NeuTTS (local GGUF) → xAI (cloud)
+- **Multi-engine TTS with fallbacks** — Supertonic (local ONNX) → NeuTTS (local GGUF) → xAI (cloud, last resort); local engines are always tried before the cloud
 - **Pipelined talk loop** — TTS finishes, mic opens instantly (`TALK_AUTO_LISTEN=1`)
 - **Barge-in** — interrupt playback by speaking (opt-in, `TALK_BARGE_IN=1`)
 - **Five agents, one skill** — Claude Code, OpenCode CLI, OpenClaw, Hermes, Codex
@@ -249,7 +249,7 @@ Full rules in [`skill/SKILL.md`](skill/SKILL.md).
 |---------------------|-----------------------------------------------|----------------------------------------------------------------------|
 |`STT_ENGINE`         |`local`                                        |STT backend — Parakeet on `:5093` (ONNX/CPU on Linux, CoreML on macOS)|
 |`STT_URL`            |`http://127.0.0.1:5093/v1/audio/transcriptions`|Local Parakeet endpoint                                               |
-|`TTS_ENGINE`         |`supertonic`                                   |`supertonic` (local ONNX) · `neutts` (local GGUF) · `xai` (cloud)     |
+|`TTS_ENGINE`         |`supertonic`                                   |`supertonic` (local ONNX) → `neutts` (local GGUF) → `xai` (cloud, last resort)     |
 |`SUPERTONIC_URL`     |`http://127.0.0.1:8766`                        |Supertonic endpoint                                                   |
 |`SUPERTONIC_VOICE`   |`F4`                                           |`F1`–`F5` / `M1`–`M5`                                                 |
 |`TTS_QUALITY`        |`normal`                                       |`normal` = 8 steps (fast) · `high` = 20 steps (best)                  |

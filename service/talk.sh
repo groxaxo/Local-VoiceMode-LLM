@@ -3,7 +3,7 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → TTS (NeuTTS default, xAI/VibeVoice/Supertonic fallback), then auto-listen
+#   talk.sh speak    → TTS (Supertonic default → NeuTTS → xAI cloud last-resort), then auto-listen
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)

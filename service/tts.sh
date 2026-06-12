@@ -1,8 +1,10 @@
 #!/bin/bash
 # tts.sh — Multi-engine TTS CLI for OpenCode / talk skill.
 #
-# Engines: neutts (default), xai, supertonic.
-# Set TTS_ENGINE to override. macOS say is intentionally not available.
+# Engines: supertonic (default, local) → neutts (local) → xai (cloud, last resort).
+# Set TTS_ENGINE to override. Local engines are always tried before the xAI
+# cloud; xAI is only used if every local engine fails. macOS say is intentionally
+# not available.
 
 set -e
 
@@ -283,37 +285,43 @@ print(json.dumps(d))
     rm -f "$OUTPUT"
 }
 
+# --- Fallback policy ---------------------------------------------------------
+# Always exhaust the LOCAL engines before the xAI cloud. The selected engine
+# runs first, then the remaining local engine(s); xAI is the final resort, used
+# only if every local engine fails. Selecting TTS_ENGINE=xai explicitly honors
+# that choice first, then still falls back to the local engines.
 engine="$(printf '%s' "${TTS_ENGINE}" | tr '[:upper:]' '[:lower:]')"
 case "$engine" in
+    supertonic|coreml-tts)
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed → xAI cloud (last resort)…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
     neutts|neuphonic)
         if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] NeuTTS failed, trying xAI fallback…" >&2
-        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] xAI failed, trying Supertonic…" >&2
+        echo "[tts] NeuTTS failed → trying Supertonic (local)…" >&2
         if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → xAI cloud (last resort)…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
     xai)
+        # Explicit cloud selection: honored first, then local fallbacks.
         if speak_xai "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] xAI failed, trying NeuTTS fallback…" >&2
-        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] NeuTTS failed, trying Supertonic…" >&2
+        echo "[tts] xAI failed → trying Supertonic (local)…" >&2
         if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
-        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
-        exit 1
-        ;;
-    supertonic|coreml-tts)
-        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] Supertonic failed, trying NeuTTS fallback…" >&2
+        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
         if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] NeuTTS failed, trying xAI…" >&2
-        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
     *)
-        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: neutts, xai, supertonic." >&2
+        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: supertonic, neutts, xai." >&2
         exit 2
         ;;
 esac
