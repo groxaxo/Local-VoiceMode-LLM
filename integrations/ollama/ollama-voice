@@ -53,10 +53,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -392,6 +394,100 @@ def is_exit_phrase(text):
 
 
 # --------------------------------------------------------------------------- #
+# Streaming sentence-by-sentence speech                                        #
+# --------------------------------------------------------------------------- #
+
+# A sentence terminator is . ! ? plus any trailing quotes/brackets.
+_SENT_TERM = re.compile(r"[.!?]+[\"'”’\)\]]*")
+
+
+def split_sentences(text, final=False):
+    """Split cleaned text into (complete_sentences, remainder).
+
+    A sentence counts as *complete* only when its terminator (``.`` ``!`` ``?``)
+    is followed by whitespace — i.e. the model has already moved past it, so the
+    boundary is stable and won't shift as more text streams in (this also avoids
+    splitting decimals like ``3.14``, where no space follows the dot). At the end
+    of the stream, pass ``final=True`` to flush the trailing remainder as the
+    last sentence.
+    """
+    sentences, idx = [], 0
+    for m in _SENT_TERM.finditer(text):
+        end = m.end()
+        if end < len(text) and text[end].isspace():
+            seg = text[idx:end].strip()
+            if seg:
+                sentences.append(seg)
+            idx = end
+    remainder = text[idx:].strip()
+    if final and remainder:
+        sentences.append(remainder)
+        remainder = ""
+    return sentences, remainder
+
+
+class SentenceStreamSpeaker:
+    """Speak an LLM reply sentence-by-sentence *as it streams in*.
+
+    ``feed()`` receives raw model content as it arrives; the moment a complete
+    sentence is ready — and we're not inside an unclosed ``<think>`` or code
+    block — it is cleaned and queued. A background worker speaks queued sentences
+    in order, so synthesis overlaps with the model still generating: the first
+    sentence is spoken as soon as its terminating ``.`` appears, instead of
+    waiting for the whole reply.
+    """
+
+    def __init__(self, talk_sh, lang):
+        self._talk_sh = talk_sh
+        self._lang = lang
+        self._raw = ""          # all content seen so far
+        self._emitted = 0       # number of complete sentences already queued
+        self._spoke = False
+        self._q = queue.Queue()
+        self._thread = threading.Thread(target=self._worker, daemon=True)
+        self._thread.start()
+
+    def _worker(self):
+        while True:
+            item = self._q.get()
+            try:
+                if item is None:
+                    break
+                speak(self._talk_sh, item, self._lang)
+            finally:
+                self._q.task_done()
+
+    @staticmethod
+    def _region_open(raw):
+        """True while inside an unclosed reasoning or code block — don't speak yet."""
+        opens = len(re.findall(r"<think>|<thinking>", raw, re.I))
+        closes = len(re.findall(r"</think>|</thinking>", raw, re.I))
+        return (opens > closes) or (raw.count("```") % 2 == 1) or (raw.count("~~~") % 2 == 1)
+
+    def _drain(self, final=False):
+        if not final and self._region_open(self._raw):
+            return  # wait for the block to close before speaking past it
+        sentences, _rem = split_sentences(clean_for_speech(self._raw), final=final)
+        for sentence in sentences[self._emitted:]:
+            self._q.put(sentence)
+            self._spoke = True
+        self._emitted = len(sentences)
+
+    def feed(self, chunk):
+        """Add a streamed content fragment; speak any sentence it completes."""
+        if chunk:
+            self._raw += chunk
+            self._drain(final=False)
+
+    def finish(self):
+        """Flush the trailing partial sentence, then block until playback ends."""
+        self._drain(final=True)
+        self._q.put(None)
+        self._thread.join()
+        return self._spoke
+
+
+# --------------------------------------------------------------------------- #
 # Conversation                                                                 #
 # --------------------------------------------------------------------------- #
 
@@ -425,7 +521,7 @@ class Conversation:
             payload["keep_alive"] = self.keep_alive
         return payload
 
-    def _stream_once(self):
+    def _stream_once(self, sink=None):
         resp = _request(self.host, "/api/chat", self._build_payload(), timeout=300)
         parts, printed_thinking = [], False
         for raw in resp:
@@ -447,21 +543,25 @@ class Conversation:
                     sys.stderr.write("\n"); printed_thinking = False
                 sys.stdout.write(chunk); sys.stdout.flush()
                 parts.append(chunk)
+                if sink is not None:
+                    sink(chunk)            # speak each sentence as it completes
             if obj.get("done"):
                 break
         sys.stdout.write("\n"); sys.stdout.flush()
         return "".join(parts)
 
-    def respond(self, user_text):
+    def respond(self, user_text, sink=None):
         self.messages.append({"role": "user", "content": user_text})
         sys.stdout.write(_c("1;32", "%s: " % self.model)); sys.stdout.flush()
         try:
-            content = self._stream_once()
+            content = self._stream_once(sink)
         except OllamaError as e:
             if (self.think is not OMIT and not self.think_unsupported
                     and "think" in str(e).lower()):
+                # The 'think' param error is reported before any content streams,
+                # so the sink hasn't spoken anything yet — safe to retry with it.
                 self.think_unsupported = True
-                content = self._stream_once()
+                content = self._stream_once(sink)
             else:
                 self.messages.pop()
                 raise
@@ -520,6 +620,13 @@ def resolve_int(env_name, default):
         n = int(raw)
         return n if n > 0 else None  # <=0 means "unlimited / disabled"
     return default
+
+
+def env_flag(env_name, default):
+    raw = os.environ.get(env_name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
 # --------------------------------------------------------------------------- #
@@ -595,6 +702,8 @@ def build_parser():
     p.add_argument("--text", action="store_true", help="type input instead of speaking (replies still spoken)")
     p.add_argument("--once", action="store_true", help="one exchange, then exit")
     p.add_argument("--no-speak", action="store_true", help="print replies but do not synthesize them")
+    p.add_argument("--no-stream-tts", action="store_true",
+                   help="speak the whole reply at once instead of sentence-by-sentence while it streams")
     p.add_argument("--lang", default=None, help="TTS language hint: en | es | '' (auto)")
     p.add_argument("--think", default=None, help="false|true|high|medium|low|default (default: false)")
     p.add_argument("--system", default=None, help="system prompt ('' = use the model's own)")
@@ -638,6 +747,10 @@ def main():
         detect_local_tts()
 
     lang = resolve_lang(args.lang)
+    # Speak each sentence as the reply streams (default on); --no-stream-tts or
+    # OLLAMA_VOICE_STREAM_TTS=0 reverts to speaking the whole reply at once.
+    stream_tts = (not args.no_speak and not args.no_stream_tts
+                  and env_flag("OLLAMA_VOICE_STREAM_TTS", True))
     convo = Conversation(
         host, model,
         system=resolve_system(args.system),
@@ -682,15 +795,27 @@ def main():
                 break
 
             try:
-                reply = convo.respond(user_text)
+                if stream_tts:
+                    # Speak sentence-by-sentence as the reply streams; the first
+                    # sentence plays as soon as its '.' arrives.
+                    speaker = SentenceStreamSpeaker(talk_sh, lang)
+                    reply = convo.respond(user_text, sink=speaker.feed)
+                    spoke = speaker.finish()
+                    if not spoke:
+                        # Reply had nothing speakable mid-stream (e.g. all reasoning
+                        # or code) — clean the whole thing once as a fallback.
+                        spoken = clean_for_speech(reply)
+                        if spoken:
+                            speak(talk_sh, spoken, lang)
+                else:
+                    reply = convo.respond(user_text)
+                    if not args.no_speak:
+                        spoken = clean_for_speech(reply)
+                        if spoken:
+                            speak(talk_sh, spoken, lang)
             except OllamaError as e:
                 warn("chat error: %s" % e)
                 continue
-
-            if not args.no_speak:
-                spoken = clean_for_speech(reply)
-                if spoken:
-                    speak(talk_sh, spoken, lang)
 
             if args.once:
                 break

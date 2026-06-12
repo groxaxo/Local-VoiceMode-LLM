@@ -61,6 +61,7 @@ ollama-voice llama3.2        # talk to a specific model (pulled if missing)
 ollama-voice --setup         # install/repair the voice backends + this command
 ollama-voice --text          # type instead of speaking (mic-free test; replies still spoken)
 ollama-voice --once          # one exchange, then exit
+ollama-voice --no-stream-tts # speak the whole reply at once (default: sentence-by-sentence)
 ollama-voice --list          # list local Ollama models
 ollama-voice --status        # check Ollama + STT/TTS backends (shows the detected TTS)
 # Ctrl-C to leave the conversation. Say "goodbye"/"exit"/"adiós" to end by voice.
@@ -91,6 +92,15 @@ of the upstream `ollama voice` Go command (Option B), minus the rebuild. It keep
 conversation history, streams the reply to your terminal, and never speaks the model's
 chain-of-thought.
 
+**Sentence-by-sentence speech (on by default).** Rather than waiting for the whole reply,
+`ollama-voice` speaks each sentence the moment its terminating `.`/`!`/`?` arrives in the
+stream — so the first sentence plays while the model is still writing the next one,
+cutting time-to-first-audio to roughly one sentence. Sentences are queued and spoken in
+order by a background worker, so synthesis overlaps generation (and pairs especially well
+with the fast [Supertonic 2](../supertonic2/) backend). Reasoning (`<think>`) and code
+blocks are held back, never spoken mid-stream. Turn it off with `--no-stream-tts` or
+`OLLAMA_VOICE_STREAM_TTS=0` to speak the whole reply at once.
+
 ### Configuration
 
 `ollama-voice` reads these (and forwards all the usual `talk.sh` variables — `VAD_THRESHOLD`,
@@ -103,6 +113,7 @@ chain-of-thought.
 | `OLLAMA_VOICE_THINK` | `false` | `false`/`true`/`high`/`medium`/`low`/`default`. Reasoning is **never spoken**; `false` also skips it for snappier replies |
 | `OLLAMA_VOICE_SYSTEM` | _(concise spoken-style prompt)_ | system prompt; set empty to use the model's own |
 | `OLLAMA_VOICE_LANG` | _(auto)_ | TTS language hint: `en` / `es` / `""` |
+| `OLLAMA_VOICE_STREAM_TTS` | `1` (on) | speak each sentence as the reply streams; `0` speaks the whole reply at once (same as `--no-stream-tts`) |
 | `OLLAMA_VOICE_KEEPALIVE` | _(server default)_ | keep the model warm between turns, e.g. `10m` |
 | `OLLAMA_VOICE_NUM_PREDICT` | `400` | cap reply length in tokens (`0` = unlimited) |
 | `OLLAMA_VOICE_HISTORY` | `20` | conversation messages kept for context (`0` = all) |
