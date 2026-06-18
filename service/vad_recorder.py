@@ -136,13 +136,15 @@ def find_mic(query=None):
     Never selects virtual/remote audio adapters (NoMachine, VirtualBox, VMware).
 
     Priority:
-      0. macOS system default input (sd.default.device[0]) — honored first so
-         that the mic selected in System Settings → Sound → Input always wins.
+      0. System default input (sd.default.device[0]) — on macOS honored
+         unconditionally; on Linux only trusted if it's a USB device (internal
+         chipsets like sof-hda-dsp are skipped in favor of external mics).
       1. Substring match on --mic-query (if provided), skipping blocked devices.
-      2. macOS legacy: built-in MacBook microphone (kept as a fallback for when
-         the system default points at a blocked/empty device).
-      3. First non-blocked input device.
-      4. Absolute fallback: first input device of any kind.
+      2. Linux: prefer USB/Bluetooth external mics over internal chipsets.
+      3. macOS legacy: built-in MacBook microphone (fallback for when the
+         system default points at a blocked/empty device).
+      4. First non-blocked input device.
+      5. Absolute fallback: first input device of any kind.
     """
     import platform as _platform
     devices = sd.query_devices()
@@ -165,13 +167,19 @@ def find_mic(query=None):
         return not _is_blocked(d["name"])
 
     # 0. System default input (the mic the user picked in Sound settings)
+    # On Linux, the OS default is often an internal chipset (sof-hda-dsp)
+    # that may not be the best mic. Only auto-accept it if it's a USB device.
     if not query:  # only honor the OS default when no explicit --mic-query
         try:
             default_in = sd.default.device[0]
         except (AttributeError, IndexError, TypeError):
             default_in = None
         if _dev_ok(default_in):
-            return default_in
+            if _platform.system() != "Linux":
+                return default_in
+            # On Linux: trust system default only if it's a USB mic
+            if "usb" in devices[default_in]["name"].lower():
+                return default_in
 
     # 1. Query match, skip blocked devices
     if query:
@@ -183,7 +191,17 @@ def find_mic(query=None):
             if q in name.lower() and not _is_blocked(name):
                 return i
 
-    # 2. macOS: prefer built-in MacBook microphone (legacy fallback)
+    # 2. Linux: prefer USB/Bluetooth external mics over internal chipsets
+    if _platform.system() == "Linux":
+        for i, dev in enumerate(devices):
+            if dev["max_input_channels"] <= 0:
+                continue
+            name = dev["name"].lower()
+            if not _is_blocked(dev["name"]):
+                if "usb" in name or "bluetooth" in name:
+                    return i
+
+    # 3. macOS: prefer built-in MacBook microphone (legacy fallback)
     if _platform.system() == "Darwin":
         for i, dev in enumerate(devices):
             if dev["max_input_channels"] > 0:
@@ -191,13 +209,13 @@ def find_mic(query=None):
                 if "macbook" in name.lower() and "microphone" in name.lower() and not _is_blocked(name):
                     return i
 
-    # 3. First non-blocked input device (works on Linux, Windows, macOS)
+    # 4. First non-blocked input device (works on Linux, Windows, macOS)
     for i, dev in enumerate(devices):
         if dev["max_input_channels"] > 0:
             if not _is_blocked(dev["name"]):
                 return i
 
-    # 4. Absolute fallback
+    # 5. Absolute fallback
     for i, dev in enumerate(devices):
         if dev["max_input_channels"] > 0:
             return i

@@ -51,14 +51,26 @@ each agent's skills directory by `setup.sh` / `setup.ps1`.
 ~/.config/opencode/skills/talk/talk.sh listen    # block until user stops; print transcript
 ~/.config/opencode/skills/talk/talk.sh speak "…" # TTS (Supertonic local default → NeuTTS → xAI)
 ~/.config/opencode/skills/talk/talk.sh status    # health check (all backends)
-~/.config/opencode/skills/talk/talk.sh devices   # list mics
+~/.config/opencode/skills/talk/talk.sh devices   # list mics + show selected
+~/.config/opencode/skills/talk/talk.sh list-mics # machine-parseable: idx|name|inputs|sr
+~/.config/opencode/skills/talk/talk.sh save-mic "<query>"  # persist mic preference
+~/.config/opencode/skills/talk/talk.sh pick      # tty interactive device picker
 ~/.config/opencode/skills/talk/talk.sh loop      # continuous loop (tty or pipe stdin)
 ```
+
+## Mic setup (before first listen)
+
+The mic preference is persisted in `~/.config/opencode/talk-mic.env` and **silently reused** across sessions. Only prompt the user when there's no saved config:
+
+1. **No config exists (first launch ever)**: run `talk.sh list-mics`, present devices via the `question` tool (label = `[idx] name`, description = `inputs=X, sample rate=Y`), call `talk.sh save-mic "<choice>"` to persist, then proceed.
+2. **Config exists**: use it silently — do NOT prompt. `talk.sh` sources it automatically and `MIC_QUERY` is set. If the saved device isn't connected, `find_mic()` falls through to USB/Bluetooth auto-detect gracefully.
+3. **User explicitly asks to change mic**: run `talk.sh list-mics` + `question` tool, then `talk.sh save-mic "<new choice>"`. Or tell the user they can run `talk.sh pick` in a terminal directly.
 
 ## Talk loop (you orchestrate)
 
 When the user enters talk/voice mode:
 
+0. **Mic setup** — Check if `~/.config/opencode/talk-mic.env` exists. If yes, use silently (no prompt). If no (first launch), run the picker flow (see "Mic setup" above).
 1. **First turn only** — `talk.sh listen`. Stdout = first user utterance (may be empty → listen again).
 2. **Think** — Reply to that text. Keep answers **short** for voice.
 3. **Speak + listen** — `talk.sh speak '<reply>'` (escape single quotes). This plays TTS, then **opens the mic immediately** when audio ends. **Stdout = the user's next utterance** (same as `listen`).
@@ -87,6 +99,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 ### Rules
 
 - Always invoke `talk.sh` via Shell; never fake transcription or audio.
+- **Mic preference is silent**: only prompt on first launch (no config) or when the user asks to change. Saved config in `~/.config/opencode/talk-mic.env` is reused automatically.
 - **Empty stdout from `speak`** = user ended the session (stop phrase, silence timeout, or keyboard). Exit the conversation loop; do not retry `listen`.
 - One-off read-aloud only (no mic): `TALK_AUTO_LISTEN=0 talk.sh speak '…'`.
 - TTS down (all engines failed) → fix backends; do not use macOS `say`.

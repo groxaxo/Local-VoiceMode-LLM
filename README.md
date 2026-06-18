@@ -245,8 +245,12 @@ talk.sh speak "Hello"                   # synthesize, then auto-listen
 TTS_ENGINE=xai talk.sh speak "…"        # force xAI cloud TTS
 TTS_ENGINE=supertonic talk.sh speak "…" # force local Supertonic
 talk.sh status                          # health check
-talk.sh devices                         # list mics
+talk.sh devices                         # list mics + show selected
+talk.sh pick                            # interactive mic picker (saves your choice)
+talk.sh list-mics                       # machine-parseable device list
 ```
+
+Run `talk.sh pick` once to choose your microphone — it lists every input device by number, you pick one, and that choice is saved to `~/.config/opencode/talk-mic.env` and reused on every future session. To switch later, just run `talk.sh pick` again or delete the config file.
 
 (Skill lives at `~/.config/opencode/skills/talk/`. On Windows, use `talk.ps1` with the same verbs.)
 
@@ -278,7 +282,7 @@ Full rules in [`skill/SKILL.md`](skill/SKILL.md).
 |`TALK_IDLE_TIMEOUT_S`|`300`                                          |Session-silence window — end listen after N s of no speech (`0` = off)|
 |`VAD_THRESHOLD`      |`0.5`                                          |Speech sensitivity — lower = catches softer speech, higher = ignores background noise/speech (also in dashboard)|
 |`VAD_MIN_SILENCE_MS` |`700`                                          |End-of-turn silence — 700 ms tolerates mid-sentence pauses; lower (~500) for snappier turns (also in dashboard)|
-|`MIC_QUERY`          |_(empty)_                                      |Mic name substring; empty = auto-detect (honors the OS system-default input, skips virtual adapters)|
+|`MIC_QUERY`          |_(empty)_                                      |Mic name substring; empty = auto-detect (Linux prefers USB/Bluetooth mics over internal chipsets; macOS honors the OS system-default input; both skip virtual adapters). Run `talk.sh pick` to choose interactively — saved to `~/.config/opencode/talk-mic.env` and reused across sessions|
 |`PORT`               |`7862`                                         |Dashboard port                                                        |
 
 ### Tuning the mic for your room
@@ -294,7 +298,7 @@ may need to tune two knobs:
 | Misses your speech / clips soft talkers | Lower `VAD_THRESHOLD` toward `0.3`–`0.4` (more sensitive) |
 | Cuts you off during a natural pause | Raise `VAD_MIN_SILENCE_MS` (e.g. `900`) so longer pauses don't end the turn |
 | Feels sluggish to respond after you stop | Lower `VAD_MIN_SILENCE_MS` toward `500` for snappier endpointing |
-| Grabs the wrong microphone | Set `MIC_QUERY` to a substring of your mic's name (e.g. `MIC_QUERY="Headset"`); see `talk.sh devices` |
+| Grabs the wrong microphone | Run `talk.sh pick` to choose interactively (saved for next time); or set `MIC_QUERY` to a substring of your mic's name (e.g. `MIC_QUERY="Headset"`); see `talk.sh devices` |
 
 ```bash
 # Example: noisy room, want it to only react to clear, deliberate speech

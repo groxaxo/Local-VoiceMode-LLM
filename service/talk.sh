@@ -78,9 +78,15 @@ fi
 : "${VAD_MIN_SILENCE_MS:=700}"
 : "${VAD_THRESHOLD:=0.5}"
 # Mic device selection
-# Default targets the built-in mic and the find_mic() logic explicitly
-# excludes "nomachine" (and other virtual adapters).
+# Auto-detect prefers USB/Bluetooth external mics over internal chipsets (Linux),
+# honors the macOS system-default input, and excludes virtual adapters (NoMachine, etc.).
 : "${MIC_QUERY:=}"  # empty = auto-detect best mic; set to substring like "MacBook Air" or "Headset"
+: "${TALK_MIC_CONFIG:=$HOME/.config/opencode/talk-mic.env}"
+# Source persisted mic preference if MIC_QUERY not already set by env
+if [ -z "$MIC_QUERY" ] && [ -f "$TALK_MIC_CONFIG" ]; then
+    # shellcheck source=/dev/null
+    . "$TALK_MIC_CONFIG"
+fi
 # Ready cue before listen (short tone so user knows when to speak)
 : "${TALK_READY_CUE:=1}"
 # macOS system sound — on Linux/Windows the file won't exist and we fall back to \a beep
@@ -500,8 +506,8 @@ cmd_status() {
     echo "=== Audio Input Devices ==="
     "$PYTHON" "$VAD_PY" --list-devices 2>&1 | grep -v '^$'
     echo ""
-    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<default>}) ==="
-    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-MacBook Air Microphone}" 2>&1 || echo "(selection failed)"
+    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<auto-detect>}) ==="
+    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-}" 2>&1 || echo "(selection failed)"
     echo ""
 
     echo "=== TTS (engine=$TTS_ENGINE) ==="
@@ -599,12 +605,92 @@ print('  silero-vad :', silero_vad.__version__)
 " 2>&1
 }
 
+cmd_list_mics() {
+    # Machine-parseable: index|name|inputs|sample_rate (one per input device)
+    "$PYTHON" -c "
+import sounddevice as sd
+devs = sd.query_devices()
+for i, d in enumerate(devs):
+    if d.get('max_input_channels', 0) > 0:
+        ins = int(d['max_input_channels'])
+        sr = int(d.get('default_samplerate', 0))
+        print(f'{i}|{d[\"name\"]}|{ins}|{sr}')
+"
+}
+
+cmd_save_mic() {
+    local query="$1"
+    if [ -z "$query" ]; then
+        echo "Usage: talk.sh save-mic <query>" >&2
+        exit 1
+    fi
+    # Sanitize: strip shell-dangerous characters before writing to a sourced file
+    local safe_query="$query"
+    safe_query="${safe_query//\"/}"   # double quotes
+    safe_query="${safe_query//\$/}"   # dollar signs
+    safe_query="${safe_query//\`/}"   # backticks
+    safe_query="${safe_query//\\/}"   # backslashes
+    safe_query="${safe_query//;/}"    # semicolons
+    safe_query="${safe_query//$'\n'/}" # newlines
+    mkdir -p "$(dirname "$TALK_MIC_CONFIG")"
+    printf '# Saved by talk.sh on %s\nMIC_QUERY="%s"\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$safe_query" > "$TALK_MIC_CONFIG"
+    echo "Saved mic preference: $safe_query" >&2
+}
+
+cmd_pick_mic() {
+    echo "=== Available Input Devices ===" >&2
+    local devices
+    devices=$(cmd_list_mics)
+    local count=0
+    local IFS_saved="$IFS"
+    while IFS='|' read -r idx name ins sr; do
+        count=$((count + 1))
+        printf "  [%s] %-50s  inputs=%s  sr=%s\n" "$idx" "$name" "$ins" "$sr" >&2
+    done <<< "$devices"
+    IFS="$IFS_saved"
+
+    if [ "$count" -eq 0 ]; then
+        echo "No input devices found." >&2
+        exit 1
+    fi
+
+    if [ -n "${MIC_QUERY:-}" ]; then
+        echo "" >&2
+        echo "Current saved mic query: \"$MIC_QUERY\"" >&2
+    fi
+    echo "" >&2
+    printf "Enter device number (or 'q' to quit): " >&2
+    read -r choice
+    if [ "$choice" = "q" ] || [ "$choice" = "Q" ]; then
+        echo "Cancelled." >&2
+        exit 0
+    fi
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        echo "Invalid choice: $choice" >&2
+        exit 1
+    fi
+
+    local name
+    name=$(echo "$devices" | awk -F'|' -v idx="$choice" '$1 == idx {print $2}')
+    if [ -z "$name" ]; then
+        echo "Device index $choice not found in input device list." >&2
+        exit 1
+    fi
+
+    local query
+    query=$(echo "$name" | sed 's/[:(),]//g' | awk '{for(i=1;i<=NF&&i<=4;i++) printf "%s%s", $i, (i<NF?" ":"")}' | sed 's/ *$//')
+    cmd_save_mic "$query"
+    echo "Selected: [$choice] $name" >&2
+    echo "$query"
+}
+
 cmd_devices() {
     echo "=== Audio Input Devices ===" >&2
     "$PYTHON" "$VAD_PY" --list-devices
     echo ""
-    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-MacBook Air Microphone}) ==="
-    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-MacBook Air Microphone}" 2>&1 || echo "(selection failed)"
+    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<auto-detect>}) ==="
+    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-}" 2>&1 || echo "(selection failed)"
 }
 
 case "${1:-listen}" in
@@ -624,8 +710,17 @@ case "${1:-listen}" in
     devices|mic|list-devices)
         cmd_devices
         ;;
+    list-mics)
+        cmd_list_mics
+        ;;
+    save-mic)
+        cmd_save_mic "${2:-}"
+        ;;
+    pick|pick-mic)
+        cmd_pick_mic
+        ;;
     *)
-        echo "Usage: talk.sh {listen|speak|loop|status|devices}" >&2
+        echo "Usage: talk.sh {listen|speak|loop|status|devices|list-mics|save-mic|pick}" >&2
         exit 1
         ;;
 esac
