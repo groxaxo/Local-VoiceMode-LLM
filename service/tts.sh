@@ -1,9 +1,8 @@
 #!/bin/bash
 # tts.sh — Multi-engine TTS CLI for OpenCode / talk skill.
 #
-# Engines: supertonic (default, local) → neutts (local) → xai (cloud, last resort).
-# supertonic2 (optional local on :8880, Supertonic Express 2) is selectable via
-# TTS_ENGINE=supertonic2 once installed (integrations/supertonic2/install.sh).
+# Engines: qwen (default, local MLX) → supertonic (local) → neutts (local)
+# → xai (cloud, last resort).
 # Set TTS_ENGINE to override. Local engines are always tried before the xAI
 # cloud; xAI is only used if every local engine fails. macOS say is intentionally
 # not available.
@@ -29,35 +28,115 @@ play_wav() {
     esac
 }
 
+# Apply a short fade-in/out to a WAV in place to kill onset/offset clicks.
+# Inworld (and some neural TTS) clips start on a non-zero sample — the first
+# sample jumps straight to ~60-99% of peak, an audible pop at the start of
+# every chunk/phrase. A few ms of fade ramps that to zero. Idempotent and
+# cheap; safe to call on any mono/stereo 8/16/32-bit PCM WAV.
+: "${TTS_FADE_MS:=6}"
+fade_wav_edges() {
+    local f="$1" ms="${2:-${TTS_FADE_MS:-6}}"
+    [ -f "$f" ] || return 1
+    [ "$ms" = "0" ] && return 0
+    python3 - "$f" "$ms" <<'PY' 2>/dev/null || return 0
+import wave, struct, sys
+path, ms = sys.argv[1], float(sys.argv[2])
+try:
+    with wave.open(path, 'rb') as w:
+        params = w.getparams()
+        frames = w.readframes(w.getnframes())
+except Exception:
+    sys.exit(0)
+sw = params.sampwidth
+fmt = {1:'b', 2:'h', 4:'i'}.get(sw)
+if fmt is None:
+    sys.exit(0)
+n = len(frames) // sw
+samples = list(struct.unpack(f'<{n}{fmt}', frames))
+ch = max(1, params.nchannels)
+fade_n = int(params.framerate * ms / 1000.0) * ch   # ramp length in samples
+if fade_n > 0 and n > fade_n * 2:
+    for i in range(fade_n):
+        g = i / fade_n
+        samples[i] = int(samples[i] * g)
+        samples[-(i+1)] = int(samples[-(i+1)] * g)
+    with wave.open(path, 'wb') as w:
+        w.setparams(params)
+        w.writeframes(struct.pack(f'<{n}{fmt}', *samples))
+PY
+}
+
 # --- Engine config -----------------------------------------------------------
+# Default engine is `supertonic` (zero-setup, on-device, no API key). The other
+# engines are OPTIONAL — opt in with TTS_ENGINE=<name>:
+#   qwen      — local MLX Qwen3-TTS server (Apple Silicon). Setup/server:
+#               https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi
+#   neutts    — local NeuTTS GGUF server
+#   inworld   — Inworld AI cloud (needs INWORLD_API_KEY / INWORLD_TTS_API)
+#   xai       — xAI Grok cloud (needs XAI_API_KEY); last-resort fallback
 : "${TTS_ENGINE:=supertonic}"
+# Qwen3-TTS — local MLX server (Apple Silicon), OpenAI-compatible
+# /v1/audio/speech. Native voices: serena, vivian, uncle_fu, ryan, aiden,
+# ono_anna, sohee, eric, dylan (OpenAI aliases alloy/nova/… also accepted).
+# The model auto-detects language, so no lang_code is sent. WAV keeps latency
+# low (no mp3/pydub encode step).
+# Server + setup: https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi
+#
+# Three CustomVoice MLX servers (see the Qwen3-TTS repo above):
+#   fast → 0.6B on :18881 (low latency)     hq → 1.7B on :18882 (always-on)
+#   lazy → 1.7B on :18883 (auto-start, 5-min idle timeout, frees VRAM when idle)
+# QWEN_TTS_QUALITY=fast|hq|lazy picks which. An explicit QWEN_TTS_URL overrides.
+: "${QWEN_TTS_URL_FAST:=http://127.0.0.1:18881}"
+: "${QWEN_TTS_URL_HQ:=http://127.0.0.1:18882}"
+: "${QWEN_TTS_URL_LAZY:=http://127.0.0.1:18883}"
+: "${QWEN_TTS_QUALITY:=hq}"
+# Optional helper that lazily starts the :18883 server (see the Qwen3-TTS repo).
+# Override with QWEN_TTS_LAZY_ENSURE_SH; if absent, qwen-lazy degrades gracefully.
+: "${QWEN_TTS_LAZY_ENSURE_SH:=$HOME/Qwen3-TTS-Openai-Fastapi/qwen-lazy-ensure.sh}"
+if [ -z "${QWEN_TTS_URL:-}" ]; then
+    case "$(printf '%s' "$QWEN_TTS_QUALITY" | tr '[:upper:]' '[:lower:]')" in
+        hq|high|best|1.7b|large)  QWEN_TTS_URL="$QWEN_TTS_URL_HQ" ;;
+        lazy|lazy-1.7b|qwen-lazy) QWEN_TTS_URL="$QWEN_TTS_URL_LAZY" ;;
+        *)                        QWEN_TTS_URL="$QWEN_TTS_URL_FAST" ;;
+    esac
+fi
+: "${QWEN_TTS_VOICE:=vivian}"
+: "${QWEN_TTS_MODEL:=qwen3-tts}"
+: "${QWEN_TTS_SPEED:=1.0}"
 : "${XAI_API_KEY:=${XAI_API_KEY:-}}"
 : "${XAI_TTS_VOICE:=eve}"
 : "${XAI_TTS_MODEL:=grok-2-audio}"
-: "${SUPERTONIC_URL:=http://127.0.0.1:8766}"
+: "${SUPERTONIC_URL:=http://127.0.0.1:8765}"
 : "${SUPERTONIC_SH:=$HOME/.config/opencode/skills/supertonic-tts/supertonic.sh}"
 : "${SUPERTONIC_VOICE:=F4}"   # Supertonic 3 voices: F1–F5 / M1–M5 (default F4)
 # Quality presets: normal = 8 steps (fast), high = 20 steps (best). Set
 # TTS_QUALITY=high for HQ, or override SUPERTONIC_STEPS=<1-20> directly (wins).
-: "${TTS_QUALITY:=normal}"
+: "${TTS_QUALITY:=high}"
 case "$(printf '%s' "${TTS_QUALITY}" | tr '[:upper:]' '[:lower:]')" in
     high|hq|best) _q_steps=20 ;;
     *)            _q_steps=8  ;;
 esac
 : "${SUPERTONIC_STEPS:=$_q_steps}"   # denoising steps (1–20)
-: "${SUPERTONIC_SPEED:=1.05}"
-# Supertonic 2 (optional) — Supertonic Express 2, onnx-community/Supertonic-TTS-2-ONNX.
-# Same OpenAI-compatible /v1/audio/speech API as Supertonic 3, served on :8880.
-# Not auto-installed; opt in with: bash integrations/supertonic2/install.sh
-: "${SUPERTONIC2_URL:=http://127.0.0.1:8880}"
-: "${SUPERTONIC2_VOICE:=M1}"          # Supertonic 2 voices: F1–F5 / M1–M5 (default M1)
-: "${SUPERTONIC2_STEPS:=$_q_steps}"   # denoising steps (1–20), shares TTS_QUALITY preset
-: "${SUPERTONIC2_SPEED:=1.05}"
+: "${SUPERTONIC_SPEED:=1.0}"
 : "${NEUTTS_URL:=http://127.0.0.1:8020}"
 : "${NEUTTS_MODEL:=neuphonic/neutts-nano-q8-gguf}"
 : "${NEUTTS_MODEL_ES:=neuphonic/neutts-nano-spanish-q8-gguf}"
 : "${NEUTTS_MODEL_DE:=neuphonic/neutts-nano-german-q8-gguf}"
 : "${NEUTTS_MODEL_FR:=neuphonic/neutts-nano-french-q8-gguf}"
+# Inflect-Nano-v1 — ultra-small local CPU TTS (4.63M params, English-only, male voice "mark").
+# 10-13x realtime. Experimental quality. English-only (bails on other languages).
+: "${INFLECT_URL:=http://127.0.0.1:8030}"
+# Inworld TTS (cloud, Basic auth). Model: inworld-tts-2 / inworld-tts-2-max.
+# Voice: built-ins like Ashley, Dennis, Mark, Olivia, etc. (see list-voices API).
+# Requires INWORLD_API_KEY env var. Get a key: https://platform.inworld.ai/api-keys
+: "${INWORLD_TTS_VOICE:=Ashley}"
+: "${INWORLD_TTS_MODEL:=inworld-tts-2}"
+: "${INWORLD_TTS_URL:=https://api.inworld.ai/tts/v1/voice}"
+# Inworld returns LINEAR16 by default at 48 kHz mono — playable by afplay/ffplay.
+: "${INWORLD_TTS_ENCODING:=LINEAR16}"
+: "${INWORLD_TTS_SAMPLE_RATE:=48000}"
+# Accept either INWORLD_API_KEY or INWORLD_TTS_API (some shells export the latter).
+: "${INWORLD_API_KEY:=${INWORLD_TTS_API:-}}"
 # -----------------------------------------------------------------------------
 
 # shellcheck source=tts_lang.sh
@@ -110,6 +189,47 @@ print(json.dumps(d))
     fi
 
     [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: NeuTTS produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    play_wav "$OUTPUT"
+    rm -f "$OUTPUT"
+}
+
+speak_inflect() {
+    local text="$1"
+    local lang="$2"
+
+    # Inflect-Nano is English-only — bail on non-English so the fallback chain handles it
+    case "$lang" in
+        en*) ;;
+        *) echo "[tts] Inflect-Nano is English-only, skipping (lang=${lang})" >&2; return 1 ;;
+    esac
+
+    echo "[tts] Inflect-Nano lang=${lang}" >&2
+
+    local payload
+    payload=$(python3 -c "
+import json, sys
+print(json.dumps({'text': sys.argv[1]}))
+" "$text" 2>/dev/null || printf '{"text":"%s"}' "$text")
+
+    local http_code
+    http_code=$(curl -sS -m 60 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "${INFLECT_URL}/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d "$payload") || {
+        echo "tts.sh: Inflect-Nano request failed (curl exit $?)" >&2
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: Inflect-Nano HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
+
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: Inflect-Nano produced no audio" >&2; return 1; }
     [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
     play_wav "$OUTPUT"
     rm -f "$OUTPUT"
@@ -251,15 +371,14 @@ _speak_xai_chunked() {
     return 0
 }
 
-# Supertonic Express 2 and 3 share the same OpenAI-compatible /v1/audio/speech
-# endpoint: required field is `input`; voice is one of F1–F5 / M1–M5; lang via
-# `lang_code`. This helper drives either server.
-#   args: label url voice steps speed text lang
-_speak_supertonic_endpoint() {
-    local label="$1" url="$2" voice="$3" steps="$4" speed="$5" text="$6" lang="$7"
+speak_supertonic() {
+    local text="$1"
+    local lang="$2"
 
-    echo "[tts] ${label} voice=${voice} steps=${steps} (${TTS_QUALITY}) lang=${lang} url=${url}" >&2
+    echo "[tts] Supertonic voice=${SUPERTONIC_VOICE} steps=${SUPERTONIC_STEPS} (${TTS_QUALITY}) lang=${lang} url=${SUPERTONIC_URL}" >&2
 
+    # Supertonic Express 3 exposes an OpenAI-compatible /v1/audio/speech endpoint:
+    # required field is `input`; voice is one of F1–F5 / M1–M5; lang via `lang_code`.
     local payload
     payload=$(python3 -c "
 import json, sys
@@ -269,41 +388,406 @@ d = {'input': sys.argv[1], 'voice': sys.argv[3],
 if sys.argv[2]:
     d['lang_code'] = sys.argv[2]
 print(json.dumps(d))
-" "$text" "$lang" "$voice" "$steps" "$speed" 2>/dev/null \
-        || printf '{"input":"%s","voice":"%s","response_format":"wav"}' "$text" "$voice")
+" "$text" "$lang" "$SUPERTONIC_VOICE" "$SUPERTONIC_STEPS" "$SUPERTONIC_SPEED" 2>/dev/null \
+        || printf '{"input":"%s","voice":"%s","response_format":"wav"}' "$text" "$SUPERTONIC_VOICE")
 
     local http_code
     http_code=$(curl -sS -m 60 \
         -o "$OUTPUT" \
         -w '%{http_code}' \
-        "${url}/v1/audio/speech" \
+        "${SUPERTONIC_URL}/v1/audio/speech" \
         -H "Content-Type: application/json" \
         -d "$payload") || {
-        echo "tts.sh: ${label} request failed (curl exit $?)" >&2
+        echo "tts.sh: Supertonic request failed (curl exit $?)" >&2
         return 1
     }
 
     if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-        echo "tts.sh: ${label} HTTP $http_code" >&2
+        echo "tts.sh: Supertonic HTTP $http_code" >&2
         rm -f "$OUTPUT"
         return 1
     fi
 
-    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: ${label} produced no audio" >&2; return 1; }
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: Supertonic produced no audio" >&2; return 1; }
     [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
     play_wav "$OUTPUT"
     rm -f "$OUTPUT"
 }
 
-speak_supertonic() {
-    _speak_supertonic_endpoint "Supertonic" "$SUPERTONIC_URL" "$SUPERTONIC_VOICE" \
-        "$SUPERTONIC_STEPS" "$SUPERTONIC_SPEED" "$1" "$2"
+speak_qwen() {
+    local text="$1"
+    local lang="$2"
+
+    echo "[tts] Qwen3-TTS voice=${QWEN_TTS_VOICE} lang=${lang} url=${QWEN_TTS_URL}" >&2
+
+    # OpenAI-compatible payload. The model auto-detects language, so `lang`
+    # is logged but not sent. WAV avoids the mp3/pydub encode step.
+    local payload
+    payload=$(python3 -c "
+import json, sys
+d = {'model': sys.argv[2], 'input': sys.argv[1], 'voice': sys.argv[3],
+     'response_format': 'wav', 'speed': float(sys.argv[4])}
+print(json.dumps(d))
+" "$text" "$QWEN_TTS_MODEL" "$QWEN_TTS_VOICE" "$QWEN_TTS_SPEED" 2>/dev/null \
+        || printf '{"model":"%s","input":"%s","voice":"%s","response_format":"wav"}' "$QWEN_TTS_MODEL" "$text" "$QWEN_TTS_VOICE")
+
+    local http_code
+    http_code=$(curl -sS -m 60 \
+        -o "$OUTPUT" \
+        -w '%{http_code}' \
+        "${QWEN_TTS_URL}/v1/audio/speech" \
+        -H "Content-Type: application/json" \
+        -d "$payload") || {
+        echo "tts.sh: Qwen3-TTS request failed (curl exit $?)" >&2
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: Qwen3-TTS HTTP $http_code" >&2
+        rm -f "$OUTPUT"
+        return 1
+    fi
+
+    [ -f "$OUTPUT" ] && [ -s "$OUTPUT" ] || { echo "tts.sh: Qwen3-TTS produced no audio" >&2; return 1; }
+    [ "$TTS_NO_PLAY" = "1" ] && { echo "$OUTPUT"; return 0; }
+    play_wav "$OUTPUT"
+    rm -f "$OUTPUT"
 }
 
-# Supertonic 2 (Supertonic Express 2) — optional local engine on :8880.
-speak_supertonic2() {
-    _speak_supertonic_endpoint "Supertonic2" "$SUPERTONIC2_URL" "$SUPERTONIC2_VOICE" \
-        "$SUPERTONIC2_STEPS" "$SUPERTONIC2_SPEED" "$1" "$2"
+speak_qwen_lazy() {
+    local text="$1"
+    local lang="$2"
+    local _ensure="${QWEN_TTS_LAZY_ENSURE_SH:-$HOME/Qwen3-TTS-Openai-Fastapi/qwen-lazy-ensure.sh}"
+    if [ -x "$_ensure" ]; then
+        "$_ensure" || echo "[tts] qwen-lazy ensure returned non-zero; trying anyway…" >&2
+    else
+        echo "[tts] qwen-lazy-ensure.sh not found at $_ensure — server may not start" >&2
+    fi
+    QWEN_TTS_URL="${QWEN_TTS_URL_LAZY:-http://127.0.0.1:18883}" speak_qwen "$text" "$lang"
+}
+
+speak_inworld() {
+    local text="$1"
+    local lang="$2"
+    local voice="${INWORLD_TTS_VOICE:-Ashley}"
+
+    if [ -z "${INWORLD_API_KEY:-}" ]; then
+        echo "tts.sh: INWORLD_API_KEY not set" >&2
+        return 1
+    fi
+
+    # Map 2-letter lang code → BCP-47. Inworld accepts a wide set; pass en as en-US.
+    local bcp
+    case "$lang" in
+        es) bcp="es-ES" ;;
+        de) bcp="de-DE" ;;
+        fr) bcp="fr-FR" ;;
+        it) bcp="it-IT" ;;
+        pt) bcp="pt-BR" ;;
+        ja) bcp="ja-JP" ;;
+        ko) bcp="ko-KR" ;;
+        zh) bcp="zh-CN" ;;
+        ru) bcp="ru-RU" ;;
+        ar) bcp="ar-SA" ;;
+        hi) bcp="hi-IN" ;;
+        nl) bcp="nl-NL" ;;
+        pl) bcp="pl-PL" ;;
+        en|*) bcp="en-US" ;;
+    esac
+
+    echo "[tts] Inworld voice=${voice} model=${INWORLD_TTS_MODEL} lang=${bcp}" >&2
+
+    # Chunk into sentences, request in parallel — same pattern as xAI.
+    # TTS_NO_PLAY is handled inside _speak_inworld_chunked (concatenates all
+    # chunk WAVs into one file instead of playing sequentially).
+    local chunks_json
+    chunks_json=$(python3 -c "
+import sys, re, json
+text = sys.stdin.read().strip()
+parts = re.split(r'(?<=[.!?])\s+', text)
+merged, buf = [], ''
+for p in parts:
+    p = p.strip()
+    if not p:
+        continue
+    if buf:
+        buf = buf + ' ' + p
+    else:
+        buf = p
+    if len(buf.split()) >= 2:
+        merged.append(buf)
+        buf = ''
+if buf:
+    if merged:
+        merged[-1] = merged[-1] + ' ' + buf
+    else:
+        merged.append(buf)
+print(json.dumps(merged))
+" <<<"$text")
+
+    local count
+    count=$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$chunks_json")
+
+    if [ "$count" -le 1 ]; then
+        _speak_inworld_single "$text" "$bcp" "$voice"
+        return $?
+    fi
+
+    echo "[tts] Chunking into $count sentences (parallel Inworld)" >&2
+    _speak_inworld_chunked "$chunks_json" "$count" "$bcp" "$voice"
+}
+
+_speak_inworld_single() {
+    local text="$1"
+    local bcp="$2"
+    local voice="$3"
+
+    local input_json
+            input_json=$(python3 -c "
+import json, sys
+print(json.dumps({
+    'text': sys.argv[1],
+    'voiceId': sys.argv[2],
+    'modelId': sys.argv[3],
+    'language': sys.argv[4],
+    'audioConfig': {
+        'audioEncoding': sys.argv[5],
+        'sampleRateHertz': int(sys.argv[6]),
+    },
+    'deliveryMode': 'BALANCED',
+    'applyTextNormalization': 'ON',
+}))
+" "$text" "$voice" "${INWORLD_TTS_MODEL:-inworld-tts-2}" "$bcp" \
+        "${INWORLD_TTS_ENCODING:-LINEAR16}" "${INWORLD_TTS_SAMPLE_RATE:-48000}")
+
+    # Inworld returns JSON: { \"audioContent\": \"<base64-LINEAR16>\" }
+    # Decode into a real .wav container so afplay / ffplay can play it.
+    local body_json wav_tmp
+    wav_tmp=$(mktemp -t inworld.wav)
+    body_json=$(mktemp -t inworld.json)
+    local http_code
+    http_code=$(curl -sS -m 60 \
+        -o "$body_json" \
+        -w '%{http_code}' \
+        "$INWORLD_TTS_URL" \
+        -H "Authorization: Basic $INWORLD_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$input_json") || {
+        echo "tts.sh: Inworld request failed (curl exit $?)" >&2
+        rm -f "$body_json" "$wav_tmp"
+        return 1
+    }
+
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+        echo "tts.sh: Inworld HTTP $http_code" >&2
+        cat "$body_json" >&2
+        # 401/403 = auth problem. Mark it so the caller can refuse silent fallback.
+        if [ "$http_code" = "401" ] || [ "$http_code" = "403" ]; then
+            INWORLD_LAST_AUTH_FAIL=1
+            export INWORLD_LAST_AUTH_FAIL
+        fi
+        rm -f "$body_json" "$wav_tmp"
+        return 1
+    fi
+
+    # Decode base64 audioContent into WAV (with proper header).
+    if ! python3 -c "
+import base64, json, struct, sys
+with open(sys.argv[1], 'rb') as f:
+    body = f.read()
+try:
+    data = json.loads(body)
+except Exception as e:
+    print('Inworld: invalid JSON response:', e, file=sys.stderr)
+    sys.exit(2)
+b64 = data.get('audioContent') or data.get('audio_content') or ''
+if not b64:
+    print('Inworld: response missing audioContent:', body[:200], file=sys.stderr)
+    sys.exit(3)
+raw = base64.b64decode(b64)
+# Build a minimal RIFF/WAVE header for raw LINEAR16 mono PCM.
+sr = int(sys.argv[2])
+ch = 1
+bps = 16
+data_size = len(raw)
+with open(sys.argv[3], 'wb') as out:
+    out.write(b'RIFF')
+    out.write(struct.pack('<I', 36 + data_size))
+    out.write(b'WAVE')
+    out.write(b'fmt ')
+    out.write(struct.pack('<I', 16))             # fmt chunk size
+    out.write(struct.pack('<H', 1))              # PCM
+    out.write(struct.pack('<H', ch))
+    out.write(struct.pack('<I', sr))
+    out.write(struct.pack('<I', sr * ch * bps // 8))
+    out.write(struct.pack('<H', ch * bps // 8))
+    out.write(struct.pack('<H', bps))
+    out.write(b'data')
+    out.write(struct.pack('<I', data_size))
+    out.write(raw)
+" "$body_json" "${INWORLD_TTS_SAMPLE_RATE:-48000}" "$wav_tmp"; then
+        echo "tts.sh: Inworld audio decode failed" >&2
+        rm -f "$body_json" "$wav_tmp"
+        return 1
+    fi
+    rm -f "$body_json"
+
+    [ -f "$wav_tmp" ] && [ -s "$wav_tmp" ] || { echo "tts.sh: Inworld produced no audio" >&2; rm -f "$wav_tmp"; return 1; }
+    # Fade edges — Inworld starts on a non-zero sample (onset click).
+    fade_wav_edges "$wav_tmp"
+    [ "$TTS_NO_PLAY" = "1" ] && {
+        echo "$wav_tmp"
+        return 0
+    }
+    play_wav "$wav_tmp"
+    rm -f "$wav_tmp"
+}
+
+_speak_inworld_chunked() {
+    local chunks_json="$1"
+    local count="$2"
+    local bcp="$3"
+    local voice="$4"
+
+    local chunk_dir
+    chunk_dir=$(mktemp -d /tmp/opencode-tts-inworld.XXXXXX)
+
+    local i chunk_text wav_prefix
+    for ((i=0; i<count; i++)); do
+        chunk_text=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])[$i])" "$chunks_json")
+        wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $i)"
+        (
+    input_json=$(python3 -c "
+import json, sys
+print(json.dumps({
+    'text': sys.argv[1],
+    'voiceId': sys.argv[2],
+    'modelId': sys.argv[3],
+    'language': sys.argv[4],
+    'audioConfig': {
+        'audioEncoding': sys.argv[5],
+        'sampleRateHertz': int(sys.argv[6]),
+    },
+    'deliveryMode': 'BALANCED',
+    'applyTextNormalization': 'ON',
+}))
+" "$chunk_text" "$voice" "${INWORLD_TTS_MODEL:-inworld-tts-2}" "$bcp" \
+                    "${INWORLD_TTS_ENCODING:-LINEAR16}" "${INWORLD_TTS_SAMPLE_RATE:-48000}")
+
+            body_json=$(mktemp)
+            chunk_http=$(curl -sS -m 30 -o "$body_json" \
+                -w '%{http_code}' \
+                "$INWORLD_TTS_URL" \
+                -H "Authorization: Basic $INWORLD_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$input_json" 2>/dev/null) || chunk_http=000
+            # If the whole batch is failing with 401/403, mark auth fail.
+            if [ "$chunk_http" = "401" ] || [ "$chunk_http" = "403" ]; then
+                INWORLD_LAST_AUTH_FAIL=1
+                export INWORLD_LAST_AUTH_FAIL
+            fi
+            if [ "$chunk_http" -ge 200 ] && [ "$chunk_http" -lt 300 ]; then
+                if python3 -c "
+import base64, json, struct, sys
+with open(sys.argv[1], 'rb') as f:
+    body = f.read()
+data = json.loads(body)
+b64 = data.get('audioContent') or data.get('audio_content') or ''
+if not b64: sys.exit(1)
+raw = base64.b64decode(b64)
+sr = int(sys.argv[2]); ch = 1; bps = 16
+with open(sys.argv[3] + '.wav', 'wb') as out:
+    out.write(b'RIFF'); out.write(struct.pack('<I', 36 + len(raw)))
+    out.write(b'WAVE'); out.write(b'fmt '); out.write(struct.pack('<I', 16))
+    out.write(struct.pack('<H', 1)); out.write(struct.pack('<H', ch))
+    out.write(struct.pack('<I', sr)); out.write(struct.pack('<I', sr * ch * bps // 8))
+    out.write(struct.pack('<H', ch * bps // 8)); out.write(struct.pack('<H', bps))
+    out.write(b'data'); out.write(struct.pack('<I', len(raw))); out.write(raw)
+" "$body_json" "${INWORLD_TTS_SAMPLE_RATE:-48000}" "$wav_prefix" 2>/dev/null; then
+                    # Fade each chunk's own edges — Inworld clips start on a
+                    # non-zero sample, so every chunk boundary pops without this.
+                    fade_wav_edges "${wav_prefix}.wav"
+                    touch "${wav_prefix}.ready"
+                else
+                    touch "${wav_prefix}.failed"
+                fi
+            else
+                touch "${wav_prefix}.failed"
+            fi
+            rm -f "$body_json"
+        ) &
+    done
+
+    local ready_count=0
+    # Wait for all chunks to complete (ready or failed)
+    while [ "$ready_count" -lt "$count" ]; do
+        ready_count=0
+        local j
+        for ((j=0; j<count; j++)); do
+            wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $j)"
+            if [ -f "${wav_prefix}.ready" ] || [ -f "${wav_prefix}.failed" ]; then
+                ready_count=$((ready_count + 1))
+            fi
+        done
+        [ "$ready_count" -lt "$count" ] && sleep 0.05
+    done
+
+    if [ "${TTS_NO_PLAY:-0}" = "1" ]; then
+        local output_wav
+        output_wav=$(mktemp -t inworld-chunked.wav)
+        python3 -c "
+import wave, sys, os, struct
+output = sys.argv[1]
+chunk_dir = sys.argv[2]
+count = int(sys.argv[3])
+frames_list = []
+params = None
+for i in range(count):
+    path = f'{chunk_dir}/chunk_{i:03d}.wav'
+    if not os.path.exists(path):
+        continue
+    with wave.open(path, 'rb') as w:
+        if params is None:
+            params = w.getparams()
+        frames_list.append(w.readframes(w.getnframes()))
+if params is None:
+    sys.exit(1)
+with wave.open(output, 'wb') as out:
+    out.setparams(params)
+    out.writeframes(b''.join(frames_list))
+# 5ms fade-in/out — Inworld starts on a non-zero sample
+with wave.open(output, 'rb') as w:
+    params = w.getparams()
+    frames = w.readframes(w.getnframes())
+n = len(frames) // params.sampwidth
+fmt = {1:'b', 2:'h', 4:'i'}[params.sampwidth]
+samples = list(struct.unpack(f'<{n}{fmt}', frames))
+fade_n = int(params.framerate * 0.005)
+if fade_n > 0 and n > fade_n * 2:
+    for i in range(fade_n):
+        samples[i] = int(samples[i] * (i / fade_n))
+        samples[-(i+1)] = int(samples[-(i+1)] * (i / fade_n))
+with wave.open(output, 'wb') as w:
+    w.setparams(params)
+    w.writeframes(struct.pack(f'<{n}{fmt}', *samples))
+" "$output_wav" "$chunk_dir" "$count" 2>/dev/null && {
+            rm -rf "$chunk_dir"
+            echo "$output_wav"
+            return 0
+        }
+        rm -rf "$chunk_dir"
+        return 1
+    fi
+
+    for ((i=0; i<count; i++)); do
+        wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $i)"
+        if [ -f "${wav_prefix}.ready" ]; then
+            play_wav "${wav_prefix}.wav"
+        fi
+    done
+
+    rm -rf "$chunk_dir"
+    return 0
 }
 
 # --- Fallback policy ---------------------------------------------------------
@@ -313,6 +797,17 @@ speak_supertonic2() {
 # that choice first, then still falls back to the local engines.
 engine="$(printf '%s' "${TTS_ENGINE}" | tr '[:upper:]' '[:lower:]')"
 case "$engine" in
+    qwen|qwen3|qwen3-tts|qwen-tts)
+        if speak_qwen "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Qwen3-TTS failed → trying Supertonic (local)…" >&2
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed → xAI cloud (last resort)…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
     supertonic|coreml-tts)
         if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
         echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
@@ -322,18 +817,20 @@ case "$engine" in
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
-    supertonic2|supertonic-2)
-        if speak_supertonic2 "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] Supertonic2 failed → trying Supertonic (local)…" >&2
-        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
+    neutts|neuphonic)
         if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
-        echo "[tts] NeuTTS failed → xAI cloud (last resort)…" >&2
+        echo "[tts] NeuTTS failed → trying Inflect-Nano (local, English)…" >&2
+        if speak_inflect "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Inflect-Nano failed → trying Supertonic (local)…" >&2
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → xAI cloud (last resort)…" >&2
         if speak_xai "$TEXT" "$LANG"; then exit 0; fi
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
-    neutts|neuphonic)
+    inflect|inflect-nano)
+        if speak_inflect "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Inflect-Nano failed → trying NeuTTS (local)…" >&2
         if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
         echo "[tts] NeuTTS failed → trying Supertonic (local)…" >&2
         if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
@@ -352,8 +849,44 @@ case "$engine" in
         echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
         exit 1
         ;;
+    inworld)
+        # Explicit cloud selection: honored first, then local fallbacks.
+        if speak_inworld "$TEXT" "$LANG"; then exit 0; fi
+        # If Inworld failed for a credential reason (401/403), do NOT fall back to
+        # local engines silently — the user explicitly asked for Inworld and a
+        # bad key needs to be fixed, not papered over. Surface the error loudly.
+        if [ "${INWORLD_LAST_AUTH_FAIL:-0}" = "1" ]; then
+            echo "" >&2
+            echo "tts.sh: Inworld rejected the API key (HTTP 401/403)." >&2
+            echo "       Refusing to silently fall back to local engines." >&2
+            echo "       Fix: regenerate a 'Basic (Base64)' key at" >&2
+            echo "         https://platform.inworld.ai/api-keys" >&2
+            echo "       Then update INWORLD_TTS_API in ~/.zshrc (or run" >&2
+            echo "         'inworld auth login && inworld auth print-api-key > ~/.inworld_api_key')." >&2
+            exit 3
+        fi
+        echo "[tts] Inworld failed (non-auth) → trying Qwen3-TTS (local)…" >&2
+        if speak_qwen "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Qwen3-TTS failed → trying Supertonic (local)…" >&2
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
+    qwen-lazy|lazy)
+        if speak_qwen_lazy "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] qwen-lazy failed → trying Supertonic (local)…" >&2
+        if speak_supertonic "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] Supertonic failed → trying NeuTTS (local)…" >&2
+        if speak_neutts "$TEXT" "$LANG"; then exit 0; fi
+        echo "[tts] NeuTTS failed → xAI cloud (last resort)…" >&2
+        if speak_xai "$TEXT" "$LANG"; then exit 0; fi
+        echo "tts.sh: all TTS engines failed; no macOS say fallback is available" >&2
+        exit 1
+        ;;
     *)
-        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: supertonic, supertonic2, neutts, xai." >&2
+        echo "tts.sh: unknown TTS_ENGINE=${TTS_ENGINE}. Use: qwen, qwen-lazy, supertonic, neutts, inflect, xai, inworld." >&2
         exit 2
         ;;
 esac
