@@ -3,7 +3,7 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → TTS (Supertonic default → NeuTTS → xAI cloud last-resort), then auto-listen
+#   talk.sh speak    → TTS (Qwen3-TTS default → Supertonic → NeuTTS → xAI last-resort), then auto-listen
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
@@ -50,10 +50,26 @@ play_wav() {
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS (Supertonic local default, NeuTTS → xAI cloud fallback chain)
-# Supertonic is auto-installed by setup.sh on :8766 (or :8765 if forced).
-# Fallback to NeuTTS (local GGUF, :8020) then xAI (cloud, requires XAI_API_KEY).
-: "${TTS_ENGINE:=supertonic}"
+# TTS (Qwen3-TTS local MLX default → Supertonic → NeuTTS → xAI cloud chain)
+# Qwen3-TTS is the local MLX server on :18881 (OpenAI-compatible /v1/audio/speech).
+# Fallback: Supertonic (:8766) → NeuTTS (local GGUF, :8020) → xAI (requires XAI_API_KEY).
+: "${TTS_ENGINE:=qwen}"
+# Two CustomVoice MLX servers: fast 0.6B (:18881) + HQ 1.7B (:18882).
+# QWEN_TTS_QUALITY=fast|hq picks which; tts.sh resolves the actual URL.
+: "${QWEN_TTS_QUALITY:=hq}"
+: "${QWEN_TTS_URL_FAST:=http://127.0.0.1:18881}"
+: "${QWEN_TTS_URL_HQ:=http://127.0.0.1:18882}"
+: "${QWEN_TTS_URL_LAZY:=http://127.0.0.1:18883}"
+case "$(printf '%s' "$QWEN_TTS_QUALITY" | tr '[:upper:]' '[:lower:]')" in
+    hq|high|best|1.7b|large)   : "${QWEN_TTS_URL:=$QWEN_TTS_URL_HQ}" ;;
+    lazy|lazy-1.7b|qwen-lazy)
+        : "${QWEN_TTS_URL:=$QWEN_TTS_URL_LAZY}"
+        case "${TTS_ENGINE:-qwen}" in qwen|qwen3|qwen3-tts|qwen-tts|"") TTS_ENGINE=qwen-lazy ;; esac
+        ;;
+    *)                          : "${QWEN_TTS_URL:=$QWEN_TTS_URL_FAST}" ;;
+esac
+: "${QWEN_TTS_VOICE:=vivian}"
+export QWEN_TTS_QUALITY QWEN_TTS_URL QWEN_TTS_URL_FAST QWEN_TTS_URL_HQ QWEN_TTS_URL_LAZY QWEN_TTS_VOICE
 : "${XAI_TTS_VOICE:=rex}"
 : "${VIBEVOICE_MODEL:=vibe-realtime-8bit}"
 : "${VIBEVOICE_VOICE:=en-Emma_woman}"
@@ -75,23 +91,28 @@ fi
 # VAD parameters (passed to vad_recorder.py)
 # 700ms trailing silence tolerates natural mid-sentence pauses without cutting
 # the turn early; lower to ~500 for snappier (but more interrupt-prone) endpointing.
-: "${VAD_MIN_SILENCE_MS:=700}"
+: "${VAD_MIN_SILENCE_MS:=1500}"
 : "${VAD_THRESHOLD:=0.5}"
 # Mic device selection
-# Auto-detect prefers USB/Bluetooth external mics over internal chipsets (Linux),
-# honors the macOS system-default input, and excludes virtual adapters (NoMachine, etc.).
+# Default targets the built-in mic and the find_mic() logic explicitly
+# excludes "nomachine" (and other virtual adapters).
 : "${MIC_QUERY:=}"  # empty = auto-detect best mic; set to substring like "MacBook Air" or "Headset"
-: "${TALK_MIC_CONFIG:=$HOME/.config/opencode/talk-mic.env}"
-# Source persisted mic preference if MIC_QUERY not already set by env
-if [ -z "$MIC_QUERY" ] && [ -f "$TALK_MIC_CONFIG" ]; then
-    # shellcheck source=/dev/null
-    . "$TALK_MIC_CONFIG"
-fi
 # Ready cue before listen (short tone so user knows when to speak)
 : "${TALK_READY_CUE:=1}"
 # macOS system sound — on Linux/Windows the file won't exist and we fall back to \a beep
 : "${TALK_READY_SOUND:=/System/Library/Sounds/Tink.aiff}"
 : "${TALK_READY_DELAY_MS:=700}"
+# Beep cue: a short synthesized tone played the instant TTS playback ends, so
+# the user hears "your turn" and recording begins immediately. Generated once
+# and cached (cross-platform, consistent). Set TALK_BEEP=0 to fall back to the
+# system ready-sound / terminal bell.
+: "${TALK_BEEP:=1}"
+: "${TALK_BEEP_MS:=150}"
+: "${TALK_BEEP_FREQ:=880}"
+: "${TALK_BEEP_FILE:=${TMPDIR:-/tmp}/talk-beep.wav}"
+# Guard (ms) added after the beep before the mic goes live, only used by the
+# legacy ready-delay path; the signal-driven path activates with no guess.
+: "${TALK_LISTEN_GUARD_MS:=200}"
 # After speak finishes playback, immediately start listen (stdout = next user text)
 : "${TALK_AUTO_LISTEN:=1}"
 # Barge-in: detect user speech during TTS playback and interrupt
@@ -206,9 +227,46 @@ detect_lang() {
     fi
 }
 
+# Generate the cached beep WAV once (idempotent). Returns 0 if the file exists.
+ensure_beep() {
+    [ "${TALK_BEEP}" = "0" ] && return 1
+    [ -f "$TALK_BEEP_FILE" ] && return 0
+    "$PYTHON" - "$TALK_BEEP_FILE" "$TALK_BEEP_FREQ" "$TALK_BEEP_MS" <<'PY' 2>/dev/null || return 1
+import sys, wave, math, struct
+path, freq, ms = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
+sr = 44100
+n = int(sr * ms / 1000.0)
+fade = max(1, int(sr * 0.012))  # 12ms fade in/out kills clicks
+buf = bytearray()
+for i in range(n):
+    a = math.sin(2 * math.pi * freq * i / sr)
+    if i < fade:
+        a *= i / fade
+    elif i > n - fade:
+        a *= (n - i) / fade
+    buf += struct.pack('<h', int(a * 0.35 * 32767))
+with wave.open(path, 'wb') as w:
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+    w.writeframes(bytes(buf))
+PY
+    [ -f "$TALK_BEEP_FILE" ]
+}
+
+# Play the beep cue (blocking). Falls back to the terminal bell.
+play_beep() {
+    [ "${TALK_BEEP}" = "0" ] && return 0
+    if ensure_beep; then
+        play_wav "$TALK_BEEP_FILE" 2>/dev/null || printf '\a' >&2
+    else
+        printf '\a' >&2
+    fi
+}
+
 cmd_ready_cue() {
     [ "${TALK_READY_CUE}" = "0" ] && return 0
-    if [ -f "$TALK_READY_SOUND" ]; then
+    if [ "${TALK_BEEP}" = "1" ] && ensure_beep; then
+        play_wav "$TALK_BEEP_FILE" 2>/dev/null || printf '\a'
+    elif [ -f "$TALK_READY_SOUND" ]; then
         play_wav "$TALK_READY_SOUND" 2>/dev/null || printf '\a'
     else
         printf '\a'
@@ -317,7 +375,91 @@ cmd_speak() {
         echo "[talk] Barge-in failed, falling back to simple mode" >&2
     fi
 
-    # Simple mode: TTS generates + plays, then listen
+    # Pre-record mode: start the VAD recorder BEFORE TTS playback so the mic is
+    # already open and torch is already loaded — no gap when playback ends. The
+    # recorder stays armed-but-ignoring (large ready-delay) during playback, then
+    # talk.sh sends SIGUSR1 to flip it live the *instant* the audio + beep finish.
+    # Event-driven activation — no guessed timing, so it feels immediate.
+    if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+        local tts_wav
+        tts_wav=$(TTS_NO_PLAY=1 TTS_ENGINE="$TTS_ENGINE" \
+            VIBEVOICE_MODEL="${VIBEVOICE_MODEL:-vibe-realtime-8bit}" \
+            VIBEVOICE_VOICE="${VIBEVOICE_VOICE:-en-Emma_woman}" \
+            VIBEVOICE_VOICE_AUTO="${VIBEVOICE_VOICE_AUTO:-1}" \
+            VIBEVOICE_CFG_SCALE="${VIBEVOICE_CFG_SCALE:-2.0}" \
+            VIBEVOICE_DDPM_STEPS="${VIBEVOICE_DDPM_STEPS:-15}" \
+            VIBEVOICE_WS_URI="${VIBEVOICE_WS_URI:-ws://127.0.0.1:8010/ws/tts}" \
+            bash "$TTS_SH" "$text" "$lang" 2>/dev/null) || true
+
+        if [ -n "$tts_wav" ] && [ -f "$tts_wav" ]; then
+            # Pre-generate the beep now so the cue is instant at hand-off.
+            ensure_beep || true
+
+            # Large ready-delay = safety net only; SIGUSR1 is the real trigger.
+            # If the signal somehow never lands, the mic still opens after this.
+            local vad_out vad_pid
+            vad_out=$(mktemp /tmp/opencode-vad-output.XXXXXX)
+            "$PYTHON" "$VAD_PY" --oneshot \
+                --mic-query "$MIC_QUERY" \
+                --output-file "${TMPDIR:-/tmp}/opencode-utterance.wav" \
+                --vad-threshold "$VAD_THRESHOLD" \
+                --min-silence-ms "$VAD_MIN_SILENCE_MS" \
+                --ready-delay-ms 600000 \
+                --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-300}" \
+                2>/dev/null >"$vad_out" &
+            vad_pid=$!
+
+            sleep 0.05  # let sounddevice open the mic + register SIGUSR1
+
+            play_wav "$tts_wav"        # speak the reply (blocking)
+            rm -f "$tts_wav"
+            play_beep                  # cue the instant speech ends
+            kill -USR1 "$vad_pid" 2>/dev/null  # flip the recorder live now
+            echo "Listening…" >&2
+
+            wait "$vad_pid"
+
+            local file
+            file=$("$PYTHON" -c "
+import json
+with open('$vad_out') as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            d = json.loads(line)
+            if d.get('event') == 'speech_end':
+                print(d.get('file',''))
+        except: pass
+")
+            rm -f "$vad_out"
+
+            if [ -n "$file" ] && [ -f "$file" ]; then
+                local stt_info stt_url stt_model text
+                stt_info="$(resolve_stt)"
+                stt_url="$(printf '%s\n' "$stt_info" | sed -n '1p')"
+                stt_model="$(printf '%s\n' "$stt_info" | sed -n '2p')"
+                if text=$(transcribe_file "$file" "$stt_url" "$stt_model"); then
+                    if is_stop_phrase "$text"; then
+                        echo "[talk] Stop phrase detected (\"$text\"): ending session" >&2
+                        rm -f "$file"
+                        echo ""
+                        exit 0
+                    fi
+                    echo "$text"
+                    rm -f "$file"
+                    return 0
+                fi
+                rm -f "$file"
+            fi
+            echo ""
+            return 0
+        fi
+
+        echo "[talk] TTS pre-generation failed, falling back to simple mode" >&2
+    fi
+
+    # Simple mode (fallback): TTS generates + plays, then listen
     if ! TTS_ENGINE="$TTS_ENGINE" \
     VIBEVOICE_MODEL="${VIBEVOICE_MODEL:-vibe-realtime-8bit}" \
     VIBEVOICE_VOICE="${VIBEVOICE_VOICE:-en-Emma_woman}" \
@@ -479,7 +621,7 @@ stt_memory_stats() {
     fi
 
     local stt_pid
-    stt_pid=$(pgrep -f '/Users/op/bin/speech-server' | head -1)
+    stt_pid=$(pgrep -f "${SPEECH_SERVER_BIN:-$HOME/bin/speech-server}" | head -1)
     if [ -z "$stt_pid" ]; then
         echo "  speech-server: not running"
         return 0
@@ -506,16 +648,40 @@ cmd_status() {
     echo "=== Audio Input Devices ==="
     "$PYTHON" "$VAD_PY" --list-devices 2>&1 | grep -v '^$'
     echo ""
-    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<auto-detect>}) ==="
-    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-}" 2>&1 || echo "(selection failed)"
+    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<unset — system default wins>}) ==="
+    if [ -n "$MIC_QUERY" ]; then
+        "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "$MIC_QUERY" 2>&1 || echo "(selection failed)"
+    else
+        "$PYTHON" "$VAD_PY" --print-selected-mic 2>&1 || echo "(selection failed)"
+    fi
     echo ""
 
     echo "=== TTS (engine=$TTS_ENGINE) ==="
-    if [ "$TTS_ENGINE" = "xai" ]; then
+    if [ "$TTS_ENGINE" = "qwen" ] || [ "$TTS_ENGINE" = "qwen3" ] || [ "$TTS_ENGINE" = "qwen3-tts" ] || [ "$TTS_ENGINE" = "qwen-lazy" ] || [ "$TTS_ENGINE" = "lazy" ]; then
+        local qwen_url="${QWEN_TTS_URL:-http://127.0.0.1:18881}"
+        echo "  Quality: ${QWEN_TTS_QUALITY:-fast}  (fast=0.6B :18881 · hq=1.7B :18882 · lazy=1.7B :18883 auto-start)"
+        echo "  Active URL: $qwen_url"
+        echo "  Voice: ${QWEN_TTS_VOICE:-serena}   Model: ${QWEN_TTS_MODEL:-qwen3-tts}"
+        local _qu _qname
+        for _qu in "${QWEN_TTS_URL_FAST:-http://127.0.0.1:18881}|fast-0.6B" "${QWEN_TTS_URL_HQ:-http://127.0.0.1:18882}|hq-1.7B" "${QWEN_TTS_URL_LAZY:-http://127.0.0.1:18883}|lazy-1.7B(idle-5m)"; do
+            _qname="${_qu##*|}"; _qu="${_qu%%|*}"
+            if curl -sf -m 2 "$_qu/health" >/dev/null 2>&1; then
+                echo "    $_qname $_qu — RUNNING ($(curl -sf -m 2 "$_qu/health" | "$PYTHON" -c "import json,sys; h=json.load(sys.stdin); print('ready' if h.get('backend',{}).get('ready') else h.get('status','?'))" 2>/dev/null || echo ok))"
+            else
+                echo "    $_qname $_qu — not reachable"
+            fi
+        done
+    elif [ "$TTS_ENGINE" = "xai" ]; then
         echo "  xAI voice: ${XAI_TTS_VOICE:-eve}"
         echo "  xAI model: ${XAI_TTS_MODEL:-grok-2-audio}"
         echo "  API key: $([ -n "${XAI_API_KEY:-}" ] && echo 'set' || echo 'NOT SET')"
         echo "  Fallback: VibeVoice only; macOS say disabled"
+    elif [ "$TTS_ENGINE" = "inworld" ]; then
+        echo "  Inworld voice: ${INWORLD_TTS_VOICE:-Ashley}"
+        echo "  Inworld model: ${INWORLD_TTS_MODEL:-inworld-tts-2}"
+        echo "  Inworld endpoint: ${INWORLD_TTS_URL:-https://api.inworld.ai/tts/v1/voice}"
+        echo "  API key: $([ -n "${INWORLD_API_KEY:-}${INWORLD_TTS_API:-}" ] && echo 'set' || echo 'NOT SET')"
+        echo "  Encoding: ${INWORLD_TTS_ENCODING:-LINEAR16} @ ${INWORLD_TTS_SAMPLE_RATE:-48000} Hz"
     elif [ "$TTS_ENGINE" = "vibevoice" ] || [ "$TTS_ENGINE" = "vibe" ] || [ "$TTS_ENGINE" = "mlx-vibe" ]; then
         echo "  VibeVoice model: ${VIBEVOICE_MODEL:-vibe-realtime-8bit}"
         echo "  VibeVoice voice: ${VIBEVOICE_VOICE:-en-Emma_woman}"
@@ -524,7 +690,7 @@ cmd_status() {
         echo "  DDPM steps: ${VIBEVOICE_DDPM_STEPS:-15}"
     elif [ "$TTS_ENGINE" = "supertonic" ] || [ "$TTS_ENGINE" = "coreml-tts" ]; then
         echo "  Supertonic 3 URL: ${SUPERTONIC_URL:-http://127.0.0.1:8766}"
-        echo "  Voice: ${SUPERTONIC_VOICE:-F4}   Steps: ${SUPERTONIC_STEPS:-8} (${TTS_QUALITY:-normal})"
+        echo "  Voice: ${SUPERTONIC_VOICE:-F4}   Steps: ${SUPERTONIC_STEPS:-20} (${TTS_QUALITY:-high})"
         if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
             echo "  Compute: ${SUPERTONIC_COMPUTE_UNITS:-CPU_AND_NE}"
         else
@@ -605,92 +771,16 @@ print('  silero-vad :', silero_vad.__version__)
 " 2>&1
 }
 
-cmd_list_mics() {
-    # Machine-parseable: index|name|inputs|sample_rate (one per input device)
-    "$PYTHON" -c "
-import sounddevice as sd
-devs = sd.query_devices()
-for i, d in enumerate(devs):
-    if d.get('max_input_channels', 0) > 0:
-        ins = int(d['max_input_channels'])
-        sr = int(d.get('default_samplerate', 0))
-        print(f'{i}|{d[\"name\"]}|{ins}|{sr}')
-"
-}
-
-cmd_save_mic() {
-    local query="$1"
-    if [ -z "$query" ]; then
-        echo "Usage: talk.sh save-mic <query>" >&2
-        exit 1
-    fi
-    # Sanitize: strip shell-dangerous characters before writing to a sourced file
-    local safe_query="$query"
-    safe_query="${safe_query//\"/}"   # double quotes
-    safe_query="${safe_query//\$/}"   # dollar signs
-    safe_query="${safe_query//\`/}"   # backticks
-    safe_query="${safe_query//\\/}"   # backslashes
-    safe_query="${safe_query//;/}"    # semicolons
-    safe_query="${safe_query//$'\n'/}" # newlines
-    mkdir -p "$(dirname "$TALK_MIC_CONFIG")"
-    printf '# Saved by talk.sh on %s\nMIC_QUERY="%s"\n' \
-        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$safe_query" > "$TALK_MIC_CONFIG"
-    echo "Saved mic preference: $safe_query" >&2
-}
-
-cmd_pick_mic() {
-    echo "=== Available Input Devices ===" >&2
-    local devices
-    devices=$(cmd_list_mics)
-    local count=0
-    local IFS_saved="$IFS"
-    while IFS='|' read -r idx name ins sr; do
-        count=$((count + 1))
-        printf "  [%s] %-50s  inputs=%s  sr=%s\n" "$idx" "$name" "$ins" "$sr" >&2
-    done <<< "$devices"
-    IFS="$IFS_saved"
-
-    if [ "$count" -eq 0 ]; then
-        echo "No input devices found." >&2
-        exit 1
-    fi
-
-    if [ -n "${MIC_QUERY:-}" ]; then
-        echo "" >&2
-        echo "Current saved mic query: \"$MIC_QUERY\"" >&2
-    fi
-    echo "" >&2
-    printf "Enter device number (or 'q' to quit): " >&2
-    read -r choice
-    if [ "$choice" = "q" ] || [ "$choice" = "Q" ]; then
-        echo "Cancelled." >&2
-        exit 0
-    fi
-    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
-        echo "Invalid choice: $choice" >&2
-        exit 1
-    fi
-
-    local name
-    name=$(echo "$devices" | awk -F'|' -v idx="$choice" '$1 == idx {print $2}')
-    if [ -z "$name" ]; then
-        echo "Device index $choice not found in input device list." >&2
-        exit 1
-    fi
-
-    local query
-    query=$(echo "$name" | sed 's/[:(),]//g' | awk '{for(i=1;i<=NF&&i<=4;i++) printf "%s%s", $i, (i<NF?" ":"")}' | sed 's/ *$//')
-    cmd_save_mic "$query"
-    echo "Selected: [$choice] $name" >&2
-    echo "$query"
-}
-
 cmd_devices() {
     echo "=== Audio Input Devices ===" >&2
     "$PYTHON" "$VAD_PY" --list-devices
     echo ""
-    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<auto-detect>}) ==="
-    "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "${MIC_QUERY:-}" 2>&1 || echo "(selection failed)"
+    echo "=== Selected Microphone (MIC_QUERY=${MIC_QUERY:-<unset — system default wins>}) ==="
+    if [ -n "$MIC_QUERY" ]; then
+        "$PYTHON" "$VAD_PY" --print-selected-mic --mic-query "$MIC_QUERY" 2>&1 || echo "(selection failed)"
+    else
+        "$PYTHON" "$VAD_PY" --print-selected-mic 2>&1 || echo "(selection failed)"
+    fi
 }
 
 case "${1:-listen}" in
@@ -710,17 +800,8 @@ case "${1:-listen}" in
     devices|mic|list-devices)
         cmd_devices
         ;;
-    list-mics)
-        cmd_list_mics
-        ;;
-    save-mic)
-        cmd_save_mic "${2:-}"
-        ;;
-    pick|pick-mic)
-        cmd_pick_mic
-        ;;
     *)
-        echo "Usage: talk.sh {listen|speak|loop|status|devices|list-mics|save-mic|pick}" >&2
+        echo "Usage: talk.sh {listen|speak|loop|status|devices}" >&2
         exit 1
         ;;
 esac

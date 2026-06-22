@@ -100,7 +100,9 @@ On the Neural Engine, Supertonic 3 TTS synthesizes **8–30× faster than CPU ON
                      ┌──────────────────────────────────────┐
                      │ Supertonic TTS (:8766) — default     │  ONNX, CPU
                      │ Supertonic 2  (:8880)  — optional    │  ONNX, CPU
+                     │ Qwen3-TTS (:1888x)     — optional    │  local MLX
                      │ NeuTTS (:8020)         — fallback 1   │  local GGUF
+                     │ Inworld (cloud)        — optional    │  cloud API
                      │ xAI (api.x.ai)         — fallback 2   │  cloud API
                      └──────────────────────────────────────┘
                                           │
@@ -117,7 +119,8 @@ On the Neural Engine, Supertonic 3 TTS synthesizes **8–30× faster than CPU ON
 ## Features
 
 - **Three CPU-native engines** — Silero VAD, Parakeet STT (25 languages), Supertonic TTS (EN/ES/KO/PT/FR)
-- **Multi-engine TTS with fallbacks** — Supertonic (local ONNX) → NeuTTS (local GGUF) → xAI (cloud, last resort); local engines are always tried before the cloud
+- **Multi-engine TTS with fallbacks** — Supertonic (local ONNX, default) → NeuTTS (local GGUF) → xAI (cloud, last resort); local engines are always tried before the cloud. Optional opt-in engines: [**Qwen3-TTS**](https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi) (local MLX, Apple Silicon) and **Inworld** (cloud) — select with `TTS_ENGINE=<name>`
+- **Click-free phrase edges** — every TTS clip/chunk gets a short fade-in/out (`TTS_FADE_MS`, default 6 ms), killing the onset/offset pop that neural engines (e.g. Inworld) emit at sentence boundaries
 - **Pipelined talk loop** — TTS finishes, mic opens instantly (`TALK_AUTO_LISTEN=1`)
 - **Barge-in** — interrupt playback by speaking (opt-in, `TALK_BARGE_IN=1`)
 - **Five agents, one skill** — Claude Code, OpenCode CLI, OpenClaw, Hermes, Codex

@@ -121,8 +121,16 @@ honors that choice first, then still falls back to local engines.)
 |---------|-----------|-----------|--------------------------|
 | `supertonic` (default) → | `neutts` (local) → | `xai` (cloud) | — |
 | `supertonic2` (opt-in) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
+| `qwen` (opt-in, MLX) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
+| `inworld` (opt-in, cloud) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
 | `neutts` → | `supertonic` (local) → | `xai` (cloud) | — |
 | `xai` (explicit) → | `supertonic` (local) → | `neutts` (local) | — |
+
+> Optional engines opt in via `TTS_ENGINE=<name>`. `qwen` needs a local MLX
+> server (Apple Silicon) — see https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi.
+> `inworld` needs `INWORLD_API_KEY`. Every TTS clip/chunk is passed through a
+> short fade-in/out (`TTS_FADE_MS`, default 6 ms) to remove onset/offset clicks
+> at sentence boundaries.
 
 ## Full Turn Data Flow
 
