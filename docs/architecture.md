@@ -122,9 +122,16 @@ honors that choice first, then still falls back to local engines.)
 | `supertonic` (default) → | `neutts` (local) → | `xai` (cloud) | — |
 | `supertonic2` (opt-in) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
 | `qwen` (opt-in, MLX) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
+| `openai` (remote, slow-CPU offload) → | `supertonic` (local) → | `neutts` (local) | — |
 | `inworld` (opt-in, cloud) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
 | `neutts` → | `supertonic` (local) → | `xai` (cloud) | — |
 | `xai` (explicit) → | `supertonic` (local) → | `neutts` (local) | — |
+
+> **Remote engines for slow CPUs:** `openai` hits any OpenAI-compatible
+> `/v1/audio/speech` (OpenAI, a hosted provider, or your own box) and streams by
+> sentence; `inworld` adds per-sentence expressive steering. STT can likewise be
+> pointed at a remote OpenAI-compatible endpoint via `STT_ENGINE=remote` +
+> `STT_REMOTE_URL` + `STT_API_KEY`. Full matrix: [`providers.md`](providers.md).
 
 > Optional engines opt in via `TTS_ENGINE=<name>`. `qwen` needs a local MLX
 > server (Apple Silicon) — see https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi.

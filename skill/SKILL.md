@@ -96,9 +96,10 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STT_ENGINE` | `coreml` | STT backend (local Parakeet ONNX `:5093`) |
+| `STT_ENGINE` | `coreml` | STT backend — `local` Parakeet `:5093`, or `remote` (set `STT_REMOTE_URL` + `STT_API_KEY`) for OpenAI Whisper etc. |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Parakeet ONNX endpoint |
-| `TTS_ENGINE` | `supertonic` | `supertonic` (local ONNX, default), `qwen` (local MLX, opt-in), `neutts` (local GGUF), `inworld` (cloud), `xai` (cloud) |
+| `TTS_ENGINE` | `supertonic` | Local: `supertonic` (default), `qwen` (MLX, opt-in), `neutts`. Remote (slow-CPU offload): `openai`, `inworld`, `xai`. See [docs/providers.md](../docs/providers.md) |
+| `OPENAI_API_KEY` | (for `openai`) | Bearer key for remote OpenAI-compatible TTS (or `OPENAI_TTS_KEY`); `OPENAI_TTS_URL` sets the base URL |
 | `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic 3 TTS endpoint (auto-installed) |
 | `SUPERTONIC_VOICE` | `F4` | Voice style `F1`–`F5` / `M1`–`M5` |
 | `TTS_QUALITY` | `normal` | `normal` = 8 steps, `high` = 20 steps; `SUPERTONIC_STEPS=<1-20>` overrides |

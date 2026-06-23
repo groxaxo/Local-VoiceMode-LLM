@@ -3,7 +3,8 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → TTS (Qwen3-TTS default → Supertonic → NeuTTS → xAI last-resort), then auto-listen
+#   talk.sh speak    → TTS (Supertonic local default → NeuTTS → xAI last-resort), then auto-listen
+#                      (slow CPU? set TTS_ENGINE=openai/inworld — see docs/providers.md)
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
@@ -50,11 +51,13 @@ play_wav() {
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS (Qwen3-TTS local MLX default → Supertonic → NeuTTS → xAI cloud chain)
-# Qwen3-TTS is the local MLX server on :18881 (OpenAI-compatible /v1/audio/speech).
-# Fallback: Supertonic (:8766) → NeuTTS (local GGUF, :8020) → xAI (requires XAI_API_KEY).
-: "${TTS_ENGINE:=qwen}"
-# Two CustomVoice MLX servers: fast 0.6B (:18881) + HQ 1.7B (:18882).
+# TTS — Supertonic (local ONNX, CPU) is the repo default; all other engines are
+# secondary. Local fallback chain: Supertonic (:8766) → NeuTTS (local GGUF, :8020)
+# → xAI (cloud, requires XAI_API_KEY). Remote engines for slow CPUs (openai/inworld)
+# are opt-in via TTS_ENGINE — see docs/providers.md. Qwen3-TTS (local MLX) is also
+# opt-in (TTS_ENGINE=qwen); its URLs are resolved below but unused unless selected.
+: "${TTS_ENGINE:=supertonic}"
+# Qwen3-TTS (opt-in): fast 0.6B (:18881) / HQ 1.7B (:18882) MLX servers.
 # QWEN_TTS_QUALITY=fast|hq picks which; tts.sh resolves the actual URL.
 : "${QWEN_TTS_QUALITY:=hq}"
 : "${QWEN_TTS_URL_FAST:=http://127.0.0.1:18881}"
@@ -88,6 +91,10 @@ fi
 : "${STT_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_MODEL:=${STT_MODEL}}"
+# Optional bearer key for a REMOTE STT endpoint (e.g. OpenAI Whisper for slow CPUs).
+# Local Parakeet needs none, so this stays empty by default. STT_REMOTE_KEY wins,
+# then STT_API_KEY, then OPENAI_API_KEY.
+: "${STT_API_KEY:=${STT_REMOTE_KEY:-${OPENAI_API_KEY:-}}}"
 # VAD parameters (passed to vad_recorder.py)
 # 700ms trailing silence tolerates natural mid-sentence pauses without cutting
 # the turn early; lower to ~500 for snappier (but more interrupt-prone) endpointing.
@@ -167,9 +174,13 @@ transcribe_file() {
     local response_file http_code
 
     response_file="$(mktemp /tmp/opencode-stt-response.XXXXXX.json)"
+    # Send a bearer header only when a key is set (remote OpenAI-compatible STT).
+    local auth_args=()
+    [ -n "${STT_API_KEY:-}" ] && auth_args=(-H "Authorization: Bearer ${STT_API_KEY}")
     http_code=$(curl -sS -m "${STT_TIMEOUT_SECONDS:-45}" \
         -o "$response_file" \
         -w '%{http_code}' \
+        "${auth_args[@]}" \
         "$stt_url" \
         -F "file=@$file" \
         -F "model=$stt_model") || {
