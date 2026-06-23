@@ -96,7 +96,8 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STT_ENGINE` | `coreml` | STT backend — `local` Parakeet `:5093`, or `remote` (set `STT_REMOTE_URL` + `STT_API_KEY`) for OpenAI Whisper etc. |
+| `STT_ENGINE` | `local` | STT backend — `local` Parakeet (ONNX, **CPU**) on `:5093` by default; or `remote` (set `STT_REMOTE_URL` + `STT_API_KEY`) for OpenAI Whisper etc. |
+| `STT_MODEL` | `parakeet-tdt-0.6b-v3` | Parakeet ONNX/CPU model (same on all platforms) |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Parakeet ONNX endpoint |
 | `TTS_ENGINE` | `supertonic` | Local: `supertonic` (default), `qwen` (MLX, opt-in), `neutts`. Remote (slow-CPU offload): `openai`, `inworld`, `xai`. See [docs/providers.md](../docs/providers.md) |
 | `OPENAI_API_KEY` | (for `openai`) | Bearer key for remote OpenAI-compatible TTS (or `OPENAI_TTS_KEY`); `OPENAI_TTS_URL` sets the base URL |

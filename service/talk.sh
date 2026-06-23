@@ -9,7 +9,7 @@
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
 #   tts.sh           (NeuTTS / xAI / VibeVoice / Supertonic)
-#   Parakeet STT     (local :5093 — ONNX/CPU on Linux/Windows, CoreML on macOS)
+#   Parakeet STT     (local :5093 — ONNX, CPU, on all platforms)
 #
 # Usage:
 #   talk.sh listen                  — record one utterance, transcribe, print text
@@ -80,13 +80,12 @@ export QWEN_TTS_QUALITY QWEN_TTS_URL QWEN_TTS_URL_FAST QWEN_TTS_URL_HQ QWEN_TTS_
 : "${VIBEVOICE_CFG_SCALE:=2.0}"
 : "${VIBEVOICE_DDPM_STEPS:=15}"
 export TTS_ENGINE
-# STT: local Parakeet on :5093 — ONNX (CPU) on Linux/Windows, CoreML on macOS.
-# The model name is sent as the `model` param, so default it per platform.
-if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-    : "${STT_MODEL:=FluidInference/parakeet-tdt-0.6b-v3-coreml}"
-else
-    : "${STT_MODEL:=parakeet-tdt-0.6b-v3}"
-fi
+# STT: local Parakeet on :5093 — ONNX, CPU, on EVERY platform. setup.sh installs
+# the same ONNX server (groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai) with the
+# CPU onnxruntime wheel on macOS/Linux/Windows, so the default model is the CPU
+# ONNX one everywhere. (Apple Silicon CoreML is opt-in: set STT_MODEL to a CoreML
+# model name only if you run a CoreML-backed server.)
+: "${STT_MODEL:=parakeet-tdt-0.6b-v3}"
 : "${STT_ENGINE:=local}"    # local | remote; both default to local :5093 unless env overrides
 : "${STT_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
@@ -353,7 +352,7 @@ with open('$vad_out') as f:
         exit 0
     fi
 
-    # Transcribe (local Parakeet on :5093 — ONNX/CPU on Linux, CoreML on macOS)
+    # Transcribe (local Parakeet on :5093 — ONNX, CPU, on all platforms)
     local stt_info stt_url stt_model text
     stt_info="$(resolve_stt)"
     stt_url="$(printf '%s\n' "$stt_info" | sed -n '1p')"
@@ -611,19 +610,24 @@ stt_memory_stats() {
         return 0
     fi
 
-    # macOS: compiled CoreML model via FluidAudio.
+    # macOS default backend = the same ONNX (CPU) Parakeet server as Linux/Windows
+    # (groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai, run via launchd). Report it first.
+    local onnx_cache="$HOME/.cache/huggingface/hub/models--istupakov--parakeet-tdt-0.6b-v3-onnx"
+    if [ -d "$onnx_cache" ]; then
+        echo "  ONNX model on disk (CPU default): $(du -sh "$onnx_cache" 2>/dev/null | awk '{print $1}')"
+    else
+        echo "  ONNX model on disk (CPU default): not found (first STT run will download)"
+    fi
+
+    # Optional: a precompiled CoreML speech-server (FluidAudio), only if you run one.
     local parakeet_dir="$HOME/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3"
     if [ -d "$parakeet_dir" ]; then
-        echo "  Model on disk (compiled CoreML): $(du -sh "$parakeet_dir" 2>/dev/null | awk '{print $1}')"
-    else
-        echo "  Model on disk: not found (first STT run will download)"
+        echo "  Optional CoreML model on disk: $(du -sh "$parakeet_dir" 2>/dev/null | awk '{print $1}')"
     fi
 
     local hf_cache="$HOME/.cache/huggingface/hub/models--FluidInference--parakeet-tdt-0.6b-v3-coreml"
     if [ -d "$hf_cache" ]; then
-        echo "  HF cache (duplicate, safe to delete): $(du -sh "$hf_cache" 2>/dev/null | awk '{print $1}')"
-    else
-        echo "  HF cache: not present"
+        echo "  CoreML HF cache (optional, safe to delete): $(du -sh "$hf_cache" 2>/dev/null | awk '{print $1}')"
     fi
 
     local pocket_cache="$HOME/.cache/fluidaudio"
