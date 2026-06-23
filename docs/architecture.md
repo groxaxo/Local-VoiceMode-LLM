@@ -15,12 +15,14 @@ The architecture is modeled after OpenVoiceApp iOS, a production voice app whose
                                Agent / OpenCode
                                       │
                                       ▼
-                     ┌──────────────────────────────────┐
-                     │ Supertonic TTS (:8766)  — default │
-                     │ Supertonic 2  (:8880)   — optional│
-                     │ NeuTTS (:8020)         — fallback │
-                     │ xAI (cloud)            — fallback │
-                     └──────────────────────────────────┘
+                     ┌──────────────────────────────────────┐
+                     │ Supertonic TTS (:8766)  — default     │  local CPU
+                     │ Supertonic 2  (:8880)   — optional    │  local CPU
+                     │ NeuTTS (:8020)          — fallback    │  local GGUF
+                     │ openai  (OpenAI-compatible) — remote  │  slow-CPU offload
+                     │ inworld (expressive, steered) — remote│  cloud
+                     │ xAI (cloud)             — last resort │  cloud
+                     └──────────────────────────────────────┘
                                       │
                                       ▼
                                afplay ──▶ listen again
@@ -113,16 +115,41 @@ coverage as Supertonic 3. See [`integrations/supertonic2/`](../integrations/supe
 
 ### TTS Fallback Chain
 
-**Policy:** local engines are always exhausted before the xAI cloud — xAI is the
-last resort, used only if every local engine fails. (Selecting `xai` explicitly
-honors that choice first, then still falls back to local engines.)
+**Policy:** when the primary is a **local** engine, the local engines are always
+exhausted before any cloud. Choosing a **remote** engine (`openai`/`inworld`/`xai`)
+honors that choice first, then still falls back to the local engines so a dropped
+network connection never leaves you mute.
 
 | Primary | Fallback 1 | Fallback 2 | Fallback 3 (last resort) |
 |---------|-----------|-----------|--------------------------|
 | `supertonic` (default) → | `neutts` (local) → | `xai` (cloud) | — |
 | `supertonic2` (opt-in) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
 | `neutts` → | `supertonic` (local) → | `xai` (cloud) | — |
-| `xai` (explicit) → | `supertonic` (local) → | `neutts` (local) | — |
+| `openai` (remote) → | `supertonic` (local) → | `neutts` (local) | — |
+| `inworld` (remote) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
+| `xai` (remote) → | `supertonic` (local) → | `neutts` (local) | — |
+
+> An Inworld **auth** failure (HTTP 401/403) exits loudly instead of silently
+> switching to a different voice — a bad key is a config error to fix.
+
+### Remote engines (for slow CPUs)
+
+The local ONNX engines are CPU-tuned, but on a slow/old CPU even 8-step Supertonic
+can lag a live conversation. Two remote escape hatches share the same `talk` flow:
+
+- **`openai`** — generic OpenAI-compatible `POST <OPENAI_TTS_URL>/audio/speech`.
+  Works with OpenAI, hosted providers, or your own remote box running an
+  OpenAI-compatible server. **Chunks the reply on sentence boundaries and streams**:
+  requests fire in parallel and playback starts on the first sentence.
+- **`inworld`** — expressive cloud TTS. `service/inworld_steer.sh` rewrites each
+  sentence with inworld-tts-2 delivery tags; steering runs **per sentence inside the
+  parallel synth jobs**, so the LLM rewrite of one sentence overlaps synthesis of the
+  others instead of being one serial pre-pass. Inworld returns base64 LINEAR16, which
+  `tts.sh` wraps into a WAV; a few-ms edge fade kills the onset click.
+
+STT can likewise be pointed at a remote OpenAI-compatible endpoint (e.g. Whisper)
+with `STT_ENGINE=remote` + `STT_REMOTE_URL` + `STT_API_KEY` — the bearer header is
+only sent when a key is set. Full matrix: [`providers.md`](providers.md).
 
 ## Full Turn Data Flow
 

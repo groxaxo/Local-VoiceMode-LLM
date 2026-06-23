@@ -100,8 +100,11 @@ On the Neural Engine, Supertonic 3 TTS synthesizes **8–30× faster than CPU ON
                      ┌──────────────────────────────────────┐
                      │ Supertonic TTS (:8766) — default     │  ONNX, CPU
                      │ Supertonic 2  (:8880)  — optional    │  ONNX, CPU
-                     │ NeuTTS (:8020)         — fallback 1   │  local GGUF
-                     │ xAI (api.x.ai)         — fallback 2   │  cloud API
+                     │ NeuTTS (:8020)         — fallback     │  local GGUF
+                     │ ── remote (for slow CPUs) ────────────│
+                     │ openai  (OpenAI-compatible /v1)       │  cloud / your box
+                     │ inworld (expressive, steered)         │  cloud API
+                     │ xAI (api.x.ai)         — last resort  │  cloud API
                      └──────────────────────────────────────┘
                                           │
                                           ▼
@@ -114,10 +117,35 @@ On the Neural Engine, Supertonic 3 TTS synthesizes **8–30× faster than CPU ON
 
 > **Ports:** Supertonic uses `:8766` (not `:8765`) so it can coexist with an existing Chatterbox server — override with `SUPERTONIC_PORT=8765` to replace it. Parakeet STT runs on `:5093`; if a precompiled `speech-server` is already there, `setup.sh` detects it and leaves it alone.
 
+## Slow CPU? Offload to a remote provider
+
+Local-first is the default and the point — but if your CPU is too slow to keep up
+with a live conversation, you don't have to give up the workflow. Point TTS (and
+optionally STT) at any **OpenAI-compatible endpoint** — OpenAI itself, a hosted
+provider, or your own remote GPU box on the LAN — and everything else stays the same.
+
+```bash
+# Offload just TTS to a remote OpenAI-compatible endpoint:
+TTS_ENGINE=openai OPENAI_API_KEY=sk-... talk.sh speak "Hello"
+
+# Or use your own remote server (no OpenAI account needed):
+TTS_ENGINE=openai OPENAI_TTS_URL=http://192.168.1.50:8000/v1 OPENAI_TTS_KEY=x talk.sh speak "Hi"
+
+# Most expressive voice (Inworld, per-sentence steering):
+TTS_ENGINE=inworld INWORLD_API_KEY=... INWORLD_TTS_VOICE=Olivia talk.sh speak "Hello"
+```
+
+The remote `openai` engine **streams by sentence** (fires requests in parallel,
+plays the first sentence while the rest synthesize), and every remote engine falls
+back to the local ones if the network drops. STT (Parakeet) is light enough to stay
+local on almost any machine, but you can offload it too. Full matrix, every
+variable, and how to choose: **[docs/providers.md](docs/providers.md)**.
+
 ## Features
 
 - **Three CPU-native engines** — Silero VAD, Parakeet STT (25 languages), Supertonic TTS (EN/ES/KO/PT/FR)
 - **Multi-engine TTS with fallbacks** — Supertonic (local ONNX) → NeuTTS (local GGUF) → xAI (cloud, last resort); local engines are always tried before the cloud
+- **Remote escape hatch for slow CPUs** — offload TTS to any OpenAI-compatible endpoint (`TTS_ENGINE=openai`) or to expressive Inworld cloud (`TTS_ENGINE=inworld`), and STT to remote Whisper — same `talk` workflow, see [docs/providers.md](docs/providers.md)
 - **Pipelined talk loop** — TTS finishes, mic opens instantly (`TALK_AUTO_LISTEN=1`)
 - **Barge-in** — interrupt playback by speaking (opt-in, `TALK_BARGE_IN=1`)
 - **Five agents, one skill** — Claude Code, OpenCode CLI, OpenClaw, Hermes, Codex
@@ -242,8 +270,10 @@ A FastAPI proxy on `:7862` forwards requests to Supertonic and Parakeet so you d
 ```bash
 talk.sh listen                          # record + transcribe → stdout
 talk.sh speak "Hello"                   # synthesize, then auto-listen
+TTS_ENGINE=supertonic talk.sh speak "…" # force local Supertonic (default)
+TTS_ENGINE=openai talk.sh speak "…"     # remote OpenAI-compatible (slow-CPU offload)
+TTS_ENGINE=inworld talk.sh speak "…"    # remote expressive cloud (steered)
 TTS_ENGINE=xai talk.sh speak "…"        # force xAI cloud TTS
-TTS_ENGINE=supertonic talk.sh speak "…" # force local Supertonic
 talk.sh status                          # health check
 talk.sh devices                         # list mics
 ```
@@ -264,13 +294,22 @@ Full rules in [`skill/SKILL.md`](skill/SKILL.md).
 
 |Variable             |Default                                        |Description                                                           |
 |---------------------|-----------------------------------------------|----------------------------------------------------------------------|
-|`STT_ENGINE`         |`local`                                        |STT backend — Parakeet on `:5093` (ONNX/CPU on Linux, CoreML on macOS)|
+|`STT_ENGINE`         |`local`                                        |STT backend — `local` Parakeet `:5093`, or `remote` (set `STT_REMOTE_URL`)|
 |`STT_URL`            |`http://127.0.0.1:5093/v1/audio/transcriptions`|Local Parakeet endpoint                                               |
-|`TTS_ENGINE`         |`supertonic`                                   |`supertonic` (local ONNX) → `neutts` (local GGUF) → `xai` (cloud, last resort)     |
+|`STT_REMOTE_URL`     |(local `:5093`)                                |Remote `/v1/audio/transcriptions` (e.g. OpenAI Whisper) when `STT_ENGINE=remote`|
+|`STT_API_KEY`        |(env)                                          |Bearer key for remote STT (also `STT_REMOTE_KEY` / `OPENAI_API_KEY`); empty = no auth|
+|`TTS_ENGINE`         |`supertonic`                                   |`supertonic`/`supertonic2`/`neutts` (local) · `openai`/`inworld`/`xai` (remote) — see [providers](docs/providers.md)|
 |`SUPERTONIC_URL`     |`http://127.0.0.1:8766`                        |Supertonic endpoint                                                   |
 |`SUPERTONIC_VOICE`   |`F4`                                           |`F1`–`F5` / `M1`–`M5`                                                 |
 |`TTS_QUALITY`        |`normal`                                       |`normal` = 8 steps (fast) · `high` = 20 steps (best)                  |
 |`SUPERTONIC_STEPS`   |(from quality)                                 |Denoising steps `1`–`20`; overrides the preset                        |
+|`OPENAI_API_KEY`     |(env)                                          |Bearer key for remote `openai` TTS (or `OPENAI_TTS_KEY`)              |
+|`OPENAI_TTS_URL`     |`https://api.openai.com/v1`                    |OpenAI-compatible base URL — set to your own box for LAN offload      |
+|`OPENAI_TTS_MODEL`   |`gpt-4o-mini-tts`                              |Remote speech model (`tts-1`, `tts-1-hd`, …)                         |
+|`OPENAI_TTS_VOICE`   |`alloy`                                        |`alloy` · `echo` · `fable` · `onyx` · `nova` · `shimmer`             |
+|`INWORLD_API_KEY`    |(env)                                          |Basic/base64 key for `inworld` TTS (or `INWORLD_TTS_API`)            |
+|`INWORLD_TTS_VOICE`  |`Ashley`                                       |Inworld voice id (260 voices)                                        |
+|`INWORLD_STEER`      |`auto`                                         |Per-sentence expressive steering — `auto`/`1`/`0` (`0` = faster, flatter)|
 |`XAI_API_KEY`        |(env)                                          |Bearer token for xAI cloud fallback                                   |
 |`XAI_TTS_VOICE`      |`eve`                                          |`ara` · `eve` · `leo` · `rex` · `sal`                                 |
 |`TALK_AUTO_LISTEN`   |`1`                                            |Run `listen` after `speak`                                            |
@@ -358,10 +397,12 @@ opencode-voice-service/
 ├── service/
 │   ├── vad_recorder.py      # Silero VAD + sounddevice
 │   ├── talk.sh              # voice conversation orchestrator
-│   ├── tts.sh               # multi-engine TTS CLI
+│   ├── tts.sh               # multi-engine TTS CLI (local + remote)
+│   ├── inworld_steer.sh     # per-sentence expressive steering for Inworld TTS
 │   └── tts_lang.sh          # language detection
 ├── windows/talk.ps1         # Windows orchestrator
 ├── skill/SKILL.md           # agent skill descriptor
+├── docs/providers.md        # local-CPU vs remote provider matrix (slow-CPU offload)
 ├── launchd/                 # macOS auto-start plists
 ├── frontend/                # web dashboard
 ├── integrations/ollama/     # talk to a local Ollama model by voice (autoinstaller + command)

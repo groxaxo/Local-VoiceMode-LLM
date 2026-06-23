@@ -72,6 +72,10 @@ fi
 : "${STT_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_MODEL:=${STT_MODEL}}"
+# Optional bearer key for a REMOTE STT endpoint (e.g. OpenAI Whisper for slow CPUs).
+# Local Parakeet needs none, so this stays empty by default. STT_REMOTE_KEY wins,
+# then STT_API_KEY, then OPENAI_API_KEY.
+: "${STT_API_KEY:=${STT_REMOTE_KEY:-${OPENAI_API_KEY:-}}}"
 # VAD parameters (passed to vad_recorder.py)
 # 700ms trailing silence tolerates natural mid-sentence pauses without cutting
 # the turn early; lower to ~500 for snappier (but more interrupt-prone) endpointing.
@@ -140,9 +144,13 @@ transcribe_file() {
     local response_file http_code
 
     response_file="$(mktemp /tmp/opencode-stt-response.XXXXXX.json)"
+    # Send a bearer header only when a key is set (remote OpenAI-compatible STT).
+    local auth_args=()
+    [ -n "${STT_API_KEY:-}" ] && auth_args=(-H "Authorization: Bearer ${STT_API_KEY}")
     http_code=$(curl -sS -m "${STT_TIMEOUT_SECONDS:-45}" \
         -o "$response_file" \
         -w '%{http_code}' \
+        "${auth_args[@]}" \
         "$stt_url" \
         -F "file=@$file" \
         -F "model=$stt_model") || {

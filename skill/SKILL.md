@@ -96,13 +96,19 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STT_ENGINE` | `coreml` | STT backend (local Parakeet ONNX `:5093`) |
+| `STT_ENGINE` | `coreml` | STT backend — `local` Parakeet `:5093`, or `remote` (set `STT_REMOTE_URL` + `STT_API_KEY`) for OpenAI Whisper etc. |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Parakeet ONNX endpoint |
-| `TTS_ENGINE` | `supertonic` | `supertonic` (local ONNX), `neutts` (local GGUF), `xai` (cloud) |
+| `TTS_ENGINE` | `supertonic` | Local: `supertonic`, `supertonic2`, `neutts`. Remote (slow-CPU offload): `openai`, `inworld`, `xai`. See [docs/providers.md](../docs/providers.md) |
 | `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Supertonic 3 TTS endpoint (auto-installed) |
 | `SUPERTONIC_VOICE` | `F4` | Voice style `F1`–`F5` / `M1`–`M5` |
 | `TTS_QUALITY` | `normal` | `normal` = 8 steps, `high` = 20 steps; `SUPERTONIC_STEPS=<1-20>` overrides |
-| `XAI_API_KEY` | (required) | API key for xAI TTS fallback |
+| `OPENAI_API_KEY` | (for `openai`) | Bearer key for remote OpenAI-compatible TTS (or `OPENAI_TTS_KEY`) |
+| `OPENAI_TTS_URL` | `https://api.openai.com/v1` | OpenAI-compatible base URL — set to your own box for LAN offload |
+| `OPENAI_TTS_MODEL` / `OPENAI_TTS_VOICE` | `gpt-4o-mini-tts` / `alloy` | Remote model + voice |
+| `INWORLD_API_KEY` | (for `inworld`) | Basic/base64 key (or `INWORLD_TTS_API`) |
+| `INWORLD_TTS_VOICE` | `Ashley` | Inworld voice id (260 voices) |
+| `INWORLD_STEER` | `auto` | Per-sentence expressive steering — `auto`/`1`/`0` (`0` = faster, flatter) |
+| `XAI_API_KEY` | (for `xai`) | API key for xAI TTS fallback |
 | `XAI_TTS_VOICE` | `eve` | xAI voice: `ara`, `eve`, `leo`, `rex`, `sal` |
 | `TALK_READY_CUE` | 1 | Play a short tone before `listen` |
 | `TALK_READY_SOUND` | Tink.aiff | macOS system sound for ready cue |
