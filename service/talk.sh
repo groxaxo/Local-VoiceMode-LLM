@@ -87,7 +87,15 @@ fi
 : "${MIC_QUERY:=}"  # empty = auto-detect best mic; set to substring like "MacBook Air" or "Headset"
 # Ready cue before listen (short tone so user knows when to speak)
 : "${TALK_READY_CUE:=1}"
-# macOS system sound — on Linux/Windows the file won't exist and we fall back to \a beep
+# Preferred cue: a synthesized beep, generated once and cached. Cross-platform and
+# consistent (no reliance on a macOS-only system sound). Set TALK_BEEP=0 to fall
+# back to TALK_READY_SOUND (below), then the terminal bell.
+: "${TALK_BEEP:=1}"
+: "${TALK_BEEP_MS:=150}"
+: "${TALK_BEEP_FREQ:=880}"
+: "${TALK_BEEP_FILE:=${TMPDIR:-/tmp}/talk-beep.wav}"
+# Fallback system sound — macOS only; on Linux/Windows the file won't exist and we
+# fall back to the \a terminal bell.
 : "${TALK_READY_SOUND:=/System/Library/Sounds/Tink.aiff}"
 : "${TALK_READY_DELAY_MS:=700}"
 # After speak finishes playback, immediately start listen (stdout = next user text)
@@ -208,8 +216,45 @@ detect_lang() {
     fi
 }
 
+# Generate the synthesized beep WAV once and cache it (12ms fades kill clicks).
+ensure_beep() {
+    [ "${TALK_BEEP}" = "0" ] && return 1
+    [ -f "$TALK_BEEP_FILE" ] && return 0
+    "$PYTHON" - "$TALK_BEEP_FILE" "$TALK_BEEP_FREQ" "$TALK_BEEP_MS" <<'PY' 2>/dev/null || return 1
+import sys, wave, math, struct
+path, freq, ms = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
+sr = 44100
+n = int(sr * ms / 1000.0)
+fade = max(1, int(sr * 0.012))  # 12ms fade in/out kills clicks
+buf = bytearray()
+for i in range(n):
+    a = math.sin(2 * math.pi * freq * i / sr)
+    if i < fade:
+        a *= i / fade
+    elif i > n - fade:
+        a *= (n - i) / fade
+    buf += struct.pack('<h', int(a * 0.35 * 32767))
+with wave.open(path, 'wb') as w:
+    w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+    w.writeframes(bytes(buf))
+PY
+    [ -f "$TALK_BEEP_FILE" ]
+}
+
+play_beep() {
+    [ "${TALK_BEEP}" = "0" ] && return 1
+    if ensure_beep; then
+        play_wav "$TALK_BEEP_FILE" 2>/dev/null || { printf '\a' >&2; return 1; }
+    else
+        return 1
+    fi
+}
+
 cmd_ready_cue() {
     [ "${TALK_READY_CUE}" = "0" ] && return 0
+    # Prefer the synthesized cross-platform beep; fall back to a system sound
+    # (macOS) and finally the terminal bell.
+    play_beep && return 0
     if [ -f "$TALK_READY_SOUND" ]; then
         play_wav "$TALK_READY_SOUND" 2>/dev/null || printf '\a'
     else

@@ -111,7 +111,9 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | `XAI_API_KEY` | (for `xai`) | API key for xAI TTS fallback |
 | `XAI_TTS_VOICE` | `eve` | xAI voice: `ara`, `eve`, `leo`, `rex`, `sal` |
 | `TALK_READY_CUE` | 1 | Play a short tone before `listen` |
-| `TALK_READY_SOUND` | Tink.aiff | macOS system sound for ready cue |
+| `TALK_BEEP` | 1 | Preferred cue: a synthesized, cached, cross-platform beep (set `0` → fall back to `TALK_READY_SOUND`, then bell) |
+| `TALK_BEEP_MS` / `TALK_BEEP_FREQ` | 150 / 880 | Beep duration (ms) and frequency (Hz) |
+| `TALK_READY_SOUND` | Tink.aiff | macOS system sound — fallback when `TALK_BEEP=0` |
 | `TALK_READY_DELAY_MS` | 700 | Ignore mic after cue |
 | `VAD_THRESHOLD` | 0.5 | Speech sensitivity — lower = catches softer speech; raise toward 0.6–0.7 to ignore background noise / other speakers (single mic, no speaker separation) |
 | `VAD_MIN_SILENCE_MS` | 700 | End-of-turn silence (700ms tolerates mid-sentence pauses; lower for snappier turns) |
