@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check numpy pytest
+      - name: Compile Python sources
+        run: |
+          python -m compileall -q service frontend benchmarks tests
+      - name: Run regression tests
+        run: python -m pytest -q
+      - name: Check shell syntax
+        run: |
+          while IFS= read -r -d '' file; do
+            bash -n "$file"
+          done < <(find . -type f \( -name '*.sh' -o -name 'ollama-voice' \) -print0)
