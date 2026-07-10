@@ -1,174 +1,305 @@
-# TTS & STT Providers — Local CPU vs. Remote
+# Speech providers and fallback policy
 
-Local VoiceMode runs **entirely on your CPU by default** — no API keys, no cloud.
-That is the whole point of the project. But not every CPU is fast enough for a
-snappy back-and-forth: on an old laptop, a low-power mini-PC, or a heavily loaded
-box, even the 8-step Supertonic engine can fall behind a live conversation.
+Local VoiceMode LLM is designed around a local speech path:
 
-For those cases you can **offload TTS and/or STT to a remote OpenAI-compatible
-endpoint** while keeping the exact same `talk` workflow. Nothing else changes —
-the VAD, the loop, the skill, the commands are identical. You only swap which
-engine synthesizes the audio (and, optionally, which one transcribes).
+- Silero VAD on the host
+- Parakeet STT on `127.0.0.1:5093`
+- Supertonic TTS on `127.0.0.1:8766`
 
-This page is the map: pick local or remote per stage, depending on your hardware.
+Remote providers are optional. Use them when a machine is too slow for local synthesis, when a specific hosted voice is required, or when the speech service runs on another machine on the LAN.
 
----
+## Choose a deployment pattern
 
-## When to stay local vs. go remote
+| Situation | STT recommendation | TTS recommendation |
+|---|---|---|
+| Modern desktop or laptop | local Parakeet | local Supertonic |
+| GPU is reserved for the LLM | local Parakeet on CPU | local Supertonic on CPU |
+| Old or heavily loaded CPU | keep Parakeet local first | remote OpenAI-compatible TTS |
+| Air-gapped or privacy-sensitive system | local only | local only |
+| Expressive hosted voice is required | local Parakeet | Inworld or another selected provider |
+| Speech runs on another LAN host | OpenAI-compatible remote STT URL | OpenAI-compatible TTS URL |
 
-| Your situation | TTS | STT |
-|----------------|-----|-----|
-| Modern desktop / Apple Silicon / decent laptop | **local** (`supertonic`) | **local** (Parakeet) |
-| Slow or old CPU, TTS lags the conversation | **remote** (`openai`) | local (Parakeet is light) |
-| Very slow CPU, even STT struggles | remote (`openai`) | **remote** (`whisper-1`) |
-| Want the most expressive voice, don't mind cloud | **remote** (`inworld`) | local |
-| Air-gapped / privacy-critical / offline | local only | local only |
+Parakeet transcription is normally the lighter stage. Offload TTS first when conversational latency is the problem.
 
-> Rule of thumb: **STT (Parakeet) is cheap** (~300 ms, 8–21× realtime even on a
-> mid CPU), so it rarely needs offloading. **TTS is the heavier stage** — if
-> anything feels slow, move TTS to a remote engine first and leave STT local.
+## Environment loading
 
----
+The scripts read environment variables from the process that launches them. They do not automatically load the repository's `.env.example` or an arbitrary `.env` file.
 
-## TTS engines
+Recommended local baseline:
 
-Select with `TTS_ENGINE`. The repo default is **`supertonic`** (local CPU); every
-other engine is secondary and opt-in. When the primary is a local engine, the
-local engines are always tried before any cloud (see [Fallback](#fallback-policy)).
+```bash
+export STT_ENGINE=local
+export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
+export STT_MODEL=parakeet-tdt-0.6b-v3
 
-| Engine | Where it runs | Needs | Notes |
-|--------|---------------|-------|-------|
-| `supertonic` *(default)* | Local CPU (ONNX, `:8766`) | nothing | Auto-installed. EN/ES/KO/PT/FR. |
-| `neutts` | Local CPU (GGUF, `:8020`) | separate backend | EN/ES/DE/FR. |
-| `qwen` | Local MLX (Apple Silicon) | separate backend | Opt-in; see the [Qwen3-TTS server](https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi). |
-| `openai` | **Remote** OpenAI-compatible | `OPENAI_API_KEY` | Slow-CPU offload. Streams by sentence. |
-| `inworld` | **Remote** Inworld cloud | `INWORLD_API_KEY` | Expressive (per-sentence steering). |
-| `xai` | **Remote** xAI cloud | `XAI_API_KEY` | Last-resort fallback. |
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8766
+export TTS_QUALITY=normal
+```
 
-### `openai` — generic OpenAI-compatible remote (the slow-CPU offload)
+The explicit `SUPERTONIC_URL` matters because the managed installer uses port `8766`, while older/manual layouts may use `8765`.
 
-Hits `<OPENAI_TTS_URL>/audio/speech` with the standard OpenAI speech schema, so it
-works with:
+## Local TTS engines
 
-- **OpenAI** itself (`https://api.openai.com/v1`)
-- a **hosted provider** that exposes an OpenAI-compatible speech endpoint
-- **your own remote box** running an OpenAI-compatible server (e.g. a GPU machine
-  on your LAN running vLLM / an OpenAI-shim TTS server)
+### Supertonic 3
+
+Supertonic 3 is the supported default backend installed by `setup.sh` and `setup.ps1`.
+
+```bash
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8766
+export SUPERTONIC_VOICE=F4
+export TTS_QUALITY=normal
+```
+
+| Variable | Recommended/default behavior | Purpose |
+|---|---|---|
+| `SUPERTONIC_URL` | set explicitly to `http://127.0.0.1:8766` for the managed install | API base URL |
+| `SUPERTONIC_VOICE` | `F4` | `F1`–`F5` or `M1`–`M5` |
+| `TTS_QUALITY` | recommended `normal`; the current low-level script falls back to `high` when unset | `normal` = 8 steps, `high` = 20 steps |
+| `SUPERTONIC_STEPS` | derived from quality | explicit step override from 1–20 |
+| `SUPERTONIC_SPEED` | `1.0` | synthesis speed multiplier |
+| `TTS_FADE_MS` | `6` | edge fade used to reduce clicks |
+
+For low-latency conversation, set `TTS_QUALITY=normal` explicitly.
+
+### Supertonic 2 service
+
+The optional installer creates a second OpenAI-compatible Supertonic service on `:8880`:
+
+```bash
+bash integrations/supertonic2/install.sh
+```
+
+The current TTS dispatcher does **not** expose a dedicated `supertonic2` engine alias. Select the compatible service by retaining the `supertonic` engine and changing its URL:
+
+```bash
+TTS_ENGINE=supertonic \
+SUPERTONIC_URL=http://127.0.0.1:8880 \
+talk.sh speak "Hello from Supertonic two"
+```
+
+This gives direct access to the service. It does not automatically fall back to the Supertonic 3 URL if `:8880` is unavailable; change the URL back to `:8766` or use your own wrapper/proxy for multi-endpoint failover.
+
+### NeuTTS
+
+NeuTTS is an optional local GGUF service:
+
+```bash
+export TTS_ENGINE=neutts
+export NEUTTS_URL=http://127.0.0.1:8020
+```
+
+Language-specific model variables are available for English, Spanish, German, and French:
+
+- `NEUTTS_MODEL`
+- `NEUTTS_MODEL_ES`
+- `NEUTTS_MODEL_DE`
+- `NEUTTS_MODEL_FR`
+
+The backend is not installed by the main setup scripts.
+
+### Inflect Nano
+
+Inflect Nano is an optional, experimental English-only endpoint:
+
+```bash
+export TTS_ENGINE=inflect
+export INFLECT_URL=http://127.0.0.1:8030
+```
+
+For non-English text it declines the request so the configured fallback chain can continue.
+
+### Qwen3-TTS
+
+Qwen3-TTS is an optional local MLX/OpenAI-compatible backend, primarily for Apple Silicon. Install and operate it separately through the Qwen3-TTS server project.
+
+```bash
+export TTS_ENGINE=qwen
+export QWEN_TTS_QUALITY=hq
+export QWEN_TTS_VOICE=vivian
+```
+
+| Quality | Default URL | Intended use |
+|---|---|---|
+| `fast` | `http://127.0.0.1:18881` | lower-latency 0.6B server |
+| `hq` | `http://127.0.0.1:18882` | always-on 1.7B server |
+| `lazy` | `http://127.0.0.1:18883` | 1.7B server started on demand |
+
+Override `QWEN_TTS_URL` to bypass quality-based URL selection.
+
+## Remote OpenAI-compatible TTS
+
+The `openai` engine sends the standard speech payload to:
+
+```text
+<OPENAI_TTS_URL>/audio/speech
+```
+
+It can target OpenAI or another compatible service, including a server on the local network.
 
 ```bash
 export TTS_ENGINE=openai
-export OPENAI_API_KEY=sk-...            # or OPENAI_TTS_KEY
-export OPENAI_TTS_MODEL=gpt-4o-mini-tts # or tts-1, tts-1-hd
-export OPENAI_TTS_VOICE=alloy           # alloy, echo, fable, onyx, nova, shimmer
-# point at your own server instead of OpenAI:
-# export OPENAI_TTS_URL=http://192.168.1.50:8000/v1
+export OPENAI_TTS_URL=https://api.openai.com/v1
+export OPENAI_TTS_KEY=...
+export OPENAI_TTS_MODEL=gpt-4o-mini-tts
+export OPENAI_TTS_VOICE=alloy
+export OPENAI_TTS_FORMAT=wav
 ```
 
-Like the xAI/Inworld paths, it **chunks the reply on sentence boundaries and
-streams** — requests fire in parallel and playback starts on the first sentence,
-so you hear the answer begin while the rest is still synthesizing.
+`OPENAI_API_KEY` is used when `OPENAI_TTS_KEY` is not set.
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `OPENAI_TTS_URL` | `https://api.openai.com/v1` | OpenAI-compatible base URL (no trailing `/audio/speech`) |
-| `OPENAI_TTS_KEY` | `$OPENAI_API_KEY` | Bearer key |
-| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Speech model id |
-| `OPENAI_TTS_VOICE` | `alloy` | Voice id |
-| `OPENAI_TTS_FORMAT` | `wav` | Response format (keep `wav` for zero-transcode playback) |
+| Variable | Low-level default | Purpose |
+|---|---|---|
+| `OPENAI_TTS_URL` | `https://api.openai.com/v1` | API base URL, without `/audio/speech` |
+| `OPENAI_TTS_KEY` | value of `OPENAI_API_KEY` | bearer token |
+| `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | provider model id |
+| `OPENAI_TTS_VOICE` | `alloy` | provider voice id |
+| `OPENAI_TTS_FORMAT` | `wav` | requested output format |
 
-### `inworld` — expressive remote cloud
+For normal playback, replies are split at sentence boundaries, requests are issued in parallel, and audio is played in order as chunks become ready. With `TTS_NO_PLAY=1`, the implementation uses a single request so it can return one file path to the orchestrator.
 
-Inworld's TTS-2 supports **steering**: a small LLM pre-processor
-(`service/inworld_steer.sh`) rewrites each sentence with natural-language delivery
-tags (`[warm and teasing with a playful lilt] ...`) so the voice is emotionally
-present instead of flat. The steering runs **per sentence, inside the parallel
-synth jobs**, so the LLM rewrite of one sentence overlaps the synthesis of the
-others rather than blocking the whole reply up front. Playback also **streams**:
-each sentence plays the instant it is ready.
+Provider compatibility is not guaranteed merely because an API is described as OpenAI-compatible. Confirm that it accepts the same field names and returns the requested audio format.
+
+## Inworld TTS
+
+Inworld is an optional hosted engine with per-sentence expressive steering.
 
 ```bash
 export TTS_ENGINE=inworld
-export INWORLD_API_KEY=...        # base64 "Basic" key from platform.inworld.ai/api-keys
-export INWORLD_TTS_VOICE=Ashley   # 260 voices via the list-voices API
-# export INWORLD_STEER=0          # disable steering → faster first audio, flatter voice
+export INWORLD_API_KEY=...
+export INWORLD_TTS_VOICE=Ashley
+export INWORLD_TTS_MODEL=inworld-tts-2
+export INWORLD_STEER=auto
 ```
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `INWORLD_API_KEY` | *(required)* | Basic/base64 key (also read from `INWORLD_TTS_API`) |
-| `INWORLD_TTS_VOICE` | `Ashley` | Voice id |
-| `INWORLD_TTS_MODEL` | `inworld-tts-2` | `inworld-tts-2` / `inworld-tts-2-max` |
-| `INWORLD_STEER` | `auto` | `auto` (on for tts-2) / `1` / `0` (disable) |
-| `INWORLD_STEER_PERSONA` | *(empty)* | Optional persona to bias delivery tags |
+| Variable | Low-level default | Purpose |
+|---|---|---|
+| `INWORLD_API_KEY` | required | Basic/base64 API credential; `INWORLD_TTS_API` is also read |
+| `INWORLD_TTS_VOICE` | `Ashley` | provider voice id |
+| `INWORLD_TTS_MODEL` | `inworld-tts-2` | model id |
+| `INWORLD_TTS_URL` | Inworld voice endpoint | request URL |
+| `INWORLD_STEER` | `auto` | enable/disable delivery-tag generation |
+| `INWORLD_STEER_PERSONA` | empty | optional persona hint |
+| `INWORLD_TTS_ENCODING` | `LINEAR16` | returned audio encoding |
+| `INWORLD_TTS_SAMPLE_RATE` | `48000` | sample rate used for WAV wrapping |
 
-> **Latency note:** steering adds a per-sentence LLM round-trip (~1–2 s) in front
-> of the *first* audio. It is parallelized so it does not compound on long replies,
-> but for the snappiest start set `INWORLD_STEER=0`. A bad/forbidden Inworld key
-> fails loudly (HTTP 401/403) and does **not** silently fall back to a different voice.
+Steering improves expressiveness but adds another model call before synthesis. Set `INWORLD_STEER=0` when time-to-first-audio is more important.
 
----
+HTTP `401` and `403` are treated as credential/configuration failures. The Unix dispatcher intentionally exits loudly instead of silently switching to another voice.
 
-## STT engines
+## xAI TTS
 
-STT is selected with `STT_ENGINE` (`local` or `remote`). Local Parakeet needs no
-key. For a remote OpenAI-compatible transcription endpoint (e.g. OpenAI Whisper),
-set the remote URL/model and a bearer key:
+xAI is an optional hosted engine and the final cloud fallback in several local-primary chains.
+
+```bash
+export TTS_ENGINE=xai
+export XAI_API_KEY=...
+export XAI_TTS_VOICE=eve
+```
+
+The current script sends requests to the configured xAI TTS API path and supports the voice ids used by that provider integration. Hosted APIs can change; verify current provider access and schemas when diagnosing failures.
+
+## Speech-to-text providers
+
+### Local Parakeet
+
+```bash
+export STT_ENGINE=local
+export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
+export STT_MODEL=parakeet-tdt-0.6b-v3
+```
+
+The request is multipart form data containing an audio file and model id.
+
+### Remote OpenAI-compatible STT
+
+The Unix orchestrator supports a remote transcription endpoint:
 
 ```bash
 export STT_ENGINE=remote
 export STT_REMOTE_URL=https://api.openai.com/v1/audio/transcriptions
 export STT_REMOTE_MODEL=whisper-1
-export STT_API_KEY=sk-...    # or STT_REMOTE_KEY / OPENAI_API_KEY
+export STT_API_KEY=...
 ```
 
-The bearer header is only sent when a key is set, so pointing `STT_REMOTE_URL` at
-another *local* OpenAI-compatible server (no auth) still works.
+Credential precedence is:
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `STT_ENGINE` | `local` | `local` (Parakeet `:5093`) or `remote` |
-| `STT_REMOTE_URL` | local `:5093` | Remote `/v1/audio/transcriptions` endpoint |
-| `STT_REMOTE_MODEL` | `$STT_MODEL` | e.g. `whisper-1` |
-| `STT_API_KEY` | `$STT_REMOTE_KEY`/`$OPENAI_API_KEY` | Bearer key (empty = no auth header) |
+1. `STT_REMOTE_KEY`
+2. `STT_API_KEY`
+3. `OPENAI_API_KEY`
 
----
+No Authorization header is sent when the resolved key is empty, so an unauthenticated LAN endpoint can be used.
 
-## Fallback policy
+The Windows PowerShell orchestrator currently exposes the simpler `STT_URL` and `STT_MODEL` path. Do not assume every Unix remote-provider feature has PowerShell parity.
 
-When the **primary** engine is local, the local engines are always exhausted
-before any cloud — the cloud is only used if every local engine fails. When you
-**explicitly** pick a remote engine, that choice is honored first, then it still
-falls back to the local engines so a dropped network connection never leaves you
-mute.
+## Actual Unix fallback chains
 
-| Primary | Order |
-|---------|-------|
-| `supertonic` *(default)* | supertonic → neutts → xai |
-| `neutts` | neutts → supertonic → xai |
-| `qwen` | qwen → supertonic → neutts → xai |
-| `openai` | openai → supertonic → neutts |
-| `inworld` | inworld → qwen → supertonic → neutts |
-| `xai` | xai → supertonic → neutts |
+Fallback behavior is determined by `service/tts.sh`. The selected engine runs first.
 
-> Exception: an Inworld **auth** failure (401/403) is treated as a config error
-> you must fix, so it exits loudly instead of silently switching voices.
+| Selected `TTS_ENGINE` | Attempt order |
+|---|---|
+| `supertonic` | Supertonic → NeuTTS → xAI |
+| `qwen` | Qwen3-TTS → Supertonic → NeuTTS → xAI |
+| `qwen-lazy` | Qwen lazy → Supertonic → NeuTTS → xAI |
+| `neutts` | NeuTTS → Inflect Nano → Supertonic → xAI |
+| `inflect` | Inflect Nano → NeuTTS → Supertonic → xAI |
+| `openai` | OpenAI-compatible → Supertonic → NeuTTS |
+| `inworld` | Inworld → Qwen3-TTS → Supertonic → NeuTTS, except auth failures stop immediately |
+| `xai` | xAI → Supertonic → NeuTTS |
 
----
+Important implications:
+
+- A cloud provider is never contacted unless its engine is selected or it appears in that selected engine's chain and the preceding local attempts fail.
+- `XAI_API_KEY` can remain unset; the xAI attempt then fails and the dispatcher reports that all engines failed if no earlier engine succeeded.
+- `supertonic2` is not currently a valid dispatcher value.
+- The PowerShell path does not necessarily implement the same complete provider/fallback matrix.
+
+## Privacy and security
+
+- Local VAD, Parakeet, and Supertonic keep microphone audio and reply text on the host.
+- Remote STT sends recorded audio to the selected endpoint.
+- Remote TTS sends reply text to the selected endpoint.
+- Inworld steering may send text through both the steering model path and the synthesis provider path.
+- Never commit credentials to `.env.example`, documentation, shell history, or issue reports.
+- Prefer scoped credentials and LAN TLS/authentication when exposing speech servers beyond localhost.
 
 ## Quick recipes
 
+Local low-latency conversation:
+
 ```bash
-# Slowest part is TTS on an old CPU → offload just TTS to OpenAI:
-TTS_ENGINE=openai OPENAI_API_KEY=sk-... talk.sh speak "Hello"
+STT_ENGINE=local \
+STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions \
+TTS_ENGINE=supertonic \
+SUPERTONIC_URL=http://127.0.0.1:8766 \
+TTS_QUALITY=normal \
+talk.sh listen
+```
 
-# Run your own remote OpenAI-compatible TTS box on the LAN:
-TTS_ENGINE=openai OPENAI_TTS_URL=http://192.168.1.50:8000/v1 OPENAI_TTS_KEY=x talk.sh speak "Hi"
+One-way local announcement:
 
-# Most expressive voice, latency be damned:
-TTS_ENGINE=inworld INWORLD_API_KEY=... INWORLD_TTS_VOICE=Olivia talk.sh speak "Hello"
+```bash
+TALK_AUTO_LISTEN=0 \
+TTS_ENGINE=supertonic \
+SUPERTONIC_URL=http://127.0.0.1:8766 \
+talk.sh speak "The task is complete."
+```
 
-# Everything remote (very slow CPU):
-STT_ENGINE=remote STT_REMOTE_URL=https://api.openai.com/v1/audio/transcriptions \
-  STT_REMOTE_MODEL=whisper-1 STT_API_KEY=sk-... \
-  TTS_ENGINE=openai OPENAI_API_KEY=sk-... talk.sh loop
+Use an OpenAI-compatible server on the LAN:
+
+```bash
+TTS_ENGINE=openai \
+OPENAI_TTS_URL=http://192.168.1.50:8000/v1 \
+OPENAI_TTS_KEY=local-token \
+talk.sh speak "Hello from the remote speech server."
+```
+
+Use the optional Supertonic 2 service:
+
+```bash
+TTS_ENGINE=supertonic \
+SUPERTONIC_URL=http://127.0.0.1:8880 \
+TTS_QUALITY=normal \
+talk.sh speak "Fast local synthesis."
 ```
