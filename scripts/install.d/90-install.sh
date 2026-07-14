@@ -8,7 +8,8 @@ if [[ "$DOCTOR_ONLY" == true ]]; then
 fi
 if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
-info "Accelerator: ${ACCEL} (${OS} ${ARCH})"
+info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
+info "Supertonic backend policy: ${SUPERTONIC_BACKEND}$( [[ "$SUPERTONIC_INSTALL_MLX" == true ]] && printf ' (MLX assets enabled)' )"
 
 create_venv "$VENV_DIR" "Voice core"
 pip_install "$VENV_DIR/bin/python" --upgrade pip setuptools wheel

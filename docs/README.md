@@ -7,12 +7,13 @@ This directory contains the operational and technical reference for Local VoiceM
 | Guide | Use it when |
 |---|---|
 | [Installation](installation.md) | Installing, upgrading, selecting integrations, managing services, or uninstalling |
+| [Apple Silicon MLX setup and repair](macos-repair.md) | Installing, validating, benchmarking, or forcing Supertonic MLX/ONNX on a Mac |
 | [Troubleshooting](troubleshooting.md) | A microphone, backend, playback path, provider, or service is not working |
 | [Providers](providers.md) | Choosing local or remote STT/TTS and understanding fallback behavior |
 | [Architecture](architecture.md) | Reviewing the runtime design, data flow, boundaries, ports, and platform differences |
 | [Agent skill contract](../skill/SKILL.md) | Integrating the voice loop into Claude Code, OpenCode, OpenClaw, Hermes, or Codex |
 | [Ollama integration](../integrations/ollama/README.md) | Talking directly to an Ollama model |
-| [Supertonic 2 integration](../integrations/supertonic2/README.md) | Installing the optional faster Supertonic 2 service |
+| [Supertonic 2 integration](../integrations/supertonic2/README.md) | Installing the optional Supertonic 2 service |
 | [Benchmarks](../benchmarks/README.md) | Reproducing latency and realtime-factor measurements |
 
 ## Runtime map
@@ -35,12 +36,12 @@ Silero VAD ──► WAV ──► Parakeet STT :5093
 
 Default local services:
 
-| Service | URL |
-|---|---|
-| Parakeet STT | `http://127.0.0.1:5093` |
-| Supertonic 3 TTS | `http://127.0.0.1:8766` |
-| Dashboard | `http://127.0.0.1:7862` |
-| Ollama, when used | `http://127.0.0.1:11434` |
+| Service | URL | Default runtime |
+|---|---|---|
+| Parakeet STT | `http://127.0.0.1:5093` | ONNX CPU by default |
+| Supertonic 3 TTS | `http://127.0.0.1:8766` | Apple Silicon: MLX first with ONNX fallback; other CPU hosts: ONNX |
+| Dashboard | `http://127.0.0.1:7862` | CPU |
+| Ollama, when used | `http://127.0.0.1:11434` | User-selected |
 
 ## Documentation principles
 
@@ -74,7 +75,9 @@ The core supported path is:
 
 - local Silero VAD
 - local Parakeet ONNX STT
-- local Supertonic 3 ONNX TTS
+- local Supertonic 3 TTS
+  - Apple Silicon: native MLX with verified ONNX CPU fallback
+  - Linux/Intel Mac/Windows: ONNX, with optional CUDA where supported
 - macOS, Linux, or Windows installation
 
 Optional providers and integrations are maintained as secondary paths. Their availability, authentication, response schemas, and latency can change independently of the local stack.
