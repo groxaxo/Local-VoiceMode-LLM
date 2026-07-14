@@ -6,6 +6,7 @@ PARAKEET_DIR="${CONFIG_DIR}/parakeet-stt"
 PARAKEET_VENV="${PARAKEET_DIR}/.venv"
 SUPERTONIC_DIR="${CONFIG_DIR}/supertonic-tts"
 SUPERTONIC_VENV="${SUPERTONIC_DIR}/.venv"
+SUPERTONIC_MLX_DIR="${SUPERTONIC_MLX_MODEL_DIR:-${SUPERTONIC_DIR}/assets/supertonic-3-mlx}"
 PARAKEET_PORT="${PARAKEET_PORT:-5093}"
 SUPERTONIC_PORT="${SUPERTONIC_PORT:-8766}"
 LAUNCHD_DIR="${HOME}/Library/LaunchAgents"
@@ -16,7 +17,7 @@ case "$OS" in Darwin) PLATFORM=macos ;; Linux) PLATFORM=linux ;; *) PLATFORM=oth
 
 info() { printf '\033[1;34m[setup]\033[0m %s\n' "$*"; }
 ok() { printf '\033[1;32m[setup]\033[0m ✓ %s\n' "$*"; }
-warn() { printf '\033[1;33m[setup]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[setup]\033[[0m %s\n' "$*"; }
 err() { printf '\033[1;31m[setup]\033[0m %s\n' "$*" >&2; }
 die() { err "$*"; exit 1; }
 on_error() {
@@ -35,6 +36,7 @@ FORCE=false
 UNINSTALL=false
 DOCTOR_ONLY=false
 ACCEL_CHOICE=auto
+SUPERTONIC_BACKEND_CHOICE=auto
 INTEGRATE_CLAUDECODE=true
 INTEGRATE_OPENCODE=true
 INTEGRATE_OPENCLAW=true
@@ -52,14 +54,18 @@ Installs or repairs the local voice stack and verifies it end to end.
   --skip-supertonic     Do not install or verify Supertonic TTS
   --skip-voices         Skip optional macOS reference voice generation
   --venv-only           Install only the shared voice Python environment
+  --mlx                 Force Supertonic MLX (Apple Silicon only; strict)
+  --onnx                Force Supertonic ONNX CPU without changing STT
   --gpu                  Use NVIDIA CUDA on supported Linux hosts
-  --cpu                  Force CPU execution
+  --cpu                  Force CPU execution and Supertonic ONNX
   --force, -f            Replace conflicting managed service definitions
   --doctor               Diagnose currently installed services only
   --uninstall            Stop services; add --force to remove managed files
   --integrations=LIST    claudecode,opencode,openclaw,hermes,codex
   --no-integrations      Do not install agent skills
   -h, --help             Show this help
+
+Apple Silicon defaults to Supertonic backend=auto: MLX first, ONNX CPU fallback.
 USAGE
 }
 
@@ -69,8 +75,10 @@ for arg in "$@"; do
     --skip-supertonic) SKIP_SUPERTONIC=true ;;
     --skip-voices) SKIP_VOICES=true ;;
     --venv-only) VENV_ONLY=true ;;
+    --mlx) SUPERTONIC_BACKEND_CHOICE=mlx ;;
+    --onnx) SUPERTONIC_BACKEND_CHOICE=cpu ;;
     --gpu) ACCEL_CHOICE=gpu ;;
-    --cpu) ACCEL_CHOICE=cpu ;;
+    --cpu) ACCEL_CHOICE=cpu; SUPERTONIC_BACKEND_CHOICE=cpu ;;
     --force|-f) FORCE=true ;;
     --doctor) DOCTOR_ONLY=true ;;
     --uninstall) UNINSTALL=true ;;
@@ -106,7 +114,11 @@ ask_yn() {
 if [[ $# -eq 0 && -t 0 && -t 1 ]]; then
   printf '\n\033[1;36m  Local VoiceMode LLM — verified setup\033[0m\n\n'
   ask_yn "Parakeet STT on :${PARAKEET_PORT}" y || SKIP_PARAKEET=true
-  ask_yn "Supertonic TTS on :${SUPERTONIC_PORT}" y || SKIP_SUPERTONIC=true
+  if [[ "$PLATFORM" == macos && "$ARCH" == arm64 ]]; then
+    ask_yn "Supertonic TTS on :${SUPERTONIC_PORT} (MLX first, ONNX fallback)" y || SKIP_SUPERTONIC=true
+  else
+    ask_yn "Supertonic TTS on :${SUPERTONIC_PORT}" y || SKIP_SUPERTONIC=true
+  fi
   echo
   ask_yn "Install Claude Code skill" y || INTEGRATE_CLAUDECODE=false
   ask_yn "Install OpenCode skill" y || INTEGRATE_OPENCODE=false
