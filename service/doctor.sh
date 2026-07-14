@@ -63,6 +63,25 @@ check_tts() {
   return "$rc"
 }
 
+get_tts_backend() {
+  local tmp code
+  tmp="$(mktemp "${TMPDIR:-/tmp}/lvml-doctor-health.XXXXXX")"
+  code="$(curl -sS --max-time 8 -o "$tmp" -w '%{http_code}' "http://127.0.0.1:${SUPERTONIC_PORT}/health" || true)"
+  if [[ "$code" != 200 ]]; then rm -f "$tmp"; return 1; fi
+  python3 - "$tmp" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    payload = json.load(f)
+backend = payload.get("backend")
+if not isinstance(backend, str) or not backend.strip():
+    raise SystemExit(1)
+print(backend.strip().lower())
+PY
+  local rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
 show_launchd() {
   [[ "$OS" == Darwin ]] || return 0
   if ! command -v launchctl >/dev/null 2>&1; then return 0; fi
@@ -93,6 +112,12 @@ fi
 
 if check_tts; then
   ok "Supertonic generated a valid WAV on :${SUPERTONIC_PORT}"
+  backend="$(get_tts_backend || true)"
+  if [[ -n "$backend" ]]; then
+    ok "Supertonic runtime backend: $backend"
+  else
+    warn "Supertonic backend could not be read from /health"
+  fi
 else
   err "Supertonic synthesis failed on :${SUPERTONIC_PORT}"
   [[ -f "$CONFIG_DIR/supertonic.log" ]] && tail -n 25 "$CONFIG_DIR/supertonic.log" >&2

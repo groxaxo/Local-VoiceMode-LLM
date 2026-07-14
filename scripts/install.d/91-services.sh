@@ -58,8 +58,11 @@ Environment=HOME=${HOME}
 Environment=SUPERTONIC_MODEL_DIR=${SUPERTONIC_DIR}/assets/supertonic-3
 Environment=ONNX_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/onnx
 Environment=VOICE_STYLES_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/voice_styles
+Environment=SUPERTONIC_MLX_MODEL_DIR=${SUPERTONIC_MLX_DIR}
+Environment=SUPERTONIC_MLX_AUTO_DOWNLOAD=false
+Environment=SUPERTONIC_MLX_FALLBACK_TO_ONNX=${SUPERTONIC_MLX_FALLBACK}
 Environment=USE_GPU=${USE_GPU}
-Environment=SUPERTONIC_ORT_BACKEND=${ORT_BACKEND}
+Environment=SUPERTONIC_ORT_BACKEND=${SUPERTONIC_BACKEND}
 StandardOutput=append:${CONFIG_DIR}/supertonic.log
 StandardError=append:${CONFIG_DIR}/supertonic.log
 [Install]

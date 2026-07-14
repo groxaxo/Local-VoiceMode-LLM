@@ -30,10 +30,16 @@
     <string>HOME_PLACEHOLDER/.config/opencode/supertonic-tts/assets/supertonic-3/onnx</string>
     <key>VOICE_STYLES_DIR</key>
     <string>HOME_PLACEHOLDER/.config/opencode/supertonic-tts/assets/supertonic-3/voice_styles</string>
+    <key>SUPERTONIC_MLX_MODEL_DIR</key>
+    <string>HOME_PLACEHOLDER/.config/opencode/supertonic-tts/assets/supertonic-3-mlx</string>
+    <key>SUPERTONIC_MLX_AUTO_DOWNLOAD</key>
+    <string>false</string>
+    <key>SUPERTONIC_MLX_FALLBACK_TO_ONNX</key>
+    <string>true</string>
     <key>USE_GPU</key>
     <string>false</string>
     <key>SUPERTONIC_ORT_BACKEND</key>
-    <string>cpu</string>
+    <string>auto</string>
     <key>LOG_LEVEL</key>
     <string>INFO</string>
   </dict>

@@ -51,15 +51,42 @@ PY
 
 HAS_NVIDIA=false
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then HAS_NVIDIA=true; fi
+IS_APPLE_SILICON=false
+if [[ "$PLATFORM" == macos && "$ARCH" == arm64 ]]; then IS_APPLE_SILICON=true; fi
+
 ACCEL=cpu
 if [[ "$ACCEL_CHOICE" == gpu ]]; then
   if [[ "$PLATFORM" == linux && "$HAS_NVIDIA" == true ]]; then ACCEL=cuda
-  else warn "CUDA is unavailable here; using CPU"; fi
+  else warn "CUDA is unavailable here; using CPU for Parakeet"; fi
 elif [[ "$ACCEL_CHOICE" == auto && "$PLATFORM" == linux && "$HAS_NVIDIA" == true && -t 0 && -t 1 ]]; then
   ask_yn "Use NVIDIA CUDA for voice services?" n && ACCEL=cuda
 fi
 USE_GPU=false; ORT_BACKEND=cpu
 if [[ "$ACCEL" == cuda ]]; then USE_GPU=true; ORT_BACKEND=cuda; fi
+
+SUPERTONIC_INSTALL_MLX=false
+SUPERTONIC_BACKEND="$ORT_BACKEND"
+SUPERTONIC_MLX_FALLBACK=true
+case "$SUPERTONIC_BACKEND_CHOICE" in
+  mlx)
+    [[ "$IS_APPLE_SILICON" == true ]] || die "--mlx requires macOS on Apple Silicon (M1 or newer)"
+    SUPERTONIC_INSTALL_MLX=true
+    SUPERTONIC_BACKEND=mlx
+    SUPERTONIC_MLX_FALLBACK=false
+    ;;
+  cpu)
+    SUPERTONIC_BACKEND=cpu
+    ;;
+  auto)
+    if [[ "$IS_APPLE_SILICON" == true ]]; then
+      SUPERTONIC_INSTALL_MLX=true
+      SUPERTONIC_BACKEND=auto
+      SUPERTONIC_MLX_FALLBACK=true
+    fi
+    ;;
+  *) die "Unknown Supertonic backend policy: $SUPERTONIC_BACKEND_CHOICE" ;;
+esac
+
 mkdir -p "$CONFIG_DIR"
 [[ "$PLATFORM" == macos ]] && mkdir -p "$LAUNCHD_DIR"
 

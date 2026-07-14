@@ -36,6 +36,24 @@ tts_probe_once() {
   if [[ "$code" == 200 && "$(wc -c < "$tmp")" -gt 1000 && "$(head -c 4 "$tmp")" == RIFF ]]; then rc=0; fi
   rm -f "$tmp"; return "$rc"
 }
+supertonic_backend_once() {
+  local base="http://127.0.0.1:${SUPERTONIC_PORT}" tmp code
+  tmp="$(mktemp "${TMPDIR:-/tmp}/lvml-tts-health.XXXXXX")"
+  code="$(curl -sS --max-time 8 -o "$tmp" -w '%{http_code}' "$base/health" || true)"
+  if [[ "$code" != 200 ]]; then rm -f "$tmp"; return 1; fi
+  python3 - "$tmp" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    payload = json.load(f)
+backend = payload.get("backend")
+if not isinstance(backend, str) or not backend.strip():
+    raise SystemExit(1)
+print(backend.strip().lower())
+PY
+  local rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
 wait_for_probe() {
   local label="$1" timeout="$2" probe="$3" log="$4" elapsed=0
   info "Waiting for $label readiness..."
@@ -50,10 +68,18 @@ wait_for_probe() {
   ok "$label passed its end-to-end API probe"
 }
 show_doctor() {
-  local failed=0
+  local failed=0 backend
   echo; info "── Voice service diagnosis ──"
   if [[ "$SKIP_PARAKEET" == false ]]; then stt_probe_once && ok "STT :${PARAKEET_PORT} works" || { err "STT :${PARAKEET_PORT} failed"; failed=1; }; fi
-  if [[ "$SKIP_SUPERTONIC" == false ]]; then tts_probe_once && ok "TTS :${SUPERTONIC_PORT} works" || { err "TTS :${SUPERTONIC_PORT} failed"; failed=1; }; fi
+  if [[ "$SKIP_SUPERTONIC" == false ]]; then
+    if tts_probe_once; then
+      ok "TTS :${SUPERTONIC_PORT} works"
+      backend="$(supertonic_backend_once || true)"
+      [[ -n "$backend" ]] && ok "Supertonic runtime backend: $backend" || warn "Supertonic backend could not be read from /health"
+    else
+      err "TTS :${SUPERTONIC_PORT} failed"; failed=1
+    fi
+  fi
   if [[ "$PLATFORM" == macos ]]; then
     local label
     for label in com.opencode.parakeet-stt com.opencode.supertonic; do
