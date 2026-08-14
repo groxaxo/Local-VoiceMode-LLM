@@ -1,46 +1,11 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Windows installer for OpenCode Voice Service.
-
+    Installs Local VoiceMode LLM on Windows.
 .DESCRIPTION
-    One-command setup for the complete voice stack on Windows:
-      1. Python venv with Silero VAD, sounddevice, ONNX Runtime
-      2. Parakeet STT Backend  — ONNX-based ASR on :5093 (CPU-only)
-      3. Supertonic TTS Backend — ONNX-based TTS on :8766 (CPU-only)
-      4. Windows Task Scheduler auto-start for both services
-      5. Skill install for Claude Code, OpenCode, OpenClaw, Hermes, Codex
-
-.PARAMETER SkipParakeet
-    Skip Parakeet STT installation.
-
-.PARAMETER SkipSupertonic
-    Skip Supertonic TTS installation.
-
-.PARAMETER SkipVoices
-    Skip reference voice generation.
-
-.PARAMETER VenvOnly
-    Only create the Python venv, skip backends.
-
-.PARAMETER Force
-    Overwrite existing Task Scheduler tasks (DESTRUCTIVE).
-
-.PARAMETER Uninstall
-    Remove Task Scheduler tasks and optionally all installed dirs.
-
-.PARAMETER Integrations
-    Comma-separated list of agent integrations to install:
-    claudecode,opencode,openclaw,hermes,codex
-    Default: prompt interactively if terminal is present.
-
-.EXAMPLE
-    .\setup.ps1
-    .\setup.ps1 -SkipSupertonic
-    .\setup.ps1 -Force
-    .\setup.ps1 -Uninstall -Force
+    Installs the local CPU speech stack, registers per-user startup tasks, and
+    copies the talk skill to selected agent integrations.
 #>
-
 [CmdletBinding()]
 param(
     [switch]$SkipParakeet,
@@ -49,414 +14,295 @@ param(
     [switch]$VenvOnly,
     [switch]$Force,
     [switch]$Uninstall,
-    [string]$Integrations = ""
+    [switch]$NoIntegrations,
+    [string]$Integrations = ''
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-$RepoDir     = $PSScriptRoot
-$ConfigDir   = "$env:USERPROFILE\.config\opencode"
-$SkillDir    = "$ConfigDir\skills\talk"
-$VenvDir     = "$ConfigDir\tts-venv"
-$Python      = "$VenvDir\Scripts\python.exe"
+$RepoDir = $PSScriptRoot
+$ConfigDir = Join-Path $env:USERPROFILE '.config\opencode'
+$SkillDir = Join-Path $ConfigDir 'skills\talk'
+$VenvDir = Join-Path $ConfigDir 'tts-venv'
+$ParakeetDir = Join-Path $ConfigDir 'parakeet-stt'
+$SupertonicDir = Join-Path $ConfigDir 'supertonic-tts'
+$ParakeetPort = if ($env:PARAKEET_PORT) { $env:PARAKEET_PORT } else { '5093' }
+$SupertonicPort = if ($env:SUPERTONIC_PORT) { $env:SUPERTONIC_PORT } else { '8766' }
 
-$ParakeetDir  = "$ConfigDir\parakeet-stt"
-$ParakeetVenv = "$ParakeetDir\.venv"
-$ParakeetPort = if ($env:PARAKEET_PORT) { $env:PARAKEET_PORT } else { "5093" }
-
-$SupertonicDir  = "$ConfigDir\supertonic-tts"
-$SupertonicVenv = "$SupertonicDir\.venv"
-$SupertonicPort = if ($env:SUPERTONIC_PORT) { $env:SUPERTONIC_PORT } else { "8766" }
-
-# ── Colour helpers ─────────────────────────────────────────────────────────────
-function info  { param($m) Write-Host "[setup] $m" -ForegroundColor Cyan }
-function ok    { param($m) Write-Host "[setup] $([char]0x2713) $m" -ForegroundColor Green }
-function warn  { param($m) Write-Host "[setup] $m" -ForegroundColor Yellow }
-function err   { param($m) Write-Host "[setup] $m" -ForegroundColor Red }
-
-# ── Dependency check ───────────────────────────────────────────────────────────
-function Assert-Command {
-    param([string]$Name, [string]$Install = "")
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        err "$Name not found."
-        if ($Install) { warn "Install with: $Install" }
-        exit 1
-    }
-}
-
-Assert-Command "git"    "winget install --id Git.Git"
-Assert-Command "python" "winget install --id Python.Python.3.12"
-
-# Check Python version
-$pyVersion = & python --version 2>&1 | Select-String "(\d+)\.(\d+)" | ForEach-Object { $_.Matches[0].Value }
-info "Python: $pyVersion"
-
-# ── Interactive component selection ───────────────────────────────────────────
-$InstallParakeet   = -not $SkipParakeet
-$InstallSupertonic = -not $SkipSupertonic
-
-# Agent integration targets
 $AgentTargets = @{
-    "claudecode" = "$env:USERPROFILE\.claude\skills\talk"
-    "opencode"   = "$ConfigDir\skills\talk"
-    "openclaw"   = "$env:USERPROFILE\.openclaw\skills\talk"
-    "hermes"     = "$env:USERPROFILE\.hermes\skills\talk"
-    "codex"      = "$env:USERPROFILE\.codex\skills\talk"
+    claudecode = Join-Path $env:USERPROFILE '.claude\skills\talk'
+    opencode = $SkillDir
+    openclaw = Join-Path $env:USERPROFILE '.openclaw\skills\talk'
+    hermes = Join-Path $env:USERPROFILE '.hermes\skills\talk'
+    codex = Join-Path $env:USERPROFILE '.codex\skills\talk'
 }
 
-$SelectedIntegrations = @{}
+function Write-Info { param([string]$Message) Write-Host "[setup] $Message" -ForegroundColor Cyan }
+function Write-Ok { param([string]$Message) Write-Host "[setup] OK: $Message" -ForegroundColor Green }
+function Write-Warn { param([string]$Message) Write-Host "[setup] WARNING: $Message" -ForegroundColor Yellow }
 
-if ($Integrations -ne "") {
-    foreach ($k in $Integrations -split ',') {
-        $k = $k.Trim().ToLower()
-        if ($AgentTargets.ContainsKey($k)) { $SelectedIntegrations[$k] = $AgentTargets[$k] }
-    }
-} elseif ([Environment]::UserInteractive -and -not $VenvOnly) {
-    Write-Host ""
-    Write-Host "  ╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "  ║      OpenCode Voice Service — Windows Setup          ║" -ForegroundColor Cyan
-    Write-Host "  ║   100% CPU-only · No GPU Required · Local ONNX       ║" -ForegroundColor Cyan
-    Write-Host "  ╚══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "  Components:" -ForegroundColor White
-    Write-Host "    [1] Silero VAD + voice venv  (always installed)"  -ForegroundColor Gray
-
-    $choice = Read-Host "  Install Parakeet STT on :$ParakeetPort? [Y/n]"
-    $InstallParakeet = ($choice -eq "" -or $choice -match '^[Yy]')
-
-    $choice = Read-Host "  Install Supertonic TTS on :$SupertonicPort? [Y/n]"
-    $InstallSupertonic = ($choice -eq "" -or $choice -match '^[Yy]')
-
-    Write-Host ""
-    Write-Host "  Agent integrations (installs skill to each agent's skills/ dir):" -ForegroundColor White
-    foreach ($key in $AgentTargets.Keys) {
-        $path = $AgentTargets[$key]
-        $choice = Read-Host "  Install for $key ($path)? [Y/n]"
-        if ($choice -eq "" -or $choice -match '^[Yy]') {
-            $SelectedIntegrations[$key] = $path
-        }
-    }
-    Write-Host ""
-} else {
-    # Non-interactive: install all integrations
-    $SelectedIntegrations = $AgentTargets.Clone()
+function Invoke-Native {
+    param([string]$FilePath, [string[]]$Arguments)
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "$FilePath failed with exit code $LASTEXITCODE" }
 }
 
-# ── Uninstall ─────────────────────────────────────────────────────────────────
-if ($Uninstall) {
-    info "── Uninstalling OpenCode Voice Service ──────────────────────"
-    foreach ($label in @("OpenCode-Parakeet-STT", "OpenCode-Supertonic")) {
-        $task = Get-ScheduledTask -TaskName $label -ErrorAction SilentlyContinue
+function ConvertTo-PowerShellLiteral {
+    param([string]$Value)
+    return "'" + $Value.Replace("'", "''") + "'"
+}
+
+function Get-PythonCommand {
+    $command = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $command) { throw 'Python was not found. Install Python 3.12 with: winget install --id Python.Python.3.12' }
+    $versionText = & $command.Source -c 'import sys; print(sys.version_info[0],sys.version_info[1])'
+    if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw 'The python command is not a working Python installation.' }
+    $parts = $versionText.Trim().Split(' ')
+    if ([int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [int]$parts[1] -lt 11)) {
+        throw "Python 3.11 or newer is required; found $($parts -join '.')."
+    }
+    Write-Info "Python $($parts -join '.')"
+    return $command.Source
+}
+
+function Test-VcRuntime {
+    $keys = @(
+        'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64'
+    )
+    foreach ($key in $keys) {
+        $runtime = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue
+        if ($runtime -and $runtime.Installed -eq 1) { return $true }
+    }
+    return $false
+}
+
+function New-PythonEnvironment {
+    param([string]$Python, [string]$Path)
+    if (-not (Test-Path (Join-Path $Path 'Scripts\python.exe'))) {
+        Invoke-Native $Python @('-m', 'venv', $Path) | Out-Null
+    }
+    $venvPython = Join-Path $Path 'Scripts\python.exe'
+    Invoke-Native $venvPython @('-m', 'pip', 'install', '--quiet', '--upgrade', 'pip', 'setuptools', 'wheel') | Out-Null
+    return $venvPython
+}
+
+function Register-VoiceTask {
+    param(
+        [string]$Name,
+        [string]$Script,
+        [string]$WorkingDirectory,
+        [string]$Description
+    )
+    $existing = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+    if ($existing -and -not $Force) {
+        Write-Warn "Task '$Name' already exists; use -Force to replace it."
+        return
+    }
+    if ($existing) {
+        Stop-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+        $deadline = (Get-Date).AddSeconds(10)
+        do {
+            Start-Sleep -Milliseconds 250
+            $existing = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+        } while ($existing -and $existing.State -eq 'Running' -and (Get-Date) -lt $deadline)
+        Unregister-ScheduledTask -TaskName $Name -Confirm:$false
+    }
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -NonInteractive -ExecutionPolicy Bypass -File `"$Script`"" -WorkingDirectory $WorkingDirectory
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 99 -RestartInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName $Name -Action $action -Trigger $trigger -Settings $settings -Description $Description -Force | Out-Null
+    Write-Ok "Registered startup task $Name"
+}
+
+function Wait-Endpoint {
+    param([string]$Name, [string]$Url, [int]$TimeoutSeconds = 30)
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        try {
+            $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+            $body = $response.Content | ConvertFrom-Json
+            $ready = if ($body.PSObject.Properties.Name -contains 'ready') {
+                [bool]$body.ready
+            } elseif ($body.PSObject.Properties.Name -contains 'model_loaded') {
+                [bool]$body.model_loaded
+            } else {
+                $body.status -eq 'healthy'
+            }
+            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300 -and $ready) {
+                Write-Ok "$Name is healthy at $Url"
+                return $true
+            }
+        } catch {}
+        Start-Sleep -Seconds 1
+    } while ((Get-Date) -lt $deadline)
+    Write-Warn "$Name did not become healthy within $TimeoutSeconds seconds. Check its log under $ConfigDir."
+    return $false
+}
+
+function Remove-VoiceMode {
+    foreach ($name in 'OpenCode-Parakeet-STT', 'OpenCode-Supertonic') {
+        $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
         if ($task) {
-            Stop-ScheduledTask -TaskName $label -ErrorAction SilentlyContinue
-            Unregister-ScheduledTask -TaskName $label -Confirm:$false
-            ok "Task Scheduler: $label removed"
+            Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $name -Confirm:$false
+            Write-Ok "Removed task $name"
         }
     }
     if ($Force) {
-        @($ParakeetDir, $SupertonicDir, $VenvDir, $SkillDir) | ForEach-Object {
-            if (Test-Path $_) { Remove-Item $_ -Recurse -Force; ok "removed: $_" }
+        foreach ($path in $ParakeetDir, $SupertonicDir, $VenvDir, $SkillDir) {
+            if (Test-Path $path) { Remove-Item $path -Recurse -Force }
         }
+        Write-Ok 'Removed managed installation directories.'
     } else {
-        warn "Directories kept (pass -Force to remove):"
-        warn "  $ParakeetDir"
-        warn "  $SupertonicDir"
-        warn "  $VenvDir"
-        warn "  $SkillDir"
+        Write-Info "Downloaded models and environments were retained in $ConfigDir."
     }
-    exit 0
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 1: Python venv (voice core — Silero VAD, sounddevice, ONNX)
-# ══════════════════════════════════════════════════════════════════════════════
-info "── Voice Core Venv ────────────────────────────────────────────"
+if ($Uninstall) { Remove-VoiceMode; exit 0 }
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw 'Git was not found. Install it with: winget install --id Git.Git'
+}
+$Python = Get-PythonCommand
+if (-not (Test-VcRuntime)) {
+    throw 'Microsoft Visual C++ x64 Runtime is required. Install it with: winget install --id Microsoft.VCRedist.2015+.x64'
+}
+
 New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+Write-Info 'Installing voice core environment...'
+$VenvPython = New-PythonEnvironment $Python $VenvDir
+Invoke-Native $VenvPython @('-m', 'pip', 'install', '--quiet', 'silero-vad', 'sounddevice', 'onnxruntime', 'torch', 'torchaudio', 'numpy')
+Write-Ok 'Voice core installed.'
+if ($VenvOnly) { exit 0 }
 
-if (-not (Test-Path $VenvDir)) {
-    info "Creating Python venv at $VenvDir..."
-    & python -m venv $VenvDir
-    ok "Venv created"
-} else {
-    info "Venv exists at $VenvDir"
+$installedTasks = New-Object System.Collections.Generic.List[string]
+
+if (-not $SkipParakeet) {
+    Write-Info 'Installing local Parakeet STT...'
+    if (Test-Path (Join-Path $ParakeetDir '.git')) {
+        Invoke-Native git @('-C', $ParakeetDir, 'pull', '--ff-only')
+    } else {
+        if (Test-Path $ParakeetDir) { Remove-Item $ParakeetDir -Recurse -Force }
+        Invoke-Native git @('clone', 'https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai', $ParakeetDir)
+    }
+    $parakeetVenv = Join-Path $ParakeetDir '.venv'
+    $parakeetPython = New-PythonEnvironment $Python $parakeetVenv
+    $requirements = Join-Path $ParakeetDir 'requirements-windows.txt'
+    (Get-Content (Join-Path $ParakeetDir 'requirements.txt')) -replace 'onnxruntime-gpu[^\r\n]*', 'onnxruntime' | Set-Content $requirements -Encoding UTF8
+    Invoke-Native $parakeetPython @('-m', 'pip', 'install', '--quiet', '-r', $requirements)
+    Invoke-Native $parakeetPython @('-c', 'import onnxruntime; print(onnxruntime.__version__)')
+    $wrapper = Join-Path $ParakeetDir 'start-windows.ps1'
+    $lines = @(
+        "`$env:PARAKEET_PORT = $(ConvertTo-PowerShellLiteral $ParakeetPort)",
+        "`$env:PARAKEET_USE_GPU = 'false'",
+        "`$env:PARAKEET_BATCHED = '0'",
+        "`$env:PYTHONUNBUFFERED = '1'",
+        "& $(ConvertTo-PowerShellLiteral $parakeetPython) $(ConvertTo-PowerShellLiteral (Join-Path $ParakeetDir 'server.py')) *>> $(ConvertTo-PowerShellLiteral (Join-Path $ConfigDir 'parakeet-stt.log'))",
+        'exit $LASTEXITCODE'
+    )
+    Set-Content $wrapper $lines -Encoding UTF8
+    Register-VoiceTask 'OpenCode-Parakeet-STT' $wrapper $ParakeetDir "Parakeet ONNX STT on 127.0.0.1:$ParakeetPort"
+    $installedTasks.Add('OpenCode-Parakeet-STT')
 }
 
-info "Installing voice core Python dependencies..."
-& "$VenvDir\Scripts\pip" install --quiet --upgrade pip setuptools wheel 2>$null
-& "$VenvDir\Scripts\pip" install --quiet `
-    silero-vad `
-    sounddevice `
-    onnxruntime `
-    torch `
-    torchaudio `
-    numpy
-ok "Voice core dependencies installed"
-
-if ($VenvOnly) { ok "Venv-only setup complete"; exit 0 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 2: Install Parakeet STT Backend (ONNX-based, :5093) — CPU-only
-# ══════════════════════════════════════════════════════════════════════════════
-function Install-Parakeet {
-    if (-not $InstallParakeet) { info "Skipping Parakeet STT"; return }
-    info "── Parakeet STT Backend (ONNX, CPU-only) ─────────────────────"
-
-    if (Test-Path "$ParakeetDir\.git") {
-        info "Parakeet repo exists, pulling..."
-        & git -C $ParakeetDir pull --ff-only 2>&1 | ForEach-Object { "  $_" } | Write-Host
+if (-not $SkipSupertonic) {
+    Write-Info 'Installing local Supertonic TTS...'
+    if (Test-Path (Join-Path $SupertonicDir '.git')) {
+        Invoke-Native git @('-C', $SupertonicDir, 'pull', '--ff-only')
     } else {
-        info "Cloning Parakeet STT repo..."
-        Remove-Item $ParakeetDir -Recurse -Force -ErrorAction SilentlyContinue
-        & git clone https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai $ParakeetDir 2>&1 | ForEach-Object { "  $_" } | Write-Host
+        if (Test-Path $SupertonicDir) { Remove-Item $SupertonicDir -Recurse -Force }
+        Invoke-Native git @('clone', 'https://github.com/groxaxo/supertonic-express-3', $SupertonicDir)
     }
+    $supertonicVenv = Join-Path $SupertonicDir '.venv'
+    $supertonicPython = New-PythonEnvironment $Python $supertonicVenv
+    Invoke-Native $supertonicPython @('-m', 'pip', 'install', '--quiet', '-r', (Join-Path $SupertonicDir 'py\requirements.txt'))
+    Invoke-Native $supertonicPython @('-c', 'import onnxruntime; print(onnxruntime.__version__)')
 
-    if (-not (Test-Path $ParakeetVenv)) {
-        info "Creating Parakeet venv..."
-        & python -m venv $ParakeetVenv
-        ok "Parakeet venv created"
+    $modelDir = Join-Path $SupertonicDir 'assets\supertonic-3'
+    $onnxDir = Join-Path $modelDir 'onnx'
+    $voiceDir = Join-Path $modelDir 'voice_styles'
+    $modelFiles = 'duration_predictor.onnx', 'text_encoder.onnx', 'vector_estimator.onnx', 'vocoder.onnx'
+    $modelReady = $true
+    foreach ($file in $modelFiles) {
+        $path = Join-Path $onnxDir $file
+        if (-not (Test-Path $path) -or (Get-Item $path).Length -lt 1000000) { $modelReady = $false }
     }
-
-    info "Installing Parakeet dependencies (CPU ONNX)..."
-    & "$ParakeetVenv\Scripts\pip" install --quiet --upgrade pip 2>$null
-
-    # Windows: use onnxruntime (CPU), not onnxruntime-gpu
-    $reqFile = "$ParakeetDir\requirements.txt"
-    $reqWindows = "$ParakeetDir\requirements-windows.txt"
-    if (Test-Path $reqFile) {
-        (Get-Content $reqFile) -replace 'onnxruntime-gpu[^\r\n]*', 'onnxruntime' | Set-Content $reqWindows
-    } else {
-        Set-Content $reqWindows "onnxruntime`nnumpy`nfastapi`nuvicorn[standard]`npython-multipart"
-    }
-    & "$ParakeetVenv\Scripts\pip" install --quiet -r $reqWindows 2>$null
-    & "$ParakeetVenv\Scripts\pip" install --quiet `
-        "uvicorn[standard]" fastapi python-multipart silero-vad 2>$null
-
-    ok "Parakeet dependencies installed (CPU ONNX)"
-
-    # Register Task Scheduler task
-    $taskName = "OpenCode-Parakeet-STT"
-    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($existing -and -not $Force) {
-        warn "Task '$taskName' already exists (pass -Force to overwrite)"
-    } else {
-        if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
-        $action  = New-ScheduledTaskAction `
-            -Execute "$ParakeetVenv\Scripts\python.exe" `
-            -Argument "$ParakeetDir\server.py" `
-            -WorkingDirectory $ParakeetDir
-        $trigger = New-ScheduledTaskTrigger -AtLogOn
-        $settings = New-ScheduledTaskSettingsSet `
-            -ExecutionTimeLimit 0 `
-            -RestartCount 99 `
-            -RestartInterval (New-TimeSpan -Minutes 1)
-        $env_vars = @{ PARAKEET_PORT = $ParakeetPort; PARAKEET_USE_GPU = "false"; HOME = $env:USERPROFILE }
-        # Note: Task Scheduler doesn't natively support env vars per task; we wrap in a helper
-        $wrapperScript = "$ParakeetDir\start-windows.ps1"
-        Set-Content $wrapperScript @"
-`$env:PARAKEET_PORT = '$ParakeetPort'
-`$env:PARAKEET_USE_GPU = 'false'
-`$env:HOME = `$env:USERPROFILE
-`$logFile = '$ConfigDir\parakeet-stt.log'
-& '$ParakeetVenv\Scripts\python.exe' '$ParakeetDir\server.py' *>> `$logFile
-"@
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-WindowStyle Hidden -NonInteractive -File `"$wrapperScript`"" `
-            -WorkingDirectory $ParakeetDir
-        Register-ScheduledTask `
-            -TaskName $taskName `
-            -Action $action `
-            -Trigger $trigger `
-            -Settings $settings `
-            -Description "Parakeet ONNX STT Server (CPU-only) on port $ParakeetPort" `
-            -Force | Out-Null
-        ok "Task Scheduler: $taskName registered"
-    }
-}
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 3: Install Supertonic TTS Backend (ONNX-based, :8766) — CPU-only
-# ══════════════════════════════════════════════════════════════════════════════
-function Install-Supertonic {
-    if (-not $InstallSupertonic) { info "Skipping Supertonic TTS"; return }
-    info "── Supertonic TTS Backend (ONNX, CPU-only) ──────────────────"
-
-    if (Test-Path "$SupertonicDir\.git") {
-        info "Supertonic repo exists, pulling..."
-        & git -C $SupertonicDir pull --ff-only 2>&1 | ForEach-Object { "  $_" } | Write-Host
-    } else {
-        info "Cloning Supertonic Express 3 repo..."
-        Remove-Item $SupertonicDir -Recurse -Force -ErrorAction SilentlyContinue
-        & git clone https://github.com/groxaxo/supertonic-express-3 $SupertonicDir 2>&1 | ForEach-Object { "  $_" } | Write-Host
-    }
-
-    if (-not (Test-Path $SupertonicVenv)) {
-        info "Creating Supertonic venv..."
-        & python -m venv $SupertonicVenv
-        ok "Supertonic venv created"
-    }
-
-    info "Installing Supertonic dependencies..."
-    & "$SupertonicVenv\Scripts\pip" install --quiet --upgrade pip 2>$null
-    $reqFile = "$SupertonicDir\py\requirements.txt"
-    if (Test-Path $reqFile) {
-        & "$SupertonicVenv\Scripts\pip" install --quiet -r $reqFile 2>$null
-    }
-    & "$SupertonicVenv\Scripts\pip" install --quiet huggingface-hub transformers 2>$null
-    ok "Supertonic dependencies installed"
-
-    # Download Supertonic 3 FP16 ONNX model (groxaxo/supertonic-3-v2, ~196MB).
-    # Large weights via the GitHub LFS media endpoint; JSON configs via raw.
-    $modelDir = "$SupertonicDir\assets\supertonic-3"
-    if (-not (Test-Path "$modelDir\onnx\tts.json")) {
-        info "Downloading Supertonic 3 ONNX model (~196MB FP16, one-time)..."
-        New-Item -ItemType Directory -Force -Path "$modelDir\onnx", "$modelDir\voice_styles" | Out-Null
-        $media = "https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main"
-        $raw   = "https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main"
-        try {
-            foreach ($f in "duration_predictor.onnx","text_encoder.onnx","vector_estimator.onnx","vocoder.onnx") {
-                Invoke-WebRequest -Uri "$media/onnx/$f" -OutFile "$modelDir\onnx\$f" -UseBasicParsing
-            }
-            foreach ($f in "tts.json","unicode_indexer.json") {
-                Invoke-WebRequest -Uri "$raw/onnx/$f" -OutFile "$modelDir\onnx\$f" -UseBasicParsing
-            }
-            foreach ($v in "F1","F2","F3","F4","F5","M1","M2","M3","M4","M5") {
-                Invoke-WebRequest -Uri "$raw/voice_styles/$v.json" -OutFile "$modelDir\voice_styles\$v.json" -UseBasicParsing
-            }
-        } catch { warn "FP16 download issue: $_" }
-        if (-not (Test-Path "$modelDir\onnx\tts.json") -or ((Get-Item "$modelDir\onnx\vocoder.onnx" -ErrorAction SilentlyContinue).Length -lt 1000000)) {
-            warn "FP16 download incomplete — falling back to Hugging Face (Supertone/supertonic-3)..."
-            Remove-Item $modelDir -Recurse -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
-            & "$SupertonicVenv\Scripts\python" "$SupertonicDir\scripts\download_supertonic3.py" --repo-id Supertone/supertonic-3 --dest $modelDir
+    if (-not $modelReady -or -not (Test-Path (Join-Path $onnxDir 'tts.json'))) {
+        New-Item -ItemType Directory -Force -Path $onnxDir, $voiceDir | Out-Null
+        $media = 'https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main'
+        $raw = 'https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main'
+        foreach ($file in $modelFiles) { Invoke-WebRequest -Uri "$media/onnx/$file" -OutFile (Join-Path $onnxDir $file) -UseBasicParsing }
+        foreach ($file in 'tts.json', 'unicode_indexer.json') { Invoke-WebRequest -Uri "$raw/onnx/$file" -OutFile (Join-Path $onnxDir $file) -UseBasicParsing }
+        foreach ($voice in 'F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5') {
+            Invoke-WebRequest -Uri "$raw/voice_styles/$voice.json" -OutFile (Join-Path $voiceDir "$voice.json") -UseBasicParsing
         }
-        ok "Supertonic 3 model ready"
-    } else {
-        ok "Supertonic 3 model already present"
     }
-
-    # Register Task Scheduler task
-    $taskName = "OpenCode-Supertonic"
-    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($existing -and -not $Force) {
-        warn "Task '$taskName' already exists (pass -Force to overwrite)"
-    } else {
-        if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
-        $wrapperScript = "$SupertonicDir\start-windows.ps1"
-        Set-Content $wrapperScript @"
-`$env:SUPERTONIC_MODEL_DIR = '$SupertonicDir\assets\supertonic-3'
-`$env:ONNX_DIR = '$SupertonicDir\assets\supertonic-3\onnx'
-`$env:VOICE_STYLES_DIR = '$SupertonicDir\assets\supertonic-3\voice_styles'
-`$env:USE_GPU = 'false'
-`$env:SUPERTONIC_ORT_BACKEND = 'cpu'
-`$env:HOME = `$env:USERPROFILE
-`$logFile = '$ConfigDir\supertonic.log'
-Set-Location '$SupertonicDir\py'
-& '$SupertonicVenv\Scripts\python.exe' -m uvicorn api.src.main:app ``
-    --host 0.0.0.0 --port $SupertonicPort --app-dir '$SupertonicDir\py' ``
-    *>> `$logFile
-"@
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-WindowStyle Hidden -NonInteractive -File `"$wrapperScript`"" `
-            -WorkingDirectory "$SupertonicDir\py"
-        $trigger  = New-ScheduledTaskTrigger -AtLogOn
-        $settings = New-ScheduledTaskSettingsSet `
-            -ExecutionTimeLimit 0 `
-            -RestartCount 99 `
-            -RestartInterval (New-TimeSpan -Minutes 1)
-        Register-ScheduledTask `
-            -TaskName $taskName `
-            -Action $action `
-            -Trigger $trigger `
-            -Settings $settings `
-            -Description "Supertonic ONNX TTS Server (CPU-only) on port $SupertonicPort" `
-            -Force | Out-Null
-        ok "Task Scheduler: $taskName registered"
-    }
+    if ($SkipVoices) { Write-Warn '-SkipVoices is retained for compatibility; bundled Supertonic style files are still required.' }
+    $wrapper = Join-Path $SupertonicDir 'start-windows.ps1'
+    $lines = @(
+        "`$env:SUPERTONIC_MODEL_DIR = $(ConvertTo-PowerShellLiteral $modelDir)",
+        "`$env:ONNX_DIR = $(ConvertTo-PowerShellLiteral $onnxDir)",
+        "`$env:VOICE_STYLES_DIR = $(ConvertTo-PowerShellLiteral $voiceDir)",
+        "`$env:USE_GPU = 'false'",
+        "`$env:SUPERTONIC_ORT_BACKEND = 'cpu'",
+        "`$env:PYTHONUNBUFFERED = '1'",
+        "Set-Location $(ConvertTo-PowerShellLiteral (Join-Path $SupertonicDir 'py'))",
+        "& $(ConvertTo-PowerShellLiteral $supertonicPython) -m uvicorn api.src.main:app --host 127.0.0.1 --port $SupertonicPort --app-dir $(ConvertTo-PowerShellLiteral (Join-Path $SupertonicDir 'py')) *>> $(ConvertTo-PowerShellLiteral (Join-Path $ConfigDir 'supertonic.log'))",
+        'exit $LASTEXITCODE'
+    )
+    Set-Content $wrapper $lines -Encoding UTF8
+    Register-VoiceTask 'OpenCode-Supertonic' $wrapper (Join-Path $SupertonicDir 'py') "Supertonic ONNX TTS on 127.0.0.1:$SupertonicPort"
+    $installedTasks.Add('OpenCode-Supertonic')
 }
 
-# Run backend installs (sequential on Windows to avoid pip contention)
-Install-Parakeet
-Install-Supertonic
+$serviceSettings = [ordered]@{
+    parakeet_health_url = "http://127.0.0.1:$ParakeetPort/health"
+    supertonic_health_url = "http://127.0.0.1:$SupertonicPort/health"
+}
+$serviceSettings | ConvertTo-Json | Set-Content (Join-Path $ConfigDir 'windows-services.json') -Encoding UTF8
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 4: Install service files to skill directory
-# ══════════════════════════════════════════════════════════════════════════════
-info "── Installing service files ────────────────────────────────────"
+Write-Info 'Installing talk skill...'
 New-Item -ItemType Directory -Force -Path $SkillDir | Out-Null
-
-$serviceFiles = @(
-    "service\vad_recorder.py",
-    "service\talk.sh",
-    "service\tts.sh",
-    "service\tts_lang.sh",
-    "windows\talk.ps1",
-    "skill\SKILL.md"
-)
-foreach ($f in $serviceFiles) {
-    $src = Join-Path $RepoDir $f
-    $dst = Join-Path $SkillDir (Split-Path $f -Leaf)
-    if (Test-Path $src) { Copy-Item $src $dst -Force }
+foreach ($file in 'service\vad_recorder.py', 'service\talk.sh', 'service\tts.sh', 'service\tts_lang.sh', 'windows\talk.ps1', 'skill\SKILL.md') {
+    Copy-Item (Join-Path $RepoDir $file) $SkillDir -Force
 }
-ok "Service files installed to $SkillDir"
+Copy-Item (Join-Path $RepoDir 'service\tts.sh') (Join-Path $ConfigDir 'tts.sh') -Force
+Copy-Item (Join-Path $RepoDir 'service\tts_lang.sh') (Join-Path $ConfigDir 'tts_lang.sh') -Force
+Copy-Item (Join-Path $RepoDir 'windows\talk.ps1') (Join-Path $ConfigDir 'talk.ps1') -Force
 
-# Backward compat: tts files at config root
-Copy-Item (Join-Path $RepoDir "service\tts.sh")      "$ConfigDir\tts.sh"       -Force
-Copy-Item (Join-Path $RepoDir "service\tts_lang.sh") "$ConfigDir\tts_lang.sh"  -Force
-Copy-Item (Join-Path $RepoDir "windows\talk.ps1")    "$ConfigDir\talk.ps1"     -Force -ErrorAction SilentlyContinue
-ok "TTS CLI + lang helper installed to $ConfigDir"
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 5: Install agent integrations
-# ══════════════════════════════════════════════════════════════════════════════
-if ($SelectedIntegrations.Count -gt 0) {
-    info "── Agent Integrations ─────────────────────────────────────────"
-    foreach ($key in $SelectedIntegrations.Keys) {
-        $targetDir = $SelectedIntegrations[$key]
-        New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
-        Copy-Item "$SkillDir\*" $targetDir -Force -Recurse
-        ok "$key  →  $targetDir"
+$selected = New-Object System.Collections.Generic.List[string]
+if (-not $NoIntegrations) {
+    if ($Integrations) {
+        foreach ($name in $Integrations.Split(',')) {
+            $key = $name.Trim().ToLowerInvariant()
+            if (-not $AgentTargets.ContainsKey($key)) { throw "Unknown integration '$key'." }
+            $selected.Add($key)
+        }
+    } elseif ([Environment]::UserInteractive) {
+        foreach ($key in $AgentTargets.Keys | Sort-Object) {
+            $answer = Read-Host "Install the talk skill for $key? [Y/n]"
+            if (-not $answer -or $answer -match '^[Yy]') { $selected.Add($key) }
+        }
     }
 }
-
-# ══════════════════════════════════════════════════════════════════════════════
-# Step 6: Start services
-# ══════════════════════════════════════════════════════════════════════════════
-info "Starting services..."
-foreach ($taskName in @("OpenCode-Parakeet-STT", "OpenCode-Supertonic")) {
-    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($task) {
-        Start-ScheduledTask -TaskName $taskName
-        ok "$taskName started"
-    }
+foreach ($key in $selected) {
+    $target = $AgentTargets[$key]
+    if ([IO.Path]::GetFullPath($target) -eq [IO.Path]::GetFullPath($SkillDir)) { continue }
+    New-Item -ItemType Directory -Force -Path $target | Out-Null
+    Copy-Item (Join-Path $SkillDir '*') $target -Recurse -Force
+    Write-Ok "Installed $key integration."
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Summary
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Host ""
-info "── Setup Complete ────────────────────────────────────────────"
-Write-Host ""
-Write-Host "  Voice skill:   $SkillDir\talk.ps1"
-Write-Host "  VAD engine:    $SkillDir\vad_recorder.py"
-Write-Host "  TTS CLI:       $ConfigDir\tts.sh"
-Write-Host "  Voice venv:    $VenvDir"
-Write-Host ""
-Write-Host "  Backends (Task Scheduler auto-start on login):"
-$pStat = if ((Get-ScheduledTask "OpenCode-Parakeet-STT"  -EA SilentlyContinue)) { "(c) registered" } else { "not registered" }
-$sStat = if ((Get-ScheduledTask "OpenCode-Supertonic" -EA SilentlyContinue))    { "(c) registered" } else { "not registered" }
-Write-Host "    STT — Parakeet ONNX    :$ParakeetPort   $pStat   log: $ConfigDir\parakeet-stt.log"
-Write-Host "    TTS — Supertonic ONNX  :$SupertonicPort   $sStat   log: $ConfigDir\supertonic.log"
-Write-Host ""
-Write-Host "  Quick test:"
-Write-Host "    python $SkillDir\vad_recorder.py --list-devices"
-Write-Host "    & '$Python' '$SkillDir\vad_recorder.py' --list-devices"
-Write-Host ""
-Write-Host "  Agent integrations installed:" -ForegroundColor Cyan
-foreach ($k in $SelectedIntegrations.Keys) {
-    Write-Host "    $k → $($SelectedIntegrations[$k])" -ForegroundColor Gray
+foreach ($taskName in $installedTasks) {
+    Start-ScheduledTask -TaskName $taskName
+    Write-Info "Started $taskName"
 }
-Write-Host ""
-Write-Host "────────────────────────────────────────────────────────────"
+if (-not $SkipParakeet) { [void](Wait-Endpoint 'Parakeet STT' "http://127.0.0.1:$ParakeetPort/health") }
+if (-not $SkipSupertonic) { [void](Wait-Endpoint 'Supertonic TTS' "http://127.0.0.1:$SupertonicPort/health") }
+
+Write-Host ''
+Write-Ok 'Windows setup finished.'
+Write-Host "Talk command: & '$SkillDir\talk.ps1' status"
+Write-Host "Manager app:  & '$RepoDir\windows\VoiceModeManager.ps1'"

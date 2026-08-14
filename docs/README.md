@@ -7,6 +7,7 @@ This directory contains the operational and technical reference for Local VoiceM
 | Guide | Use it when |
 |---|---|
 | [Installation](installation.md) | Installing, upgrading, selecting integrations, managing services, or uninstalling |
+| [Windows installer and manager](windows.md) | Installing Windows prerequisites, selecting components, or managing scheduled services |
 | [Apple Silicon MLX setup and repair](macos-repair.md) | Installing, validating, benchmarking, or forcing Supertonic MLX/ONNX on a Mac |
 | [Troubleshooting](troubleshooting.md) | A microphone, backend, playback path, provider, or service is not working |
 | [Providers](providers.md) | Choosing local or remote STT/TTS and understanding fallback behavior |

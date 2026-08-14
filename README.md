@@ -82,6 +82,10 @@ Then verify the stack:
 
 ### Windows PowerShell
 
+<p align="center">
+  <img src="windows/assets/voicemode-logo.svg" alt="Local VoiceMode LLM logo" width="128">
+</p>
+
 ```powershell
 git clone https://github.com/groxaxo/Local-VoiceMode-LLM.git
 cd Local-VoiceMode-LLM
@@ -93,7 +97,21 @@ Prerequisites:
 ```powershell
 winget install --id Git.Git
 winget install --id Python.Python.3.12
+winget install --id Microsoft.VCRedist.2015+.x64
 winget install --id Gyan.FFmpeg   # recommended playback option
+```
+
+For a graphical component selector and service manager:
+
+```powershell
+.\windows\VoiceModeManager.ps1
+```
+
+Prebuilt native Windows executables are included in [`dist/windows/`](dist/windows/):
+
+```powershell
+.\dist\windows\LocalVoiceModeInstaller.exe
+.\dist\windows\LocalVoiceModeManager.exe
 ```
 
 Verify the installed services:
@@ -103,7 +121,7 @@ Verify the installed services:
 & "$env:USERPROFILE\.config\opencode\skills\talk\talk.ps1" devices
 ```
 
-See the full platform guide in [`docs/installation.md`](docs/installation.md).
+See the full platform guides in [`docs/installation.md`](docs/installation.md) and [`docs/windows.md`](docs/windows.md).
 
 ## What the installer creates
 
@@ -305,6 +323,7 @@ Additional results are in [`benchmarks/README.md`](benchmarks/README.md) and [`b
 |---|---|
 | [`docs/README.md`](docs/README.md) | documentation index |
 | [`docs/installation.md`](docs/installation.md) | platform setup, flags, services, uninstall |
+| [`docs/windows.md`](docs/windows.md) | Windows installer, manager app, prerequisites, and diagnostics |
 | [`docs/architecture.md`](docs/architecture.md) | runtime design and data flow |
 | [`docs/providers.md`](docs/providers.md) | TTS/STT engines, credentials, fallback policy |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | diagnosis and recovery commands |
@@ -321,7 +340,10 @@ Local-VoiceMode-LLM/
 │   ├── tts_lang.sh
 │   ├── inworld_steer.sh
 │   └── vad_recorder.py
-├── windows/talk.ps1
+├── windows/
+│   ├── talk.ps1
+│   └── VoiceModeManager.ps1
+├── dist/windows/                 # prebuilt Windows installer and manager EXEs
 ├── skill/SKILL.md
 ├── frontend/
 ├── integrations/

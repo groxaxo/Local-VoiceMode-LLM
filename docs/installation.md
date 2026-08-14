@@ -45,11 +45,13 @@ sudo dnf install -y git python3 python3-pip portaudio-devel ffmpeg
 - Windows PowerShell 5.1 or newer
 - Git
 - Python 3.11 or newer; Python 3.12 is preferred
+- Microsoft Visual C++ 2015-2022 Redistributable (x64), required by ONNX Runtime
 - `ffplay` is recommended, although the PowerShell orchestrator can use `System.Media.SoundPlayer` for WAV playback
 
 ```powershell
 winget install --id Git.Git
 winget install --id Python.Python.3.12
+winget install --id Microsoft.VCRedist.2015+.x64
 winget install --id Gyan.FFmpeg
 ```
 
@@ -110,15 +112,22 @@ cd Local-VoiceMode-LLM
 .\setup.ps1
 ```
 
+Alternatively, open the native component selector and service manager:
+
+```powershell
+.\windows\VoiceModeManager.ps1
+```
+
 ### PowerShell parameters
 
 | Parameter | Effect |
 |---|---|
 | `-SkipParakeet` | Skip local STT installation |
 | `-SkipSupertonic` | Skip local TTS installation |
-| `-SkipVoices` | Skip reference voice generation |
+| `-SkipVoices` | Compatibility flag; required Supertonic style files are still installed |
 | `-VenvOnly` | Create only the voice environment |
 | `-Integrations "..."` | Install a comma-separated subset of agent integrations |
+| `-NoIntegrations` | Do not install any agent integration copies |
 | `-Force` | Replace existing managed scheduled tasks |
 | `-Uninstall` | Remove managed tasks while keeping installation directories |
 | `-Uninstall -Force` | Also remove managed directories |
@@ -127,6 +136,7 @@ Examples:
 
 ```powershell
 .\setup.ps1 -Integrations "claudecode,opencode"
+.\setup.ps1 -NoIntegrations
 .\setup.ps1 -SkipSupertonic
 .\setup.ps1 -Uninstall
 .\setup.ps1 -Uninstall -Force

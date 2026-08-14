@@ -40,3 +40,29 @@ jobs:
             echo "Checking $file"
             bash -n "$file"
           done < <(git ls-files -z -- '*.sh')
+
+  validate-windows:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check Windows PowerShell syntax
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Error "$($_.FullName): $($errors -join '; ')"
+            }
+          }
+          if ($failed) { exit 1 }

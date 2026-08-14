@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "scripts" / "install.sh"
@@ -18,6 +21,7 @@ SUPERTONIC_PLIST = ROOT / "launchd" / "com.opencode.supertonic.plist"
 PARAKEET_PLIST = ROOT / "launchd" / "com.opencode.parakeet-stt.plist"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Unix entrypoints are validated by Linux CI")
 def test_shell_entrypoints_parse_and_help() -> None:
     for script in (ROOT / "setup.sh", INSTALLER, ROOT / "service" / "doctor.sh"):
         subprocess.run(["bash", "-n", str(script)], check=True)

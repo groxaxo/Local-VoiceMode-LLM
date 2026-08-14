@@ -3,15 +3,15 @@
     Windows voice conversation orchestrator for OpenCode Voice Service.
 
 .DESCRIPTION
-    Equivalent of talk.sh for Windows. Drives VAD → Parakeet STT → Supertonic TTS
+    Equivalent of talk.sh for Windows. Drives VAD -> Parakeet STT -> Supertonic TTS
     in a pipelined voice conversation loop. All inference is local/CPU-only.
 
 .PARAMETER Command
-    listen  — record one utterance, transcribe, print text
-    speak   — TTS synthesis + auto-listen
-    status  — health check all backends
-    devices — list audio input devices
-    loop    — continuous conversation loop
+    listen  - record one utterance, transcribe, print text
+    speak   - TTS synthesis + auto-listen
+    status  - health check all backends
+    devices - list audio input devices
+    loop    - continuous conversation loop
 
 .EXAMPLE
     .\talk.ps1 listen
@@ -30,7 +30,7 @@ param(
 
 $ServiceDir = $PSScriptRoot
 
-# ── Config ───────────────────────────────────────────────────────────────────
+# Config
 $ConfigDir      = "$env:USERPROFILE\.config\opencode"
 $VenvPython     = if ($env:PYTHON) { $env:PYTHON } else { "$ConfigDir\tts-venv\Scripts\python.exe" }
 $VadPy          = "$ServiceDir\vad_recorder.py"
@@ -41,6 +41,11 @@ $XaiTtsVoice    = if ($env:XAI_TTS_VOICE)   { $env:XAI_TTS_VOICE }   else { "rex
 $SttUrl         = if ($env:STT_URL)         { $env:STT_URL }         else { "http://127.0.0.1:5093/v1/audio/transcriptions" }
 $SttModel       = if ($env:STT_MODEL)       { $env:STT_MODEL }       else { "parakeet-tdt-0.6b-v3" }
 $SupertonicUrl  = if ($env:SUPERTONIC_URL)  { $env:SUPERTONIC_URL }  else { "http://127.0.0.1:8766" }
+$SttHealthUrl   = "http://127.0.0.1:5093/health"
+try {
+    $sttUri = [Uri]$SttUrl
+    $SttHealthUrl = "$($sttUri.Scheme)://$($sttUri.Authority)/health"
+} catch {}
 $MicQuery       = if ($env:MIC_QUERY)       { $env:MIC_QUERY }       else { "" }
 $VadThreshold   = if ($env:VAD_THRESHOLD)   { $env:VAD_THRESHOLD }   else { "0.5" }
 $MinSilenceMs   = if ($env:VAD_MIN_SILENCE_MS) { $env:VAD_MIN_SILENCE_MS } else { "500" }
@@ -50,7 +55,7 @@ $IdleTimeoutS   = if ($env:TALK_IDLE_TIMEOUT_S) { $env:TALK_IDLE_TIMEOUT_S } els
 $ReadyCue       = if ($env:TALK_READY_CUE)      { $env:TALK_READY_CUE }      else { "1" }
 $ReadyDelayMs   = if ($env:TALK_READY_DELAY_MS) { $env:TALK_READY_DELAY_MS } else { "700" }
 
-# ── Audio playback (cross-platform WAV player) ─────────────────────────────
+# Audio playback (cross-platform WAV player)
 function Play-Wav {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return }
@@ -75,7 +80,7 @@ function Play-ReadyCue {
     [Console]::Beep(880, 120)
 }
 
-# ── Transcribe WAV file via Parakeet STT ──────────────────────────────────
+# Transcribe WAV file via Parakeet STT
 function Invoke-Transcribe {
     param([string]$File)
 
@@ -103,7 +108,7 @@ function Invoke-Transcribe {
     }
 }
 
-# ── VAD listen ────────────────────────────────────────────────────────────
+# VAD listen
 function Invoke-Listen {
     $tmpVadOut = [System.IO.Path]::GetTempFileName() + ".json"
     $outWav    = [System.IO.Path]::GetTempFileName() + ".wav"
@@ -148,7 +153,7 @@ function Invoke-Listen {
     return $text
 }
 
-# ── TTS speak via supertonic / xai ────────────────────────────────────────
+# TTS speak via Supertonic / xAI
 function Invoke-TTS {
     param([string]$Text, [string]$Lang = "en")
 
@@ -190,7 +195,7 @@ function Invoke-TTS {
     return $false
 }
 
-# ── Commands ─────────────────────────────────────────────────────────────
+# Commands
 function Cmd-Listen {
     $text = Invoke-Listen
     if ($text) { Write-Output $text }
@@ -213,13 +218,15 @@ function Cmd-Speak {
 
 function Cmd-Status {
     Write-Host "=== Audio Devices ===" -ForegroundColor Cyan
-    & $VenvPython $VadPy --list-devices 2>&1
+    & $VenvPython $VadPy --list-devices
 
     Write-Host ""
     Write-Host "=== Parakeet STT (:5093) ===" -ForegroundColor Cyan
     try {
-        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5093/health" -TimeoutSec 2 -ErrorAction Stop
-        Write-Host "  RUNNING — $($resp.StatusCode)" -ForegroundColor Green
+        $resp = Invoke-WebRequest -Uri $SttHealthUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $health = $resp.Content | ConvertFrom-Json
+        if (-not $health.ready) { throw 'Parakeet is still loading its model.' }
+        Write-Host "  RUNNING - $($resp.StatusCode)" -ForegroundColor Green
     } catch {
         Write-Host "  NOT RUNNING" -ForegroundColor Red
         Write-Host "  Start: Start-ScheduledTask 'OpenCode-Parakeet-STT'"
@@ -228,8 +235,10 @@ function Cmd-Status {
     Write-Host ""
     Write-Host "=== Supertonic TTS (:$($SupertonicUrl.Split(':')[-1])) ===" -ForegroundColor Cyan
     try {
-        $resp = Invoke-WebRequest -Uri "$SupertonicUrl/health" -TimeoutSec 2 -ErrorAction Stop
-        Write-Host "  RUNNING — $($resp.StatusCode)" -ForegroundColor Green
+        $resp = Invoke-WebRequest -Uri "$SupertonicUrl/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $health = $resp.Content | ConvertFrom-Json
+        if (-not $health.model_loaded) { throw 'Supertonic is still loading its model.' }
+        Write-Host "  RUNNING - $($resp.StatusCode)" -ForegroundColor Green
     } catch {
         Write-Host "  NOT RUNNING" -ForegroundColor Red
         Write-Host "  Start: Start-ScheduledTask 'OpenCode-Supertonic'"
@@ -245,11 +254,11 @@ function Cmd-Status {
 
 function Cmd-Devices {
     Write-Host "=== Audio Input Devices ===" -ForegroundColor Cyan
-    & $VenvPython $VadPy --list-devices 2>&1
+    & $VenvPython $VadPy --list-devices
 }
 
 function Cmd-Loop {
-    Write-Host "Talk loop — Ctrl+C to stop" -ForegroundColor Cyan
+    Write-Host "Talk loop - Ctrl+C to stop" -ForegroundColor Cyan
     while ($true) {
         $text = Invoke-Listen
         if ($text) {
@@ -264,7 +273,7 @@ function Cmd-Loop {
     }
 }
 
-# ── Dispatch ─────────────────────────────────────────────────────────────
+# Dispatch
 switch ($Command) {
     { $_ -in "listen","record","hear" } { Cmd-Listen }
     { $_ -in "speak","say","tts" }      { Cmd-Speak }

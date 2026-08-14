@@ -120,6 +120,14 @@ If `systemctl --user` cannot connect, confirm that a user session and D-Bus user
 
 ### Windows
 
+Open the manager app for health, task controls, logs, and microphone diagnostics:
+
+```powershell
+.\windows\VoiceModeManager.ps1
+```
+
+Or manage tasks directly:
+
 ```powershell
 Start-ScheduledTask "OpenCode-Parakeet-STT"
 Start-ScheduledTask "OpenCode-Supertonic"
@@ -130,6 +138,14 @@ Get-ScheduledTask "OpenCode-Parakeet-STT", "OpenCode-Supertonic" |
 
 Get-Content "$env:USERPROFILE\.config\opencode\parakeet-stt.log" -Tail 100
 Get-Content "$env:USERPROFILE\.config\opencode\supertonic.log" -Tail 100
+```
+
+If either log contains `DLL load failed while importing onnxruntime_pybind11_state`, install or repair the Microsoft Visual C++ x64 runtime, then restart both tasks:
+
+```powershell
+winget install --id Microsoft.VCRedist.2015+.x64
+Stop-ScheduledTask "OpenCode-Parakeet-STT", "OpenCode-Supertonic" -ErrorAction SilentlyContinue
+Start-ScheduledTask "OpenCode-Parakeet-STT", "OpenCode-Supertonic"
 ```
 
 ## 5. Microphone diagnosis
