@@ -25,7 +25,7 @@ param(
     [string]$Command = "listen",
 
     [Parameter(Position=1, ValueFromRemainingArguments)]
-    [string[]]$Args = @()
+    [string[]]$TextArgs = @()
 )
 
 $ServiceDir = $PSScriptRoot
@@ -41,6 +41,7 @@ $XaiTtsVoice    = if ($env:XAI_TTS_VOICE)   { $env:XAI_TTS_VOICE }   else { "rex
 $SttUrl         = if ($env:STT_URL)         { $env:STT_URL }         else { "http://127.0.0.1:5093/v1/audio/transcriptions" }
 $SttModel       = if ($env:STT_MODEL)       { $env:STT_MODEL }       else { "parakeet-tdt-0.6b-v3" }
 $SupertonicUrl  = if ($env:SUPERTONIC_URL)  { $env:SUPERTONIC_URL }  else { "http://127.0.0.1:8766" }
+$SupertonicVoice = if ($env:SUPERTONIC_VOICE) { $env:SUPERTONIC_VOICE } else { "F1" }
 $SttHealthUrl   = "http://127.0.0.1:5093/health"
 try {
     $sttUri = [Uri]$SttUrl
@@ -160,18 +161,26 @@ function Invoke-TTS {
     $outputWav = [System.IO.Path]::GetTempFileName() + ".wav"
 
     if ($TtsEngine -eq "supertonic" -or $TtsEngine -eq "coreml-tts") {
-        $body = (@{ text = $Text; language = $Lang } | ConvertTo-Json -Compress)
-        $httpCode = & curl.exe -sS -m 60 `
-            -o $outputWav -w '%{http_code}' `
-            "$SupertonicUrl/v1/audio/speech" `
-            -H "Content-Type: application/json" `
-            -d $body 2>$null
-        if ($httpCode -ge 200 -and $httpCode -lt 300 -and (Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
-            Play-Wav $outputWav
-            Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
-            return $true
+        $body = (@{
+            input = $Text
+            voice = $SupertonicVoice
+            model = "supertonic"
+            response_format = "wav"
+            stream = $false
+        } | ConvertTo-Json -Compress)
+        try {
+            Invoke-WebRequest -Uri "$SupertonicUrl/v1/audio/speech" -Method Post `
+                -ContentType "application/json" -Body $body -OutFile $outputWav `
+                -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+            if ((Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
+                Play-Wav $outputWav
+                Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+                return $true
+            }
+        } catch {
+            Write-Host "[tts] Supertonic failed: $($_.Exception.Message)" -ForegroundColor Yellow
         }
-        Write-Host "[tts] Supertonic failed (HTTP $httpCode), trying xAI..." -ForegroundColor Yellow
+        Write-Host "[tts] Supertonic returned no audio, trying xAI..." -ForegroundColor Yellow
     }
 
     if ($env:XAI_API_KEY) {
@@ -202,10 +211,10 @@ function Cmd-Listen {
 }
 
 function Cmd-Speak {
-    $text = if ($Args.Count -gt 0) { $Args[0] } else { "" }
+    $text = if ($TextArgs.Count -gt 0) { $TextArgs[0] } else { "" }
     if (-not $text) { Write-Host "[talk] No text provided" -ForegroundColor Yellow; return }
 
-    $lang = if ($Args.Count -gt 1) { $Args[1] } else { "en" }
+    $lang = if ($TextArgs.Count -gt 1) { $TextArgs[1] } else { "en" }
 
     Invoke-TTS $text $lang | Out-Null
 

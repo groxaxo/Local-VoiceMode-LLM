@@ -72,6 +72,15 @@ def test_manager_delegates_installation_and_manages_health() -> None:
     assert "pip install" not in manager
 
 
+def test_windows_talk_uses_non_conflicting_text_parameter_and_api_shape() -> None:
+    talk = read(TALK)
+    assert "$TextArgs" in talk
+    assert "[string[]]$Args" not in talk
+    assert "input = $Text" in talk
+    assert "response_format = \"wav\"" in talk
+    assert "Invoke-WebRequest -Uri \"$SupertonicUrl/v1/audio/speech\"" in talk
+
+
 def test_release_build_embeds_the_branded_payload() -> None:
     build = read(ROOT / "windows" / "build-release.ps1")
     assert "Invoke-ps2exe" in build
