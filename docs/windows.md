@@ -57,6 +57,20 @@ The **Services** tab independently reports Task Scheduler state and HTTP endpoin
 
 The **Diagnostics** tab runs the installed `talk.ps1 status` and `talk.ps1 devices` commands.
 
+## Optional IndexTTS 2.5 CUDA default
+
+IndexTTS 2.5 is an NVIDIA CUDA voice-cloning engine. It requires a CUDA-capable GPU with roughly 10 GiB or more VRAM and an authorized speaker-reference WAV. Its API runs separately on `127.0.0.1:7863`; Supertonic remains the low-latency CPU default when this service is not configured.
+
+After installing and starting the NVIDIA service from [mlx-indextts2-inference](https://github.com/groxaxo/mlx-indextts2-inference), make it the Windows talk-client default for future user sessions:
+
+```powershell
+[Environment]::SetEnvironmentVariable('TTS_ENGINE', 'indextts', 'User')
+[Environment]::SetEnvironmentVariable('INDEXTTS_URL', 'http://127.0.0.1:7863', 'User')
+[Environment]::SetEnvironmentVariable('INDEXTTS_REF_AUDIO', 'C:\path\to\authorized-reference.wav', 'User')
+```
+
+Restart OpenCode or any terminal that will use the talk skill after changing these variables. The client posts the text and reference path to IndexTTS, downloads the generated WAV, and plays it locally. Only use speaker references you own or are authorized to clone.
+
 ## Build the executables
 
 The checked-in executables are reproducible from the repository. The build uses the CurrentUser PowerShell `PS2EXE` module only as a packaging tool:

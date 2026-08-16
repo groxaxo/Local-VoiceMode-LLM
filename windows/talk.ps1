@@ -42,6 +42,8 @@ $SttUrl         = if ($env:STT_URL)         { $env:STT_URL }         else { "htt
 $SttModel       = if ($env:STT_MODEL)       { $env:STT_MODEL }       else { "parakeet-tdt-0.6b-v3" }
 $SupertonicUrl  = if ($env:SUPERTONIC_URL)  { $env:SUPERTONIC_URL }  else { "http://127.0.0.1:8766" }
 $SupertonicVoice = if ($env:SUPERTONIC_VOICE) { $env:SUPERTONIC_VOICE } else { "F1" }
+$IndexTtsUrl    = if ($env:INDEXTTS_URL)    { $env:INDEXTTS_URL.TrimEnd('/') } else { "http://127.0.0.1:7863" }
+$IndexTtsRefAudio = if ($env:INDEXTTS_REF_AUDIO) { $env:INDEXTTS_REF_AUDIO } else { "" }
 $SttHealthUrl   = "http://127.0.0.1:5093/health"
 try {
     $sttUri = [Uri]$SttUrl
@@ -160,6 +162,34 @@ function Invoke-TTS {
 
     $outputWav = [System.IO.Path]::GetTempFileName() + ".wav"
 
+    if ($TtsEngine -eq "indextts") {
+        if (-not $IndexTtsRefAudio -or -not (Test-Path $IndexTtsRefAudio)) {
+            Write-Host "[tts] IndexTTS requires INDEXTTS_REF_AUDIO to point to a speaker reference WAV" -ForegroundColor Red
+            return $false
+        }
+        $body = (@{
+            text = $Text
+            ref_audio = $IndexTtsRefAudio
+            language = $Lang
+        } | ConvertTo-Json -Compress)
+        try {
+            $result = Invoke-WebRequest -Uri "$IndexTtsUrl/generate" -Method Post `
+                -ContentType "application/json" -Body $body -UseBasicParsing `
+                -TimeoutSec 600 -ErrorAction Stop | Select-Object -ExpandProperty Content | ConvertFrom-Json
+            $audioUrl = if ($result.audio_url -match '^https?://') { $result.audio_url } else { "$IndexTtsUrl$($result.audio_url)" }
+            Invoke-WebRequest -Uri $audioUrl -OutFile $outputWav -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+            if ((Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
+                Play-Wav $outputWav
+                Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+                return $true
+            }
+        } catch {
+            Write-Host "[tts] IndexTTS failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+
     if ($TtsEngine -eq "supertonic" -or $TtsEngine -eq "coreml-tts") {
         $body = (@{
             input = $Text
@@ -251,6 +281,19 @@ function Cmd-Status {
     } catch {
         Write-Host "  NOT RUNNING" -ForegroundColor Red
         Write-Host "  Start: Start-ScheduledTask 'OpenCode-Supertonic'"
+    }
+
+    if ($TtsEngine -eq "indextts") {
+        Write-Host ""
+        Write-Host "=== IndexTTS CUDA (:$($IndexTtsUrl.Split(':')[-1])) ===" -ForegroundColor Cyan
+        try {
+            $resp = Invoke-WebRequest -Uri "$IndexTtsUrl/health" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+            $health = $resp.Content | ConvertFrom-Json
+            Write-Host "  RUNNING - $($health.device_name), $($health.precision)" -ForegroundColor Green
+            Write-Host "  Reference: $IndexTtsRefAudio"
+        } catch {
+            Write-Host "  NOT RUNNING" -ForegroundColor Red
+        }
     }
 
     Write-Host ""

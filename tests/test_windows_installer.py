@@ -81,6 +81,15 @@ def test_windows_talk_uses_non_conflicting_text_parameter_and_api_shape() -> Non
     assert "Invoke-WebRequest -Uri \"$SupertonicUrl/v1/audio/speech\"" in talk
 
 
+def test_windows_talk_supports_indextts_cuda_requests() -> None:
+    talk = read(TALK)
+    assert 'TtsEngine -eq "indextts"' in talk
+    assert "INDEXTTS_URL" in talk
+    assert "INDEXTTS_REF_AUDIO" in talk
+    assert 'Invoke-WebRequest -Uri "$IndexTtsUrl/generate"' in talk
+    assert "ref_audio = $IndexTtsRefAudio" in talk
+
+
 def test_release_build_embeds_the_branded_payload() -> None:
     build = read(ROOT / "windows" / "build-release.ps1")
     assert "Invoke-ps2exe" in build
