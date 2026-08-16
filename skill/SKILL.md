@@ -12,6 +12,16 @@ description: >-
 
 Use the installed Local VoiceMode LLM scripts. Never invent a transcript, claim audio was played without invoking the tool, or simulate microphone input.
 
+## Runtime paths
+
+| Role | Unix/macOS | Windows |
+|---|---|---|
+| Orchestrator | `~/.config/opencode/skills/talk/talk.sh` | `%USERPROFILE%\.config\opencode\skills\talk\talk.ps1` |
+| Recorder | `~/.config/opencode/skills/talk/vad_recorder.py` | skill-local `vad_recorder.py` |
+| Built-in TTS dispatcher | `~/.config/opencode/tts.sh` | provider logic in `talk.ps1` |
+| Language helper | `~/.config/opencode/tts_lang.sh` | orchestrator language argument |
+| Shared AI provider bridge | `~/.config/opencode/ai-tts-provider/tts-provider.sh` | Python helper is portable; automatic PowerShell routing is separate |
+
 Supported skill targets:
 
 | Agent | Skill path |
@@ -22,30 +32,18 @@ Supported skill targets:
 | Hermes Agent | `~/.hermes/skills/talk/` |
 | Codex | `~/.codex/skills/talk/` |
 
-## Runtime paths
-
-Use the script inside the active skill directory when possible. The canonical OpenCode installation is:
-
-| Role | Path |
-|---|---|
-| Unix orchestrator | `~/.config/opencode/skills/talk/talk.sh` |
-| Windows orchestrator | `%USERPROFILE%\.config\opencode\skills\talk\talk.ps1` |
-| Recorder | `~/.config/opencode/skills/talk/vad_recorder.py` |
-| TTS dispatcher | `~/.config/opencode/tts.sh` |
-| Language helper | `~/.config/opencode/tts_lang.sh` |
-
-Default managed local services:
+Default managed local endpoints:
 
 | Service | Endpoint |
 |---|---|
 | Parakeet STT | `http://127.0.0.1:5093/v1/audio/transcriptions` |
 | Supertonic 3 TTS | `http://127.0.0.1:8766` |
 
-The launching process should set `SUPERTONIC_URL=http://127.0.0.1:8766` explicitly so the dispatcher and installed service agree.
+The launching shell should set `SUPERTONIC_URL=http://127.0.0.1:8766` explicitly so the dispatcher and installed service agree.
 
 ## Commands
 
-Unix:
+Unix/macOS:
 
 ```bash
 ~/.config/opencode/skills/talk/talk.sh listen
@@ -76,27 +74,28 @@ transcript = talk.sh listen
 
 - Stdout is the user's transcribed utterance.
 - Diagnostics are written to stderr.
-- Empty stdout means no completed turn or a clean session end. Do not fabricate input.
+- Empty stdout means no completed turn or a clean session end.
+- Never fabricate input when stdout is empty.
 
 ### Subsequent turns
 
-After reasoning about the transcript, give a concise spoken reply and call `speak`:
+After reasoning about the transcript, produce a concise spoken reply and call `speak`:
 
 ```text
 next_transcript = talk.sh speak "assistant reply"
 ```
 
-With `TALK_AUTO_LISTEN=1`, `speak` performs all of the following:
+With `TALK_AUTO_LISTEN=1`, `speak`:
 
-1. Synthesize the assistant reply.
-2. Play it.
-3. Play the ready cue/beep.
-4. Open or activate the microphone.
-5. Record the next user turn.
-6. Transcribe it.
-7. Print the next transcript to stdout.
+1. synthesizes the assistant reply;
+2. plays it;
+3. plays the ready cue;
+4. activates the microphone;
+5. records the next user turn;
+6. transcribes it;
+7. prints the next transcript to stdout.
 
-Do **not** call `listen` after `speak`; doing so opens a second recording cycle and breaks the conversation protocol.
+Do **not** call `listen` after `speak`; doing so opens a second recording cycle.
 
 ### Loop
 
@@ -108,22 +107,18 @@ while transcript is non-empty:
 stop when stdout is empty
 ```
 
-Empty stdout from `speak` is the session-end signal. Exit cleanly and do not try to recover by listening again.
+Empty stdout from `speak` is the session-end signal. Exit cleanly instead of trying to recover with another listen call.
 
 ## Spoken-response style
 
-Voice responses should be easy to understand when heard once:
-
 - Lead with the answer or result.
 - Prefer short paragraphs and natural sentences.
-- Avoid reading long URLs, raw stack traces, tables, or large code blocks aloud.
-- Summarize technical detail and leave exact commands in the text response when appropriate.
+- Do not read long URLs, raw stack traces, large tables, or code blocks aloud.
+- Summarize technical detail and keep exact commands in the text response.
 - Ask only one spoken question at a time.
-- Do not narrate hidden reasoning or internal chain-of-thought.
+- Never narrate hidden reasoning or internal chain-of-thought.
 
 ## One-way read-aloud
-
-For a spoken notification without reopening the microphone:
 
 ```bash
 TALK_AUTO_LISTEN=0 \
@@ -133,21 +128,17 @@ talk.sh speak "The task completed successfully."
 
 ## Session termination
 
-A session can end through:
-
 | Signal | Behavior |
 |---|---|
-| Keyboard interruption | The running process is stopped |
-| Idle timeout | `listen` completes with empty stdout after `TALK_IDLE_TIMEOUT_S` |
-| Spoken stop phrase | A configured phrase in `TALK_STOP_PHRASES` produces empty stdout |
+| Keyboard interruption | running process stops |
+| Idle timeout | stdout is empty after `TALK_IDLE_TIMEOUT_S` |
+| Spoken stop phrase | matching `TALK_STOP_PHRASES` returns empty stdout |
 
-`TALK_STOP_PHRASES` is pipe-separated and uses case-insensitive substring matching. A safer explicit configuration is:
+Use specific stop phrases because matching is case-insensitive substring matching:
 
 ```bash
 export TALK_STOP_PHRASES="end voice mode|stop the conversation|para de hablar"
 ```
-
-Because matching is permissive, avoid very short stop phrases that are likely to appear in normal speech.
 
 ## Recommended local environment
 
@@ -163,60 +154,99 @@ export VAD_MIN_SILENCE_MS=700
 export TALK_IDLE_TIMEOUT_S=300
 ```
 
-The scripts do not automatically source the repository `.env.example`.
+The scripts do not automatically source `.env.example`.
+
+## TTS routing
+
+### Built-in Unix dispatcher
+
+When `TTS_SH` is unset, `TTS_ENGINE` selects the primary implementation in `service/tts.sh`:
+
+```text
+supertonic, qwen, qwen-lazy, neutts, inflect, openai, inworld, xai
+```
+
+Supertonic 2 has no separate alias; point the compatible Supertonic client at `:8880`.
+
+### Shared xAI / Google Gemini bridge
+
+For provider-correct sentence direction and the shared 26/30-voice catalogs, install:
+
+```bash
+bash integrations/ai-sentence-tagger/install.sh
+```
+
+Then select Google:
+
+```bash
+export TTS_SH="$HOME/.config/opencode/ai-tts-provider/tts-provider.sh"
+export AI_TTS_URL=http://127.0.0.1:8000
+export AI_TTS_PROVIDER=google
+export AI_TTS_VOICE=Kore
+export AI_TTS_LANGUAGE=auto
+```
+
+Or xAI:
+
+```bash
+export TTS_SH="$HOME/.config/opencode/ai-tts-provider/tts-provider.sh"
+export AI_TTS_URL=http://127.0.0.1:8000
+export AI_TTS_PROVIDER=xai
+export AI_TTS_VOICE=eve
+```
+
+The bridge calls a local AI Sentence Tagger or AI Voice Studio companion. The companion owns the local tagging model and provider credentials.
+
+Important rules:
+
+- `TTS_SH` is an implementation override, not a `TTS_ENGINE` value.
+- Setting it bypasses the built-in fallback graph.
+- Unset `TTS_SH` to restore local-first `TTS_ENGINE` routing.
+- The bridge uses stateless `/api/process/json`; it does not create persistent Studio projects.
+- Google has 30 canonical voices and creative English directions; its 16 common examples are non-exhaustive.
+- xAI has 26 canonical built-in voices and a fixed 27-tag grammar.
+- The adapter forces WAV and preserves the `TTS_NO_PLAY=1` single-file contract used by pre-warmed listening and barge-in.
 
 ## Important environment variables
 
 | Variable | Purpose |
 |---|---|
 | `STT_ENGINE` | Unix STT routing: `local` or `remote` |
-| `STT_URL` | Local transcription endpoint |
-| `STT_MODEL` | Local model id |
-| `STT_REMOTE_URL` | Unix remote transcription endpoint |
-| `STT_REMOTE_MODEL` | Unix remote model id |
-| `STT_API_KEY` | Optional remote STT bearer token |
-| `TTS_ENGINE` | Unix primary TTS dispatcher value |
-| `SUPERTONIC_URL` | Supertonic-compatible endpoint; managed default is `:8766` |
-| `SUPERTONIC_VOICE` | Supertonic voice id, `F1`–`F5` or `M1`–`M5` |
-| `TTS_QUALITY` | `normal` for 8 steps or `high` for 20 steps |
-| `TTS_FADE_MS` | Edge fade in milliseconds |
-| `VAD_THRESHOLD` | Speech sensitivity |
-| `VAD_MIN_SILENCE_MS` | Silence required to close a turn |
-| `MIC_QUERY` | Input-device name substring |
-| `TALK_AUTO_LISTEN` | Listen after playback |
-| `TALK_BARGE_IN` | Interrupt playback on detected speech |
-| `TALK_IDLE_TIMEOUT_S` | End an idle session after N seconds; `0` disables |
-| `TALK_STOP_PHRASES` | Pipe-separated spoken stop phrases |
+| `STT_URL` / `STT_MODEL` | local transcription endpoint and model |
+| `STT_REMOTE_URL` / `STT_API_KEY` | remote transcription |
+| `TTS_ENGINE` | built-in primary TTS engine |
+| `TTS_SH` | Unix TTS implementation override |
+| `SUPERTONIC_URL` / `SUPERTONIC_VOICE` | local Supertonic service and voice |
+| `TTS_QUALITY` | `normal` for 8 steps or `high` for 20 |
+| `AI_TTS_URL` | AI Sentence Tagger / Voice Studio companion URL |
+| `AI_TTS_PROVIDER` | `xai`, `google`, or `gemini` |
+| `AI_TTS_VOICE` | provider voice ID |
+| `AI_TTS_STYLE_PROMPT` | Gemini Director's Notes |
+| `VAD_THRESHOLD` | speech sensitivity |
+| `VAD_MIN_SILENCE_MS` | silence needed to close a turn |
+| `MIC_QUERY` | input-device name substring |
+| `TALK_AUTO_LISTEN` | listen after playback |
+| `TALK_BARGE_IN` | interrupt playback on detected speech |
+| `TALK_IDLE_TIMEOUT_S` | end an idle session; `0` disables |
+| `TALK_STOP_PHRASES` | pipe-separated spoken stop phrases |
 
-Unix `TTS_ENGINE` values implemented by the current dispatcher:
-
-```text
-supertonic, qwen, qwen-lazy, neutts, inflect, openai, inworld, xai
-```
-
-The optional Supertonic 2 service has no dedicated alias today. Select it through the compatible client:
-
-```bash
-TTS_ENGINE=supertonic SUPERTONIC_URL=http://127.0.0.1:8880 talk.sh speak "Hello"
-```
-
-Do not assume that every Unix provider feature is implemented by the Windows PowerShell orchestrator.
+Do not assume that every Unix provider feature exists in the Windows PowerShell orchestrator. Windows supports its own Supertonic, direct xAI, and IndexTTS paths; the companion Python helper is portable, but this installer does not automatically rewrite PowerShell routing.
 
 ## Barge-in
 
-`TALK_BARGE_IN=1` starts VAD during playback and stops audio when speech is detected. Enable it only when the microphone does not strongly capture the speakers.
-
-It is not acoustic echo cancellation. With speaker bleed, the assistant's own voice can trigger an interruption. Prefer headphones or leave barge-in disabled.
+`TALK_BARGE_IN=1` starts VAD during playback and stops audio when speech is detected. It is not acoustic echo cancellation. Speaker bleed can interrupt the assistant's own voice; prefer headphones or leave it disabled.
 
 ## Troubleshooting rules
 
 1. Run `status` after installation or service restart.
 2. Run `devices` and select the microphone explicitly when capture is uncertain.
 3. Force the managed TTS endpoint with `SUPERTONIC_URL=http://127.0.0.1:8766`.
-4. For missed speech, lower `VAD_THRESHOLD`; for background triggers, raise it.
-5. For premature turn endings, raise `VAD_MIN_SILENCE_MS`.
-6. If all TTS engines fail, report the backend error; do not substitute system TTS and claim the configured voice played.
-7. Never expose API keys in logs, messages, or commands that will be committed.
-8. Respect empty stdout as a deliberate session-end signal.
+4. Inspect `TTS_SH` before diagnosing `TTS_ENGINE`; an override bypasses the dispatcher.
+5. For the AI bridge, run its `health`, `providers`, and `voices` catalog commands before synthesis.
+6. For missed speech, lower `VAD_THRESHOLD`; for background triggers, raise it.
+7. For premature turn endings, raise `VAD_MIN_SILENCE_MS`.
+8. If all TTS paths fail, report the actual backend error; never substitute system TTS and claim the configured voice played.
+9. Never expose API keys in logs, messages, screenshots, or committed commands.
+10. Respect empty stdout as a deliberate session-end signal.
 
-Full operator guidance is in `docs/troubleshooting.md` in the Local VoiceMode LLM repository.
+Full operator guidance is in `docs/troubleshooting.md`, `docs/providers.md`, and `docs/ai-provider-bridge.md`.
