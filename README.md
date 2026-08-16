@@ -5,49 +5,37 @@
 <h1 align="center">Local VoiceMode LLM</h1>
 
 <p align="center">
-  <strong>Give local AI agents a fast, private voice loop without taking VRAM away from the LLM.</strong>
+  <strong>Fast, local-first voice conversations for coding agents and local LLMs—without consuming the model's VRAM.</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/groxaxo/Local-VoiceMode-LLM/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/groxaxo/Local-VoiceMode-LLM/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="macOS" src="https://img.shields.io/badge/macOS-supported-111827">
   <img alt="Linux" src="https://img.shields.io/badge/Linux-supported-111827">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-supported-111827">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2563eb">
 </p>
 
-<p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#how-it-works">Architecture</a> ·
-  <a href="#supported-agents">Agents</a> ·
-  <a href="#configuration">Configuration</a> ·
-  <a href="docs/README.md">Documentation</a>
-</p>
+Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, OpenClaw, Hermes Agent, Codex, Ollama, and other local agents. The default path keeps microphone endpointing, transcription, and synthesis on the host:
 
----
-
-Local VoiceMode LLM is a cross-platform speech layer for coding agents and local LLMs. It combines:
-
-- **Silero VAD** for microphone endpointing
-- **Parakeet TDT 0.6B v3** for local speech-to-text
-- **Supertonic 3** for local text-to-speech
-- A reusable **`talk` skill** for Claude Code, OpenCode, OpenClaw, Hermes Agent, and Codex
-- An optional **Ollama voice loop** and browser dashboard
-
-The default speech path is local and CPU-oriented. On Linux with NVIDIA hardware, the installer can optionally use CUDA; remote STT/TTS providers remain opt-in.
-
-## Why this project exists
-
-Running voice on the same GPU as a large language model wastes scarce VRAM and creates avoidable deployment coupling. This project keeps the speech stack separate:
-
-| Stage | Default backend | Port | Default compute |
+| Stage | Default backend | Port | Compute |
 |---|---|---:|---|
 | Voice activity detection | Silero VAD | — | CPU |
-| Speech-to-text | Parakeet TDT 0.6B v3, ONNX | `5093` | CPU |
-| Text-to-speech | Supertonic 3, ONNX | `8766` | CPU |
+| Speech-to-text | Parakeet TDT 0.6B v3, ONNX | `5093` | CPU by default |
+| Text-to-speech | Supertonic 3, ONNX/MLX | `8766` | CPU or Apple Silicon |
 | Dashboard | FastAPI + static HTML | `7862` | CPU |
 
-That leaves the accelerator available for Ollama, vLLM, MLX, or another model server.
+The accelerator remains available for Ollama, vLLM, SGLang, MLX, or another model server.
+
+## Highlights
+
+- Real VAD-driven microphone turns—no simulated transcript or fake playback.
+- Local Parakeet transcription through an OpenAI-compatible endpoint.
+- Local Supertonic speech by default, with optional Qwen3-TTS, NeuTTS, Inflect, Inworld, OpenAI-compatible, xAI, IndexTTS, and other backends.
+- Automatic listen-after-speak, stop phrases, idle termination, device selection, and optional barge-in.
+- Shared agent skill for Claude Code, OpenCode, OpenClaw, Hermes, and Codex.
+- Optional Ollama conversation loop and browser dashboard.
+- Optional **AI Sentence Tagger / AI Voice Studio bridge** for the verified 26-voice xAI and 30-voice Google Gemini catalogs with provider-correct sentence direction.
+- Local deterministic validation; GitHub Actions are not required as a release gate.
 
 ## Quick start
 
@@ -60,19 +48,21 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-The interactive installer lets you choose the speech backends and agent integrations. For a non-interactive CPU install:
+For a non-interactive CPU installation:
 
 ```bash
 ./setup.sh --cpu
 ```
 
-The installed Supertonic service listens on `:8766`. Export the endpoint explicitly so direct `tts.sh` invocations and inherited agent shells use the same port:
+The managed Supertonic service listens on `:8766`. Export the endpoint in the shell that starts the agent:
 
 ```bash
 export SUPERTONIC_URL=http://127.0.0.1:8766
+export TTS_ENGINE=supertonic
+export TTS_QUALITY=normal
 ```
 
-Then verify the stack:
+Verify the installed stack:
 
 ```bash
 ~/.config/opencode/skills/talk/talk.sh status
@@ -82,58 +72,122 @@ Then verify the stack:
 
 ### Windows PowerShell
 
-<p align="center">
-  <img src="windows/assets/voicemode-logo.svg" alt="Local VoiceMode LLM logo" width="128">
-</p>
-
 ```powershell
 git clone https://github.com/groxaxo/Local-VoiceMode-LLM.git
 cd Local-VoiceMode-LLM
 .\setup.ps1
 ```
 
-Prerequisites:
+Recommended prerequisites:
 
 ```powershell
 winget install --id Git.Git
 winget install --id Python.Python.3.12
 winget install --id Microsoft.VCRedist.2015+.x64
-winget install --id Gyan.FFmpeg   # recommended playback option
+winget install --id Gyan.FFmpeg
 ```
 
-For a graphical component selector and service manager:
+Graphical component selector and service manager:
 
 ```powershell
 .\windows\VoiceModeManager.ps1
 ```
 
-Prebuilt native Windows executables are included in [`dist/windows/`](dist/windows/):
+Prebuilt Windows launchers are available under [`dist/windows/`](dist/windows/). See [Windows setup](docs/windows.md).
 
-```powershell
-.\dist\windows\LocalVoiceModeInstaller.exe
-.\dist\windows\LocalVoiceModeManager.exe
+## Conversation protocol
+
+Initial turn:
+
+```bash
+transcript="$(talk.sh listen)"
 ```
 
-Verify the installed services:
+Subsequent turns:
 
-```powershell
-& "$env:USERPROFILE\.config\opencode\skills\talk\talk.ps1" status
-& "$env:USERPROFILE\.config\opencode\skills\talk\talk.ps1" devices
+```bash
+transcript="$(talk.sh speak "Assistant reply")"
 ```
 
-See the full platform guides in [`docs/installation.md`](docs/installation.md) and [`docs/windows.md`](docs/windows.md).
+With `TALK_AUTO_LISTEN=1`, `speak` synthesizes and plays the reply, emits the ready cue, records the next turn, transcribes it, and prints the next transcript to stdout. Empty stdout is the clean session-end signal.
 
-## What the installer creates
+Do not call `listen` again after `speak`; that opens a duplicate recording cycle.
 
-| Component | Default location | Startup mechanism |
+One-way notification:
+
+```bash
+TALK_AUTO_LISTEN=0 talk.sh speak "The build completed successfully."
+```
+
+## Supported agents
+
+| Agent | Installed skill path |
+|---|---|
+| Claude Code | `~/.claude/skills/talk/` |
+| OpenCode CLI | `~/.config/opencode/skills/talk/` |
+| OpenClaw | `~/.openclaw/skills/talk/` |
+| Hermes Agent | `~/.hermes/skills/talk/` |
+| Codex | `~/.codex/skills/talk/` |
+
+The canonical agent contract is [`skill/SKILL.md`](skill/SKILL.md).
+
+## TTS choices
+
+| Path | Location | Selection |
 |---|---|---|
-| Voice environment | `~/.config/opencode/tts-venv/` | on demand |
-| Parakeet backend | `~/.config/opencode/parakeet-stt/` | launchd / systemd user service / Task Scheduler |
-| Supertonic backend | `~/.config/opencode/supertonic-tts/` | launchd / systemd user service / Task Scheduler |
-| Canonical talk skill | `~/.config/opencode/skills/talk/` | invoked by the agent |
-| TTS wrapper | `~/.config/opencode/tts.sh` | invoked by `talk.sh` |
+| Supertonic 3 | local ONNX/MLX | `TTS_ENGINE=supertonic` |
+| Supertonic 2 service | local ONNX, `:8880` | `TTS_ENGINE=supertonic` plus alternate URL |
+| Qwen3-TTS | local MLX service | `TTS_ENGINE=qwen` or `qwen-lazy` |
+| NeuTTS | local GGUF service | `TTS_ENGINE=neutts` |
+| Inflect Nano | local, English only | `TTS_ENGINE=inflect` |
+| OpenAI-compatible TTS | LAN or hosted | `TTS_ENGINE=openai` |
+| Inworld | hosted | `TTS_ENGINE=inworld` |
+| Direct xAI | hosted | `TTS_ENGINE=xai` |
+| IndexTTS | Windows CUDA service | `TTS_ENGINE=indextts` in `talk.ps1` |
+| AI Sentence Tagger / Voice Studio | local companion; xAI or Google synthesis | override `TTS_SH` |
 
-Re-running the installer is non-destructive by default. Existing service definitions are preserved unless `--force` or `-Force` is used.
+Exact Unix fallback order, credentials, and provider limits are in [Providers](docs/providers.md).
+
+## Verified xAI and Google Gemini voices
+
+The optional companion bridge reuses the exact provider implementation from AI Sentence Tagger or AI Voice Studio instead of maintaining a second catalog in shell code.
+
+| Provider | Built-in voices | Default | Direction semantics | Output used by VoiceMode |
+|---|---:|---|---|---|
+| xAI | 26 | `eve` | fixed 14 inline + 13 wrapping tags | WAV 48 kHz |
+| Google Gemini | 30 | `Kore` | 16 common examples plus creative English direction | WAV 24 kHz |
+
+Google's 16 examples are not an exhaustive allowlist. The companion handles canonical voice casing, exact source preservation, lexical tag boundaries, Google Interactions responses, strict base64, and PCM-to-WAV conversion.
+
+Install the bridge:
+
+```bash
+bash integrations/ai-sentence-tagger/install.sh
+```
+
+Use Google Gemini:
+
+```bash
+export TTS_SH="$HOME/.config/opencode/ai-tts-provider/tts-provider.sh"
+export AI_TTS_URL=http://127.0.0.1:8000
+export AI_TTS_PROVIDER=google
+export AI_TTS_VOICE=Kore
+
+~/.config/opencode/skills/talk/talk.sh speak "The deployment completed."
+```
+
+Use xAI:
+
+```bash
+export TTS_SH="$HOME/.config/opencode/ai-tts-provider/tts-provider.sh"
+export AI_TTS_URL=http://127.0.0.1:8000
+export AI_TTS_PROVIDER=xai
+export AI_TTS_VOICE=eve
+```
+
+Setting `TTS_SH` replaces the built-in Unix dispatcher for that process. Unset it to restore the normal local-first fallback graph.
+
+Full guide: [AI provider bridge](integrations/ai-sentence-tagger/README.md).
 
 ## How it works
 
@@ -144,76 +198,73 @@ Microphone
 Silero VAD ──► PCM WAV ──► Parakeet STT :5093
                                   │
                                   ▼
-                        Agent or local LLM
+                         Agent / local LLM
                                   │
                                   ▼
-                   TTS dispatcher and fallbacks
-                     │         │          │
-                     ▼         ▼          ▼
-               Supertonic   local opt.   remote opt.
-                  :8766
-                     │
-                     ▼
-                 playback ──► next turn
+                   talk.sh / talk.ps1 orchestrator
+                         │                 │
+                         ▼                 ▼
+                 built-in tts.sh     optional TTS_SH bridge
+                         │                 │
+                         └───────┬─────────┘
+                                 ▼
+                              playback
+                                 │
+                                 ▼
+                            next user turn
 ```
 
-The recorder uses fixed-size audio frames, a bounded ring buffer, pre-speech padding, and trailing-silence endpointing. Each completed utterance is normalized, saved as a mono WAV, and posted to the OpenAI-compatible Parakeet transcription endpoint.
+The detailed recorder coordinates, pre-warmed microphone path, barge-in model, platform differences, and service boundaries are documented in [Architecture](docs/architecture.md).
 
-During a normal agent conversation:
+## Configuration
 
-1. `talk.sh listen` records and prints the first user utterance.
-2. The agent produces a concise spoken reply.
-3. `talk.sh speak "reply"` synthesizes and plays it.
-4. With `TALK_AUTO_LISTEN=1`, the microphone is pre-warmed and opens for the next turn automatically.
-5. Empty stdout means the voice session ended; the agent should stop the loop.
+The scripts read the environment of the process that launches them. They do **not** automatically source `.env.example`.
 
-The detailed data flow and platform differences are documented in [`docs/architecture.md`](docs/architecture.md).
+Recommended local baseline:
 
-## Supported agents
+```bash
+export STT_ENGINE=local
+export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
+export STT_MODEL=parakeet-tdt-0.6b-v3
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8766
+export TTS_QUALITY=normal
+export VAD_THRESHOLD=0.5
+export VAD_MIN_SILENCE_MS=700
+export TALK_IDLE_TIMEOUT_S=300
+```
 
-The same skill is installed for each selected agent:
+Important settings:
 
-| Agent | Skill location |
+| Variable | Purpose |
 |---|---|
-| Claude Code | `~/.claude/skills/talk/` |
-| OpenCode CLI | `~/.config/opencode/skills/talk/` |
-| OpenClaw | `~/.openclaw/skills/talk/` |
-| Hermes Agent | `~/.hermes/skills/talk/` |
-| Codex | `~/.codex/skills/talk/` |
+| `STT_ENGINE` | Unix STT route: `local` or `remote` |
+| `STT_URL` / `STT_MODEL` | Local transcription endpoint and model |
+| `STT_REMOTE_URL` / `STT_API_KEY` | Remote OpenAI-compatible transcription |
+| `TTS_ENGINE` | Built-in Unix/Windows primary TTS selection |
+| `TTS_SH` | Unix implementation override; used by the AI provider bridge |
+| `SUPERTONIC_URL` / `SUPERTONIC_VOICE` | Local Supertonic endpoint and voice |
+| `TTS_QUALITY` | `normal` for 8 steps or `high` for 20 steps |
+| `VAD_THRESHOLD` | Speech sensitivity |
+| `VAD_MIN_SILENCE_MS` | Silence required to close a turn |
+| `MIC_QUERY` | Input-device name substring |
+| `TALK_AUTO_LISTEN` | Reopen/activate the microphone after playback |
+| `TALK_BARGE_IN` | Interrupt playback when speech is detected |
+| `TALK_STOP_PHRASES` | Pipe-separated spoken session-stop phrases |
 
-Typical commands:
+Start from [`.env.example`](.env.example) and copy only the variables needed by your launcher or service manager.
 
-```bash
-talk.sh listen                         # record and transcribe one turn
-talk.sh speak "Hello"                 # synthesize; auto-listen when enabled
-talk.sh status                         # backend and configuration health
-talk.sh devices                        # list devices and selected microphone
-talk.sh pick                           # save an interactive microphone choice
-talk.sh loop                           # standalone terminal loop
-```
-
-For one-way read-aloud without reopening the microphone:
-
-```bash
-TALK_AUTO_LISTEN=0 talk.sh speak "Build completed successfully."
-```
-
-## Talk to an Ollama model
-
-The recommended integration uses the Ollama HTTP API and does not rebuild Ollama:
+## Ollama voice loop
 
 ```bash
 bash integrations/ollama/install.sh
 ollama-voice
 ollama-voice llama3.2
-ollama-voice llama3.2 --text
 ```
 
-It preserves conversation history, can speak completed sentences while the model is still generating, and filters reasoning blocks from spoken output. See [`integrations/ollama/README.md`](integrations/ollama/README.md).
+It preserves conversation history, can speak completed sentences while generation continues, and filters reasoning blocks from spoken output. See [Ollama integration](integrations/ollama/README.md).
 
-## Web dashboard
-
-Start the local dashboard:
+## Dashboard
 
 ```bash
 cd frontend
@@ -221,113 +272,44 @@ bash start.sh
 # http://127.0.0.1:7862
 ```
 
-The dashboard provides:
+The dashboard tests Supertonic and Parakeet, exposes VAD controls, and reports backend health. Linux service restart controls require `systemd --user`; synthesis and transcription tests work wherever the configured endpoints are reachable.
 
-- Supertonic synthesis testing
-- Parakeet microphone and upload transcription
-- VAD threshold, padding, silence, and duration controls
-- Backend health checks
-- Linux/systemd compute toggles
+## Validation
 
-The GPU restart controls are Linux/systemd-specific. TTS and STT testing work wherever the backend URLs are reachable.
-
-## Configuration
-
-Set variables in the shell that launches the agent, or prefix a single command. Start from [`.env.example`](.env.example), but remember that shell scripts do not automatically import an arbitrary `.env` file.
-
-Recommended local baseline:
+Local checks do not require GitHub Actions:
 
 ```bash
-export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
-export STT_MODEL=parakeet-tdt-0.6b-v3
-export SUPERTONIC_URL=http://127.0.0.1:8766
-export TTS_ENGINE=supertonic
-export TTS_QUALITY=normal
-export VAD_THRESHOLD=0.5
-export VAD_MIN_SILENCE_MS=700
-export TALK_IDLE_TIMEOUT_S=300
+python -m compileall -q service frontend tests integrations
+python -m pytest -q
+bash -n service/talk.sh service/tts.sh
+bash -n integrations/ai-sentence-tagger/tts-provider.sh
+bash -n integrations/ai-sentence-tagger/install.sh
+python -m unittest tests.test_ai_tts_provider -v
 ```
 
-Important variables:
-
-| Variable | Purpose |
-|---|---|
-| `STT_ENGINE` | `local` or `remote` on the Unix orchestrator |
-| `STT_URL` / `STT_MODEL` | Local transcription endpoint and model id |
-| `STT_REMOTE_URL` / `STT_API_KEY` | Remote OpenAI-compatible transcription |
-| `TTS_ENGINE` | Primary TTS engine |
-| `SUPERTONIC_URL` | Supertonic endpoint; installed default is `http://127.0.0.1:8766` |
-| `SUPERTONIC_VOICE` | `F1`–`F5` or `M1`–`M5` |
-| `TTS_QUALITY` | `normal` for 8 steps or `high` for 20 steps |
-| `VAD_THRESHOLD` | Speech sensitivity |
-| `VAD_MIN_SILENCE_MS` | Silence required to close a turn |
-| `MIC_QUERY` | Microphone name substring |
-| `TALK_AUTO_LISTEN` | Reopen the microphone after playback |
-| `TALK_BARGE_IN` | Interrupt playback when speech is detected |
-| `TALK_STOP_PHRASES` | Pipe-separated spoken session-stop phrases |
-
-Provider-specific variables and exact fallback order are in [`docs/providers.md`](docs/providers.md).
-
-## Local and remote TTS choices
-
-| Engine | Location | Status |
-|---|---|---|
-| Supertonic 3 | local ONNX, `:8766` | default, installed automatically |
-| NeuTTS | local GGUF, `:8020` | optional |
-| Inflect Nano | local, `:8030` | optional, English only |
-| Qwen3-TTS | local MLX | optional, Apple Silicon-oriented |
-| OpenAI-compatible TTS | remote or LAN | optional |
-| Inworld | remote | optional, expressive steering |
-| xAI | remote | optional fallback |
-| Supertonic 2 | local ONNX, `:8880` | optional service; see its integration guide |
-
-Supertonic 2 currently uses the same API shape as Supertonic 3. Until the dispatcher exposes a dedicated alias, select it by pointing the Supertonic engine at port `8880`:
-
-```bash
-TTS_ENGINE=supertonic \
-SUPERTONIC_URL=http://127.0.0.1:8880 \
-talk.sh speak "Hello from Supertonic 2"
-```
-
-## Benchmarks
-
-Measured on an Intel Core i7-12700KF, CPU-only, median of five runs:
-
-| Stage | Workload | Measured latency |
-|---|---|---:|
-| Silero VAD | 32 ms frame | 0.09 ms |
-| Parakeet STT | 2.4 s audio | 307 ms |
-| Parakeet STT | 13.4 s audio | 729 ms |
-| Supertonic 3 | 2.4 s output, 8 steps | 1.39 s |
-| Supertonic 3 | 13.4 s output, 8 steps | 5.18 s |
-
-These measurements describe the benchmark machine, not a universal latency guarantee. Reproduce them against your own installed services:
-
-```bash
-python benchmarks/run_benchmark.py
-```
-
-Additional results are in [`benchmarks/README.md`](benchmarks/README.md) and [`benchmarks/TTS_BACKENDS.md`](benchmarks/TTS_BACKENDS.md).
-
-## Operational limits
-
-- A single microphone cannot distinguish the user from a television, another person, or speaker bleed. Tune `VAD_THRESHOLD` and use headphones when necessary.
-- Barge-in needs echo cancellation or careful microphone placement.
-- Remote engines send text or audio to the selected provider; the default local path does not.
-- The dashboard's service-restart controls assume Linux `systemd --user`.
-- Windows currently has a smaller provider surface than the Unix shell implementation.
+Physical microphone, speaker, model-download, OS service-manager, and paid-provider checks remain manual release tests.
 
 ## Documentation
 
 | Guide | Contents |
 |---|---|
-| [`docs/README.md`](docs/README.md) | documentation index |
-| [`docs/installation.md`](docs/installation.md) | platform setup, flags, services, uninstall |
-| [`docs/windows.md`](docs/windows.md) | Windows installer, manager app, prerequisites, and diagnostics |
-| [`docs/architecture.md`](docs/architecture.md) | runtime design and data flow |
-| [`docs/providers.md`](docs/providers.md) | TTS/STT engines, credentials, fallback policy |
-| [`docs/troubleshooting.md`](docs/troubleshooting.md) | diagnosis and recovery commands |
-| [`skill/SKILL.md`](skill/SKILL.md) | agent-facing talk-loop contract |
+| [Documentation index](docs/README.md) | complete guide map |
+| [Installation](docs/installation.md) | platform setup, services, upgrades, uninstall |
+| [Windows](docs/windows.md) | PowerShell orchestrator, manager, and prerequisites |
+| [Architecture](docs/architecture.md) | runtime design and data flow |
+| [Providers](docs/providers.md) | engines, credentials, bridge, and fallback policy |
+| [AI provider bridge](docs/ai-provider-bridge.md) | shared xAI/Gemini integration architecture |
+| [Troubleshooting](docs/troubleshooting.md) | diagnosis and recovery |
+| [Benchmarks](benchmarks/README.md) | reproducible latency tests |
+
+## Operational boundaries
+
+- The default VAD/STT/TTS path stays local; remote engines send reply text or recorded audio to the selected endpoint.
+- Barge-in is acoustic detection, not echo cancellation. Prefer headphones when speakers bleed into the microphone.
+- Windows and Unix orchestrators are separate implementations; do not assume feature parity.
+- The AI provider bridge currently integrates directly with Unix/macOS `talk.sh`; its Python client is portable, but the Windows dispatcher is not automatically redirected.
+- A companion AI Sentence Tagger/Voice Studio request is stateless and does not create persistent Studio projects.
+- Never commit API credentials or include them in prompts and logs.
 
 ## Project layout
 
@@ -343,24 +325,16 @@ Local-VoiceMode-LLM/
 ├── windows/
 │   ├── talk.ps1
 │   └── VoiceModeManager.ps1
-├── dist/windows/                 # prebuilt Windows installer and manager EXEs
-├── skill/SKILL.md
-├── frontend/
 ├── integrations/
+│   ├── ai-sentence-tagger/
 │   ├── ollama/
 │   └── supertonic2/
+├── skill/SKILL.md
+├── frontend/
 ├── docs/
 ├── benchmarks/
 └── tests/
 ```
-
-## Related projects
-
-- [Parakeet TDT FastAPI OpenAI server](https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai)
-- [Supertonic Express 3](https://github.com/groxaxo/supertonic-express-3)
-- [Supertonic 3 v2 model assets](https://github.com/groxaxo/supertonic-3-v2)
-- [Qwen3-TTS OpenAI FastAPI](https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi)
-- [OpenVoiceApp](https://github.com/groxaxo/OpenVoiceApp)
 
 ## License
 

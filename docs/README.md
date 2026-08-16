@@ -7,13 +7,15 @@ This directory contains the operational and technical reference for Local VoiceM
 | Guide | Use it when |
 |---|---|
 | [Installation](installation.md) | Installing, upgrading, selecting integrations, managing services, or uninstalling |
-| [Windows installer and manager](windows.md) | Installing Windows prerequisites, selecting components, or managing scheduled services |
-| [Apple Silicon MLX setup and repair](macos-repair.md) | Installing, validating, benchmarking, or forcing Supertonic MLX/ONNX on a Mac |
+| [Windows installer and manager](windows.md) | Installing Windows prerequisites, selecting components, IndexTTS, or managing scheduled services |
+| [Apple Silicon MLX setup and repair](macos-repair.md) | Installing, validating, benchmarking, or forcing MLX/ONNX on a Mac |
 | [Troubleshooting](troubleshooting.md) | A microphone, backend, playback path, provider, or service is not working |
-| [Providers](providers.md) | Choosing local or remote STT/TTS and understanding fallback behavior |
-| [Architecture](architecture.md) | Reviewing the runtime design, data flow, boundaries, ports, and platform differences |
+| [Providers](providers.md) | Choosing local/remote STT or TTS, credentials, and fallback behavior |
+| [Shared AI provider bridge](ai-provider-bridge.md) | Reusing AI Sentence Tagger / AI Voice Studio for verified xAI and Gemini voices |
+| [Architecture](architecture.md) | Reviewing runtime design, data flow, boundaries, ports, and platform differences |
 | [Agent skill contract](../skill/SKILL.md) | Integrating the voice loop into Claude Code, OpenCode, OpenClaw, Hermes, or Codex |
 | [Ollama integration](../integrations/ollama/README.md) | Talking directly to an Ollama model |
+| [AI Sentence Tagger integration](../integrations/ai-sentence-tagger/README.md) | Installing and operating the xAI/Google companion bridge |
 | [Supertonic 2 integration](../integrations/supertonic2/README.md) | Installing the optional Supertonic 2 service |
 | [Benchmarks](../benchmarks/README.md) | Reproducing latency and realtime-factor measurements |
 
@@ -29,10 +31,14 @@ Silero VAD ──► WAV ──► Parakeet STT :5093
                         agent / local LLM
                                │
                                ▼
-                         TTS dispatcher
-                               │
-                               ▼
-                         audio playback
+                         talk orchestrator
+                         │             │
+                         ▼             ▼
+                   built-in tts.sh   optional TTS_SH bridge
+                         │             │
+                         └──────┬──────┘
+                                ▼
+                          audio playback
 ```
 
 Default local services:
@@ -40,23 +46,23 @@ Default local services:
 | Service | URL | Default runtime |
 |---|---|---|
 | Parakeet STT | `http://127.0.0.1:5093` | ONNX CPU by default |
-| Supertonic 3 TTS | `http://127.0.0.1:8766` | Apple Silicon: MLX first with ONNX fallback; other CPU hosts: ONNX |
+| Supertonic 3 TTS | `http://127.0.0.1:8766` | Apple Silicon: MLX first with ONNX fallback; other hosts: ONNX |
 | Dashboard | `http://127.0.0.1:7862` | CPU |
-| Ollama, when used | `http://127.0.0.1:11434` | User-selected |
+| Ollama, when used | `http://127.0.0.1:11434` | user-selected |
+| AI Sentence Tagger / Voice Studio, when used | `http://127.0.0.1:8000` | user-selected companion |
 
-## Documentation principles
+## Routing concepts
 
-The project documentation separates three concepts that are easy to confuse:
+The documentation distinguishes four layers:
 
-1. **Installed backend service** — the server process and port.
-2. **Orchestrator** — `talk.sh` on Unix or `talk.ps1` on Windows.
-3. **Agent skill** — the instructions that tell an AI agent how to use the orchestrator.
+1. **Backend service** — the STT/TTS server and port.
+2. **Built-in dispatcher** — `service/tts.sh`, selected through `TTS_ENGINE` on Unix.
+3. **Implementation override** — `TTS_SH`, used by the shared AI provider bridge.
+4. **Agent orchestrator/skill** — `talk.sh`, `talk.ps1`, and the instructions an agent follows.
 
-A healthy backend does not guarantee that the orchestrator is pointing at the same port. When diagnosing a problem, verify both the service and the effective environment used by the launching shell.
+A healthy backend does not prove that the orchestrator is using the same endpoint. Always inspect the effective environment of the process that launches the agent.
 
 ## Recommended local environment
-
-The installer places Supertonic on `:8766`. Export that endpoint in the shell that starts the agent:
 
 ```bash
 export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
@@ -68,17 +74,10 @@ export VAD_THRESHOLD=0.5
 export VAD_MIN_SILENCE_MS=700
 ```
 
-The repository includes [`.env.example`](../.env.example) as a reference. Shell scripts do not automatically source arbitrary `.env` files; export the variables, source the file explicitly, or place the values in the shell/session configuration used to launch the agent.
+The repository includes [`.env.example`](../.env.example) as a reference. Shell scripts do not automatically source arbitrary `.env` files.
 
 ## Support boundary
 
-The core supported path is:
+The core supported path is local Silero VAD, local Parakeet STT, local Supertonic TTS, and the platform-native orchestrator on macOS, Linux, or Windows.
 
-- local Silero VAD
-- local Parakeet ONNX STT
-- local Supertonic 3 TTS
-  - Apple Silicon: native MLX with verified ONNX CPU fallback
-  - Linux/Intel Mac/Windows: ONNX, with optional CUDA where supported
-- macOS, Linux, or Windows installation
-
-Optional providers and integrations are maintained as secondary paths. Their availability, authentication, response schemas, and latency can change independently of the local stack.
+Optional providers and integrations are secondary paths. Their authentication, schemas, latency, and availability can change independently. The AI provider bridge avoids duplicating xAI/Gemini contracts by reading catalogs and synthesizing through a versioned companion service.
