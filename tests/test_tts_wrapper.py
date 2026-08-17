@@ -138,6 +138,36 @@ class TTSWrapperTests(unittest.TestCase):
         self.assertEqual(payload["text"], result["tagged_text"])
         self.assertEqual(result["tagged_sentence_count"], 2)
 
+    def test_terminal_backend_errors_are_not_hidden_by_xai_fallback(self):
+        fixture, _, env, _, backend_log, curl_log = self._fixture(backend_exit=3)
+        self.addCleanup(fixture.cleanup)
+        env["TTS_ENGINE"] = "inworld"
+        completed = subprocess.run(
+            ["bash", str(WRAPPER), "Hello.", "en"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 3)
+        self.assertEqual(backend_log.read_text().strip(), "inworld|")
+        self.assertFalse(curl_log.exists())
+
+    def test_unknown_engine_is_not_hidden_by_xai_fallback(self):
+        fixture, _, env, _, backend_log, curl_log = self._fixture(backend_exit=2)
+        self.addCleanup(fixture.cleanup)
+        env["TTS_ENGINE"] = "unknown"
+        completed = subprocess.run(
+            ["bash", str(WRAPPER), "Hello.", "en"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertEqual(backend_log.read_text().strip(), "unknown|")
+        self.assertFalse(curl_log.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

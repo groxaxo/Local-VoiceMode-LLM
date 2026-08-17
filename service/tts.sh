@@ -168,14 +168,22 @@ case "$ENGINE" in
         run_backends_without_xai supertonic
         ;;
     *)
+        backend_status=0
         if run_backends_without_xai "$ENGINE"; then
             exit 0
+        else
+            backend_status=$?
         fi
+        # Preserve terminal dispatcher semantics: unknown engines (2) and explicit
+        # credential refusals such as Inworld 401/403 (3) must not be masked.
+        case "$backend_status" in
+            2|3) exit "$backend_status" ;;
+        esac
         if [ -n "$XAI_KEY" ]; then
             echo "[tts] Local/selected backends failed → trying sentence-tagged xAI…" >&2
             speak_xai_tagged
         else
-            exit 1
+            exit "$backend_status"
         fi
         ;;
 esac
