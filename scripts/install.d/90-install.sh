@@ -22,25 +22,37 @@ install_supertonic
 
 info "── Installing voice skill files ──"
 mkdir -p "$SKILL_DIR"
-for file in vad_recorder.py talk.sh tts.sh tts_lang.sh doctor.sh; do
+for file in \
+  vad_recorder.py \
+  talk.sh \
+  tts.sh \
+  tts_backends.sh \
+  xai_sentence_tagger.py \
+  tts_lang.sh \
+  doctor.sh; do
   [[ -f "$REPO_DIR/service/$file" ]] && cp "$REPO_DIR/service/$file" "$SKILL_DIR/$file"
 done
 [[ -f "$REPO_DIR/skill/SKILL.md" ]] && cp "$REPO_DIR/skill/SKILL.md" "$SKILL_DIR/SKILL.md"
-chmod +x "$SKILL_DIR"/*.sh "$SKILL_DIR"/vad_recorder.py 2>/dev/null || true
-# The source still supports legacy Chatterbox on :8765. Installed Supertonic
-# clients must point to this installer's selected Supertonic port instead.
-sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/tts.sh"
-rm -f "$SKILL_DIR/tts.sh.bak"
-cp "$SKILL_DIR/tts.sh" "$CONFIG_DIR/tts.sh"
-cp "$REPO_DIR/service/tts_lang.sh" "$CONFIG_DIR/tts_lang.sh"
-chmod +x "$CONFIG_DIR/tts.sh" "$CONFIG_DIR/tts_lang.sh"
+chmod +x "$SKILL_DIR"/*.sh "$SKILL_DIR"/vad_recorder.py "$SKILL_DIR"/xai_sentence_tagger.py 2>/dev/null || true
+# The backend source still supports legacy Chatterbox on :8765. Installed
+# Supertonic clients must point to this installer's selected Supertonic port.
+sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/tts_backends.sh"
+rm -f "$SKILL_DIR/tts_backends.sh.bak"
+for file in tts.sh tts_backends.sh xai_sentence_tagger.py tts_lang.sh; do
+  cp "$SKILL_DIR/$file" "$CONFIG_DIR/$file"
+done
+chmod +x \
+  "$CONFIG_DIR/tts.sh" \
+  "$CONFIG_DIR/tts_backends.sh" \
+  "$CONFIG_DIR/xai_sentence_tagger.py" \
+  "$CONFIG_DIR/tts_lang.sh"
 
 install_integration() {
   local name="$1" target="$2" enabled="$3"
   [[ "$enabled" == true ]] || return 0
   if [[ "$target" == "$SKILL_DIR" ]]; then ok "Integration ready: $name → $target"; return 0; fi
   mkdir -p "$target"; cp -R "$SKILL_DIR/." "$target/"
-  chmod +x "$target"/*.sh "$target"/vad_recorder.py 2>/dev/null || true
+  chmod +x "$target"/*.sh "$target"/vad_recorder.py "$target"/xai_sentence_tagger.py 2>/dev/null || true
   ok "Integration ready: $name → $target"
 }
 install_integration "Claude Code" "$HOME/.claude/skills/talk" "$INTEGRATE_CLAUDECODE"
