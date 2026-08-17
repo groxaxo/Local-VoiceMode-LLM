@@ -45,7 +45,6 @@ def normalize_provider(value: str | None) -> str:
 
 
 def provider_output_format(provider: str) -> dict[str, Any]:
-    """Return a WAV format suitable for Local VoiceMode playback/barge-in."""
     if normalize_provider(provider) == "google":
         return {"codec": "wav", "sample_rate": 24000, "bit_rate": None}
     return {"codec": "wav", "sample_rate": 48000, "bit_rate": None}
@@ -124,7 +123,7 @@ def build_process_payload(
         "provider": resolved,
         "language": language,
         "coverage_mode": coverage,
-        "include_annotations": False,
+        "include_annotations": True,
         "tts_language": tts_language,
         "output_format": output_format,
     }
@@ -194,6 +193,51 @@ def request_json(
     return decoded
 
 
+def validate_sentence_tagging_response(payload: dict[str, Any]) -> dict[str, int]:
+    """Reject audio unless the companion proves every sentence received a tag."""
+    tagging = payload.get("tagging")
+    if not isinstance(tagging, dict):
+        raise BridgeError("AI TTS response is missing tagging metadata")
+
+    sentence_count = tagging.get("sentence_count")
+    tagged_count = tagging.get("tagged_sentence_count")
+    untagged = tagging.get("untagged_sentence_indexes")
+    annotations = tagging.get("annotations")
+    if not isinstance(sentence_count, int) or sentence_count < 1:
+        raise BridgeError("AI TTS response has an invalid sentence_count")
+    if tagged_count != sentence_count:
+        raise BridgeError(
+            "AI TTS sentence-tag invariant failed: "
+            f"{tagged_count!r}/{sentence_count} sentences are tagged"
+        )
+    if untagged != []:
+        raise BridgeError(f"AI TTS response contains untagged sentence indexes: {untagged!r}")
+    if not isinstance(annotations, list) or len(annotations) != sentence_count:
+        raise BridgeError("AI TTS response is missing complete per-sentence annotations")
+
+    seen: set[int] = set()
+    for row in annotations:
+        if not isinstance(row, dict):
+            raise BridgeError("AI TTS response contains a malformed sentence annotation")
+        index = row.get("index")
+        original = row.get("original")
+        tagged_text = row.get("tagged_text")
+        if not isinstance(index, int) or index < 0 or index >= sentence_count or index in seen:
+            raise BridgeError("AI TTS response contains missing or duplicate sentence indexes")
+        if not isinstance(original, str) or not isinstance(tagged_text, str):
+            raise BridgeError(f"AI TTS sentence {index} has malformed text fields")
+        if tagged_text == original:
+            raise BridgeError(f"AI TTS sentence {index} has no inserted speech tag")
+        seen.add(index)
+    if seen != set(range(sentence_count)):
+        raise BridgeError("AI TTS response omitted one or more sentence annotations")
+
+    return {
+        "sentence_count": sentence_count,
+        "tagged_sentence_count": tagged_count,
+    }
+
+
 def decode_audio_response(payload: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
     encoded = payload.get("audio_base64")
     if not isinstance(encoded, str) or not encoded:
@@ -257,13 +301,15 @@ def default_output_path() -> Path:
 
 def synthesize(text: str, language: str, output: Path | None) -> tuple[Path, dict[str, Any]]:
     provider = normalize_provider(_env_text("AI_TTS_PROVIDER") or "xai")
-    payload = build_process_payload(
+    request_payload = build_process_payload(
         text,
         provider=provider,
         source_language=language or "auto",
     )
-    response = request_json("/api/process/json", method="POST", payload=payload)
+    response = request_json("/api/process/json", method="POST", payload=request_payload)
+    invariant = validate_sentence_tagging_response(response)
     audio, metadata = decode_audio_response(response)
+    metadata["sentence_tagging"] = invariant
     target = atomic_write(output or default_output_path(), audio)
     return target, metadata
 
@@ -323,6 +369,7 @@ def main(argv: list[str] | None = None) -> int:
                         "media_type",
                         "audio_extension",
                         "audio_bytes",
+                        "sentence_tagging",
                     )
                 }
                 print(json.dumps(safe, ensure_ascii=False, default=str), file=sys.stderr)

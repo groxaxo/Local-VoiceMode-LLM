@@ -4,6 +4,7 @@ import base64
 import importlib.util
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,7 @@ MODULE_PATH = (
 SPEC = importlib.util.spec_from_file_location("ai_tts_provider", MODULE_PATH)
 assert SPEC and SPEC.loader
 provider = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = provider
 SPEC.loader.exec_module(provider)
 
 
@@ -37,6 +39,26 @@ def wav_bytes() -> bytes:
         + b"data"
         + (0).to_bytes(4, "little")
     )
+
+
+def valid_tagging() -> dict:
+    return {
+        "sentence_count": 2,
+        "tagged_sentence_count": 2,
+        "untagged_sentence_indexes": [],
+        "annotations": [
+            {
+                "index": 0,
+                "original": "Hello.",
+                "tagged_text": "<soft>Hello.</soft>",
+            },
+            {
+                "index": 1,
+                "original": " Goodbye.",
+                "tagged_text": " <emphasis>Goodbye.</emphasis>",
+            },
+        ],
+    }
 
 
 class FakeResponse:
@@ -60,7 +82,7 @@ class ProviderBridgeTests(unittest.TestCase):
         with self.assertRaises(provider.BridgeError):
             provider.normalize_provider("unknown")
 
-    def test_google_payload_uses_provider_native_wav(self):
+    def test_google_payload_uses_provider_native_wav_and_annotations(self):
         with patch.dict(os.environ, {}, clear=True):
             payload = provider.build_process_payload(
                 "Hello.", provider="gemini", source_language="en"
@@ -72,6 +94,7 @@ class ProviderBridgeTests(unittest.TestCase):
         )
         self.assertEqual(payload["coverage_mode"], "natural")
         self.assertEqual(payload["tts_language"], "en")
+        self.assertIs(payload["include_annotations"], True)
 
     def test_xai_payload_uses_wav_for_voicemode(self):
         with patch.dict(
@@ -90,6 +113,30 @@ class ProviderBridgeTests(unittest.TestCase):
         self.assertEqual(payload["voice_id"], "EVE")
         self.assertEqual(payload["output_format"]["sample_rate"], 48000)
         self.assertEqual(payload["output_format"]["codec"], "wav")
+        self.assertIs(payload["include_annotations"], True)
+
+    def test_sentence_invariant_accepts_complete_annotations(self):
+        self.assertEqual(
+            provider.validate_sentence_tagging_response({"tagging": valid_tagging()}),
+            {"sentence_count": 2, "tagged_sentence_count": 2},
+        )
+
+    def test_sentence_invariant_rejects_missing_or_untagged_rows(self):
+        bad = valid_tagging()
+        bad["tagged_sentence_count"] = 1
+        bad["untagged_sentence_indexes"] = [1]
+        with self.assertRaisesRegex(provider.BridgeError, "invariant failed"):
+            provider.validate_sentence_tagging_response({"tagging": bad})
+
+        bad = valid_tagging()
+        bad["annotations"][1]["tagged_text"] = bad["annotations"][1]["original"]
+        with self.assertRaisesRegex(provider.BridgeError, "has no inserted speech tag"):
+            provider.validate_sentence_tagging_response({"tagging": bad})
+
+        bad = valid_tagging()
+        bad["annotations"] = bad["annotations"][:1]
+        with self.assertRaisesRegex(provider.BridgeError, "complete per-sentence"):
+            provider.validate_sentence_tagging_response({"tagging": bad})
 
     def test_rejects_non_wav_override(self):
         with patch.dict(os.environ, {"AI_TTS_CODEC": "mp3"}, clear=True):
@@ -156,6 +203,24 @@ class ProviderBridgeTests(unittest.TestCase):
         self.assertEqual(captured["timeout"], 9.0)
         self.assertEqual(captured["authorization"], "Bearer secret-token")
         self.assertEqual(captured["body"]["provider"], "google")
+
+    def test_synthesize_rejects_audio_if_sentence_proof_is_missing(self):
+        response = {
+            "tagging": {
+                "sentence_count": 1,
+                "tagged_sentence_count": 0,
+                "untagged_sentence_indexes": [0],
+                "annotations": [],
+            },
+            "audio_base64": base64.b64encode(wav_bytes()).decode(),
+            "audio_extension": "wav",
+            "media_type": "audio/wav",
+        }
+        with patch.dict(os.environ, {"AI_TTS_PROVIDER": "xai"}, clear=True), patch.object(
+            provider, "request_json", return_value=response
+        ):
+            with self.assertRaises(provider.BridgeError):
+                provider.synthesize("Hello.", "en", None)
 
 
 if __name__ == "__main__":
