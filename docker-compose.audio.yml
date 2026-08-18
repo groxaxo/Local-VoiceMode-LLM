@@ -27,6 +27,7 @@ services:
       - "${AUDIO_GID:-29}"
     volumes:
       - voicemode_config:/home/voicemode/.config/opencode
+      - voicemode_cache:/home/voicemode/.cache
     init: true
     stdin_open: true
     tty: true
