@@ -22,6 +22,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     HOME=/home/voicemode \
+    XDG_CACHE_HOME=/home/voicemode/.cache \
+    TORCH_HOME=/home/voicemode/.cache/torch \
+    HF_HOME=/home/voicemode/.cache/huggingface \
     PYTHONPATH=/app \
     TTS_SH=/app/service/tts.sh \
     TTS_BACKEND_SH=/app/service/tts_backends.sh \
@@ -32,7 +35,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid "${APP_GID}" voicemode \
     && useradd --uid "${APP_UID}" --gid voicemode --home-dir /home/voicemode --create-home voicemode \
-    && mkdir -p /home/voicemode/.config/opencode /app \
+    && mkdir -p /home/voicemode/.config/opencode /home/voicemode/.cache /app \
     && chown -R voicemode:voicemode /home/voicemode /app
 
 WORKDIR /app
