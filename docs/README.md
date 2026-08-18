@@ -7,6 +7,7 @@ This directory contains the operational and technical reference for Local VoiceM
 | Guide | Use it when |
 |---|---|
 | [Installation](installation.md) | Installing, upgrading, selecting integrations, managing services, or uninstalling |
+| [Docker deployment](DOCKER.md) | Running the cross-platform dashboard container, Linux host-audio profile, private forks, or public builds |
 | [Windows installer and manager](windows.md) | Installing Windows prerequisites, selecting components, IndexTTS, or managing scheduled services |
 | [Apple Silicon MLX setup and repair](macos-repair.md) | Installing, validating, benchmarking, or forcing MLX/ONNX on a Mac |
 | [Troubleshooting](troubleshooting.md) | A microphone, backend, playback path, provider, or service is not working |
@@ -19,6 +20,18 @@ This directory contains the operational and technical reference for Local VoiceM
 | [AI Sentence Tagger integration](../integrations/ai-sentence-tagger/README.md) | Installing and operating the xAI/Google companion bridge |
 | [Supertonic 2 integration](../integrations/supertonic2/README.md) | Installing the optional Supertonic 2 service |
 | [Benchmarks](../benchmarks/README.md) | Reproducing latency and realtime-factor measurements |
+
+## Installation modes
+
+| Mode | Privacy | Best use |
+|---|---|---|
+| Native local | Microphone, STT, and TTS stay on the host | macOS, Linux, and Windows full voice loop |
+| Docker dashboard | No microphone in the container; connects to host/network services | Cross-platform monitoring and proxy UI |
+| Docker Linux audio | `/dev/snd` passthrough with VAD and audio dependencies | Linux hosts that require containerized orchestration |
+| Companion bridge | Text is sent to a local AI Sentence Tagger/Voice Studio, which may call xAI or Google | Verified 26/30-voice provider workflows |
+| Hosted STT/TTS | Audio or reply text leaves the host | Offload or provider-specific voices |
+
+Repository access and runtime privacy are separate. The canonical repository is public, but [Docker deployment](DOCKER.md) also documents authenticated private forks and BuildKit secret-safe builds.
 
 ## Runtime map
 
@@ -46,13 +59,15 @@ Silero VAD ──► WAV ──► Parakeet STT :5093
                               audio playback
 ```
 
+Every legitimate Unix xAI path passes through the safety wrapper. A request is sent only after the runtime proves `tagged_sentence_count == sentence_count` and `untagged_sentence_indexes == []`.
+
 Default local services:
 
 | Service | URL | Default runtime |
 |---|---|---|
 | Parakeet STT | `http://127.0.0.1:5093` | ONNX CPU by default |
 | Supertonic 3 TTS | `http://127.0.0.1:8766` | Apple Silicon: MLX first with ONNX fallback; other hosts: ONNX |
-| Dashboard | `http://127.0.0.1:7862` | CPU |
+| Dashboard | `http://127.0.0.1:7862` | CPU; native or Docker dashboard target |
 | Ollama, when used | `http://127.0.0.1:11434` | user-selected |
 | AI Sentence Tagger / Voice Studio, when used | `http://127.0.0.1:8000` | user-selected companion |
 
@@ -62,7 +77,7 @@ The documentation distinguishes five layers:
 
 1. **Backend service** — the STT/TTS server and port.
 2. **Safety wrapper** — `service/tts.sh`; owns every direct or fallback xAI request and enforces sentence tags.
-3. **Backend dispatcher** — `service/tts_backends.sh`; implements Supertonic, Qwen, NeuTTS, Inflect, OpenAI-compatible, Inworld, and the historical engine orders.
+3. **Backend dispatcher** — `service/tts_backends.sh`; implements Supertonic, Qwen, NeuTTS, Inflect, OpenAI-compatible, Inworld, and historical engine ordering.
 4. **Implementation override** — `TTS_SH`, used by the shared AI provider bridge.
 5. **Agent orchestrator/skill** — `talk.sh`, `talk.ps1`, and the instructions an agent follows.
 
@@ -70,7 +85,7 @@ The documentation distinguishes five layers:
 
 A healthy backend does not prove that the orchestrator is using the same endpoint. Always inspect the effective environment of the process that launches the agent.
 
-## Recommended local environment
+## Recommended private/local environment
 
 ```bash
 export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
@@ -97,8 +112,10 @@ The repository includes [`.env.example`](../.env.example) as a reference. Shell 
 
 ## Support boundary
 
-The core supported path is local Silero VAD, local Parakeet STT, local Supertonic TTS, and the platform-native orchestrator on macOS, Linux, or Windows.
+The primary supported path is local Silero VAD, local Parakeet STT, local Supertonic TTS, and the platform-native orchestrator on macOS, Linux, or Windows.
 
 The strict direct-xAI wrapper is implemented on Unix/macOS. The companion bridge also integrates directly with Unix/macOS `talk.sh`. Windows uses a separate PowerShell dispatcher and is not silently claimed to share those Unix routing changes.
+
+Docker dashboard mode is cross-platform. Direct container microphone/audio operation is documented only for Linux. Native installation remains recommended for macOS and Windows audio.
 
 Optional providers and integrations are secondary paths. Their authentication, schemas, latency, and availability can change independently. The AI provider bridge avoids duplicating xAI/Gemini contracts by reading catalogs and synthesizing through a versioned companion service.
