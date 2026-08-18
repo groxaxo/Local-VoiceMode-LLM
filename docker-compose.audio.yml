@@ -1,0 +1,44 @@
+services:
+  audio:
+    build:
+      context: .
+      target: audio
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+        APP_VERSION: ${APP_VERSION:-dev}
+        VCS_REF: ${VCS_REF:-unknown}
+    env_file:
+      - .env
+    environment:
+      STT_ENGINE: ${STT_ENGINE:-local}
+      STT_URL: ${STT_URL:-http://127.0.0.1:5093/v1/audio/transcriptions}
+      STT_MODEL: ${STT_MODEL:-parakeet-tdt-0.6b-v3}
+      TTS_ENGINE: ${TTS_ENGINE:-supertonic}
+      SUPERTONIC_URL: ${SUPERTONIC_URL:-http://127.0.0.1:8766}
+      TTS_QUALITY: ${TTS_QUALITY:-normal}
+      TTS_SH: /app/service/tts.sh
+      TTS_BACKEND_SH: /app/service/tts_backends.sh
+      TTS_SENTENCE_TAGGER_PY: /app/service/xai_sentence_tagger.py
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - "${AUDIO_GID:-29}"
+    volumes:
+      - voicemode_config:/home/voicemode/.config/opencode
+    init: true
+    stdin_open: true
+    tty: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=1g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - sleep
+      - infinity
+    profiles:
+      - audio
