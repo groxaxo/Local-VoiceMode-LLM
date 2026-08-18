@@ -28,7 +28,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     TTS_SH=/app/service/tts.sh \
     TTS_BACKEND_SH=/app/service/tts_backends.sh \
-    TTS_SENTENCE_TAGGER_PY=/app/service/xai_sentence_tagger.py
+    TTS_SENTENCE_TAGGER_PY=/app/service/xai_sentence_tagger.py \
+    TTS_LANG_SH=/app/service/tts_lang.sh
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bash ca-certificates curl tini \
