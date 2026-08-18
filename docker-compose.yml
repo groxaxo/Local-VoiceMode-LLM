@@ -20,6 +20,7 @@ services:
       - "${BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-7862}:7862"
     volumes:
       - voicemode_config:/home/voicemode/.config/opencode
+      - voicemode_cache:/home/voicemode/.cache
     init: true
     restart: unless-stopped
     read_only: true
@@ -43,3 +44,5 @@ services:
 volumes:
   voicemode_config:
     name: ${VOICEMODE_CONFIG_VOLUME:-local-voicemode-config}
+  voicemode_cache:
+    name: ${VOICEMODE_CACHE_VOLUME:-local-voicemode-cache}
