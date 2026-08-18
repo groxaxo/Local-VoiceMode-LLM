@@ -4,8 +4,8 @@ services:
       context: .
       target: audio
       args:
-        APP_UID: ${APP_UID:-1000}
-        APP_GID: ${APP_GID:-1000}
+        APP_UID: ${APP_UID:-10001}
+        APP_GID: ${APP_GID:-10001}
         APP_VERSION: ${APP_VERSION:-dev}
         VCS_REF: ${VCS_REF:-unknown}
     env_file:
@@ -20,6 +20,7 @@ services:
       TTS_SH: /app/service/tts.sh
       TTS_BACKEND_SH: /app/service/tts_backends.sh
       TTS_SENTENCE_TAGGER_PY: /app/service/xai_sentence_tagger.py
+      TTS_LANG_SH: /app/service/tts_lang.sh
     network_mode: host
     devices:
       - /dev/snd:/dev/snd
