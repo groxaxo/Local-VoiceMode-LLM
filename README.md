@@ -16,7 +16,7 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2563eb">
 </p>
 
-Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, OpenClaw, Hermes Agent, Codex, Ollama, and other local agents. The default path keeps microphone endpointing, transcription, and synthesis on the host.
+Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, OpenClaw, Hermes Agent, Codex, Ollama, and other local agents. Its default path keeps endpointing, transcription, and synthesis on the host.
 
 | Stage | Default backend | Port | Compute |
 |---|---|---:|---|
@@ -39,14 +39,14 @@ Every xAI request made by the Unix runtime must prove that every segmented sente
 }
 ```
 
-This is a hard pre-provider safety gate:
+This is a hard pre-provider gate:
 
 1. Segment every sentence.
-2. Use an optional OpenAI-compatible local model for contextual direction.
+2. Optionally use an OpenAI-compatible local model for contextual direction.
 3. Validate each returned row independently.
-4. Deterministically repair every missing, malformed, unknown-tag, unbalanced, or source-rewriting row.
-5. Verify an explicit N/N proof.
-6. Only then build the xAI request.
+4. Deterministically repair missing, malformed, unknown-tag, unbalanced, or source-rewriting rows.
+5. Verify explicit N/N proof.
+6. Only then construct the xAI request.
 
 The same rule protects direct `TTS_ENGINE=xai`, xAI reached after another backend fails, and the optional AI Sentence Tagger / AI Voice Studio bridge. If the proof is incomplete, xAI is not contacted.
 
@@ -66,7 +66,7 @@ See [Mandatory xAI sentence tagging](docs/xai-sentence-tagging.md).
 - Shared agent skill for Claude Code, OpenCode, OpenClaw, Hermes, and Codex.
 - Optional Ollama conversation loop and browser dashboard.
 - Optional AI Sentence Tagger / AI Voice Studio bridge for the verified 26-voice xAI and 30-voice Gemini catalogs.
-- Public native installation, authenticated private-fork installation, private/local operation, hosted hybrid operation, and Docker deployment.
+- Public native installation, authenticated private-fork installation, fully local operation, hosted hybrid operation, and hardened Docker deployment.
 - Deterministic local validation; GitHub Actions are not required as a release gate.
 
 ## Installation modes
@@ -105,7 +105,7 @@ cd PRIVATE-VOICE-REPO
 ./setup.sh
 ```
 
-Do not put a GitHub token in clone URLs, scripts, Dockerfiles, image labels, or build arguments.
+Do not put GitHub tokens in clone URLs, scripts, Dockerfiles, image labels, or build arguments.
 
 ### Windows PowerShell
 
@@ -134,7 +134,7 @@ See [Windows setup](docs/windows.md).
 
 ## Docker
 
-The repository includes two container targets.
+The repository provides two separate targets so a normal dashboard build does not pull the large audio/VAD dependency stack.
 
 ### Cross-platform dashboard
 
@@ -144,7 +144,7 @@ docker compose up -d --build dashboard
 
 Open `http://127.0.0.1:7862`.
 
-The dashboard container is small and connects to host or network Parakeet/Supertonic endpoints. It does not need microphone access. Defaults:
+The dashboard connects to host or network services and does not require microphone access:
 
 ```text
 Supertonic -> http://host.docker.internal:8766
@@ -157,8 +157,7 @@ Override with `DOCKER_SUPERTONIC_URL` and `DOCKER_PARAKEET_URL`.
 
 ```bash
 cp .env.example .env
-export APP_UID="$(id -u)"
-export APP_GID="$(id -g)"
+chmod 600 .env
 export AUDIO_GID="$(getent group audio | cut -d: -f3)"
 
 docker compose \
@@ -177,13 +176,15 @@ docker compose \
   exec audio bash /app/service/talk.sh devices
 ```
 
-The audio target includes CPU PyTorch, Silero VAD, ONNX Runtime, PortAudio, ALSA/Pulse utilities, ffmpeg, and the same mandatory xAI sentence safety wrapper as native Unix.
+The audio image includes CPU PyTorch, Silero VAD, ONNX Runtime, PortAudio, ALSA/Pulse utilities, ffmpeg, and the same mandatory xAI sentence-safety wrapper used by native Unix.
+
+Dashboard and audio containers share configuration and model-cache volumes. Their default identity is `10001:10001`; keep `APP_UID` and `APP_GID` identical across both targets. Override them only when a host bind mount or user-owned Pulse/PipeWire socket requires it, then rebuild both targets.
 
 Native installation remains recommended for macOS and Windows microphone/audio because Docker Desktop does not expose CoreAudio or Windows audio like a native process.
 
-The supplied Compose stack binds the dashboard to loopback, runs non-root, drops capabilities, enables `no-new-privileges`, uses a read-only root filesystem, and keeps configuration in a named volume.
+The supplied Compose stack binds to loopback, runs non-root, drops capabilities, enables `no-new-privileges`, uses read-only root filesystems, and persists configuration and model caches in named volumes.
 
-Full private/public source builds, BuildKit SSH and token secrets, Linux audio, PipeWire/Pulse overrides, privacy modes, provider bridges, public exposure, and validation are covered in [Docker deployment](docs/DOCKER.md).
+Private/public source builds, BuildKit SSH and token secrets, Linux audio, Pulse/PipeWire overrides, privacy modes, provider bridges, public exposure, and validation are covered in [Docker deployment](docs/DOCKER.md).
 
 ## Private/local versus hybrid operation
 
@@ -205,13 +206,13 @@ export SUPERTONIC_URL=http://127.0.0.1:8766
 export TTS_QUALITY=normal
 ```
 
-Do not configure cloud provider keys in this mode.
+Do not configure hosted-provider keys in this mode.
 
 ### Hybrid or non-private provider path
 
-Remote STT sends recorded audio to the chosen endpoint. Remote TTS sends reply text to the chosen endpoint. The xAI/Google companion bridge sends directed text to the provider configured by the companion service.
+Remote STT sends recorded audio to the selected endpoint. Remote TTS sends reply text. The xAI/Google companion bridge sends directed text to the provider configured by its companion service.
 
-Choose this mode when provider-specific voices or offload matter more than keeping all speech data local.
+Choose this mode when provider-specific voices or inference offload matter more than keeping all speech data local.
 
 ## Quick verification
 
