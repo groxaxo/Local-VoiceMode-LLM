@@ -1,15 +1,15 @@
 # Docker deployment
 
-Local VoiceMode LLM supports two intentionally separate container modes:
+Local VoiceMode LLM provides two intentionally separate container targets:
 
-1. **Dashboard mode** — small, cross-platform, and safe for Docker Desktop. It proxies health, STT, and TTS requests to services running on the host or another machine.
-2. **Linux audio mode** — a larger image with Silero VAD, PortAudio, CPU PyTorch, ONNX Runtime, audio tools, and direct `/dev/snd` access.
+1. **Dashboard** — a small, cross-platform image that proxies status, STT, and TTS requests to services on the host or network.
+2. **Linux audio** — a larger image with Silero VAD, PortAudio, CPU PyTorch, ONNX Runtime, ALSA/Pulse tools, ffmpeg, and direct `/dev/snd` access.
 
-Native installation remains the recommended path for macOS and Windows microphone use because Docker Desktop does not expose host audio devices with the same semantics as native CoreAudio or Windows audio.
+Native installation remains recommended for macOS and Windows microphone use because Docker Desktop does not expose CoreAudio or Windows audio with native-process semantics.
 
-## Sentence-tagging guarantee
+## Mandatory sentence tagging
 
-Every xAI request made by the Unix runtime must prove that every segmented sentence has at least one valid xAI tag:
+Every xAI request made by the Unix runtime must prove:
 
 ```json
 {
@@ -19,31 +19,30 @@ Every xAI request made by the Unix runtime must prove that every segmented sente
 }
 ```
 
-The Docker audio image uses the same `service/tts.sh` safety wrapper and `service/xai_sentence_tagger.py` helper as native Unix installation. The companion-service bridge also rejects returned audio unless the remote AI Sentence Tagger or AI Voice Studio supplies complete N/N annotation proof.
+The audio target uses the same `service/tts.sh` safety wrapper and `service/xai_sentence_tagger.py` as native Unix installation. The optional AI Sentence Tagger / AI Voice Studio bridge also refuses returned audio unless its companion supplies complete N/N annotation proof.
 
 See [Mandatory xAI sentence tagging](xai-sentence-tagging.md).
 
-## Source installation modes
+## Public source
 
-### Public repository
-
-The canonical Local VoiceMode repository is public:
+The canonical repository is public:
 
 ```bash
 git clone https://github.com/groxaxo/Local-VoiceMode-LLM.git
 cd Local-VoiceMode-LLM
 ```
 
-A public Git context can be built directly:
+Build the public Git context directly:
 
 ```bash
 docker buildx build \
+  --load \
   --target dashboard \
   --tag local-voicemode-dashboard:local \
   https://github.com/groxaxo/Local-VoiceMode-LLM.git#main
 ```
 
-### Private fork or internal mirror
+## Private fork or internal mirror
 
 GitHub CLI:
 
@@ -60,22 +59,24 @@ git clone git@github.com:OWNER/PRIVATE-VOICE-REPO.git
 cd PRIVATE-VOICE-REPO
 ```
 
-Build directly from a private Git context with SSH-agent forwarding:
+Private BuildKit context through SSH:
 
 ```bash
 ssh-add -l
 docker buildx build \
+  --load \
   --ssh default \
   --target dashboard \
   --tag local-voicemode-dashboard:private \
   git@github.com:OWNER/PRIVATE-VOICE-REPO.git#main
 ```
 
-Token-based BuildKit preflight authentication:
+Token preflight authentication:
 
 ```bash
 export GIT_AUTH_TOKEN='your-short-lived-token'
 docker buildx build \
+  --load \
   --secret id=GIT_AUTH_TOKEN \
   --target dashboard \
   --tag local-voicemode-dashboard:private \
@@ -87,26 +88,22 @@ Do not put GitHub tokens in clone URLs, Dockerfiles, Compose files, image labels
 
 ## Dashboard mode
 
-The dashboard container does not run Parakeet or Supertonic itself. It connects to existing endpoints on the host or network.
+The dashboard container does not run Parakeet or Supertonic. It connects to existing endpoints:
 
 ```bash
 docker compose up -d --build dashboard
 ```
 
-Open:
+Open `http://127.0.0.1:7862`.
 
-```text
-http://127.0.0.1:7862
-```
-
-Default endpoint mapping from inside the container:
+Defaults from inside the container:
 
 ```text
 Supertonic -> http://host.docker.internal:8766
 Parakeet   -> http://host.docker.internal:5093
 ```
 
-Override them without changing the normal host shell variables:
+Override them:
 
 ```bash
 DOCKER_SUPERTONIC_URL=http://192.168.1.50:8766 \
@@ -114,19 +111,19 @@ DOCKER_PARAKEET_URL=http://192.168.1.50:5093 \
 docker compose up -d
 ```
 
-The dashboard is loopback-bound by default. It uses:
+The dashboard uses:
 
+- loopback binding by default;
 - non-root UID/GID `10001` by default;
 - a read-only root filesystem;
-- a temporary writable `/tmp`;
+- writable `/tmp`, config, and model-cache mounts;
 - all Linux capabilities dropped;
 - `no-new-privileges`;
-- a persistent configuration volume;
 - a health check on `/`.
 
-The dashboard's Linux `systemd --user` restart controls are host-management features and do not restart host services from inside an isolated container. Status and proxy tests remain useful; manage host services through the host's native service manager.
+The dashboard's `systemd --user` controls are host-management features and cannot restart host services from an isolated container. Status and proxy tests remain useful; manage host services on the host.
 
-### Build only the dashboard target
+Standalone build:
 
 ```bash
 docker build \
@@ -136,7 +133,7 @@ docker build \
   -t local-voicemode-dashboard:local .
 ```
 
-Run it directly:
+Standalone run:
 
 ```bash
 docker run --rm \
@@ -155,28 +152,21 @@ docker run --rm \
 
 Requirements:
 
-- Linux host
-- `/dev/snd`
-- working ALSA device access, or an explicitly configured PulseAudio/PipeWire path
-- local or network Parakeet and TTS endpoints
-- enough disk space for CPU PyTorch and VAD dependencies
+- Linux host;
+- `/dev/snd`;
+- working ALSA access, or an explicitly configured PulseAudio/PipeWire socket;
+- local or network Parakeet and TTS endpoints;
+- enough disk for CPU PyTorch and VAD dependencies.
 
-Set host identity and audio group IDs:
-
-```bash
-export APP_UID="$(id -u)"
-export APP_GID="$(id -g)"
-export AUDIO_GID="$(getent group audio | cut -d: -f3)"
-```
-
-Create `.env` from the example and configure only the values needed:
+Use the shared default container identity. Resolve only the host audio-group GID:
 
 ```bash
 cp .env.example .env
 chmod 600 .env
+export AUDIO_GID="$(getent group audio | cut -d: -f3)"
 ```
 
-Build and start the profile:
+Start the audio profile:
 
 ```bash
 docker compose \
@@ -186,7 +176,7 @@ docker compose \
   up -d --build audio
 ```
 
-Inspect audio devices:
+Inspect devices:
 
 ```bash
 docker compose \
@@ -214,11 +204,24 @@ docker compose \
   bash /app/service/talk.sh speak 'The build completed successfully.'
 ```
 
-Because the audio profile uses host networking, default endpoints such as `127.0.0.1:5093` and `127.0.0.1:8766` refer to services on the Linux host.
+The audio profile uses host networking, so `127.0.0.1:5093`, `:8766`, and `:8000` refer to services on the Linux host.
+
+### Shared-volume identity
+
+Dashboard and audio containers share configuration and model-cache volumes. Keep `APP_UID` and `APP_GID` identical for both targets. The supplied default is `10001:10001`.
+
+Override the identity only when a host bind mount or user-owned Pulse/PipeWire socket requires it, and rebuild every target that uses the shared volumes:
+
+```bash
+export APP_UID="$(id -u)"
+export APP_GID="$(id -g)"
+docker compose build --no-cache dashboard
+docker compose -f docker-compose.yml -f docker-compose.audio.yml --profile audio build --no-cache audio
+```
 
 ### PulseAudio or PipeWire
 
-The supplied audio profile guarantees `/dev/snd` passthrough only. Hosts that require a PulseAudio or PipeWire socket should add a local Compose override rather than hard-coding one user's runtime path in the repository:
+The supplied profile guarantees `/dev/snd` passthrough only. Add a local override for a user socket:
 
 ```yaml
 services:
@@ -258,9 +261,9 @@ Do not configure hosted-provider keys in this mode.
 
 ## Hybrid or non-private provider operation
 
-Hosted STT/TTS sends audio or reply text to the selected provider. The xAI and Google companion bridge sends the directed transcript to the provider configured by AI Sentence Tagger or AI Voice Studio.
+Hosted STT sends recorded audio to the selected endpoint. Hosted TTS sends reply text. The xAI/Google companion bridge sends directed text to the provider configured by AI Sentence Tagger or AI Voice Studio.
 
-Example companion route:
+Container bridge example:
 
 ```env
 TTS_SH=/app/integrations/ai-sentence-tagger/tts-provider.sh
@@ -269,16 +272,14 @@ AI_TTS_PROVIDER=google
 AI_TTS_VOICE=Kore
 ```
 
-When using the audio container with host networking, a companion bound to host port 8000 is reachable at `127.0.0.1:8000`.
-
-The bridge requests full annotations and accepts audio only after verifying:
+The bridge accepts audio only after verifying:
 
 - `tagged_sentence_count == sentence_count`;
 - `untagged_sentence_indexes == []`;
 - one unique annotation row per sentence; and
 - every row contains inserted direction.
 
-## Private versus public network exposure
+## Network exposure
 
 The default dashboard bind is private:
 
@@ -286,17 +287,15 @@ The default dashboard bind is private:
 127.0.0.1:7862
 ```
 
-For LAN, VPN, or reverse-proxy access, set an explicit bind:
+For LAN, VPN, or an authenticated reverse proxy:
 
 ```bash
 BIND_ADDRESS=0.0.0.0 docker compose up -d
 ```
 
-Do not expose the dashboard directly to the public internet. Put authentication, TLS, firewall rules, and request limits in front. The dashboard can proxy text and audio to configured backends and should be treated as an authenticated operator interface.
+Do not expose the dashboard directly to the public internet. Put TLS, authentication, firewall rules, and request limits in front. Treat it as an operator interface because it proxies text and audio to configured backends.
 
-## Compose configuration
-
-Useful variables:
+## Compose settings
 
 | Variable | Default | Purpose |
 |---|---:|---|
@@ -304,37 +303,22 @@ Useful variables:
 | `DASHBOARD_PORT` | `7862` | Dashboard host port |
 | `DOCKER_SUPERTONIC_URL` | `http://host.docker.internal:8766` | Dashboard proxy target |
 | `DOCKER_PARAKEET_URL` | `http://host.docker.internal:5093` | Dashboard proxy target |
-| `VOICEMODE_CONFIG_VOLUME` | `local-voicemode-config` | Persistent dashboard/config volume |
-| `APP_UID` | `10001` dashboard; `1000` audio | Container user ID |
-| `APP_GID` | `10001` dashboard; `1000` audio | Container primary group |
+| `VOICEMODE_CONFIG_VOLUME` | `local-voicemode-config` | Persistent configuration volume |
+| `VOICEMODE_CACHE_VOLUME` | `local-voicemode-cache` | Persistent model/cache volume |
+| `APP_UID` / `APP_GID` | `10001` | Shared container identity |
 | `AUDIO_GID` | `29` | Supplemental host audio group |
 | `APP_VERSION` | `dev` | OCI image label |
 | `VCS_REF` | `unknown` | OCI revision label |
 
 ## Validation
 
-Render the Compose configurations:
-
 ```bash
 docker compose config
 docker compose -f docker-compose.yml -f docker-compose.audio.yml --profile audio config
-```
-
-Build the small target:
-
-```bash
 docker build --target dashboard -t local-voicemode-dashboard:test .
-```
-
-Build the audio target when required:
-
-```bash
+# Optional large build:
 docker build --target audio -t local-voicemode-audio:test .
-```
 
-Source checks:
-
-```bash
 python -m compileall -q service frontend integrations tests
 bash -n service/talk.sh service/tts.sh service/tts_backends.sh
 python -m unittest tests.test_xai_sentence_tagger -v
@@ -342,20 +326,20 @@ python -m unittest tests.test_tts_wrapper -v
 python -m unittest tests.test_ai_tts_provider -v
 ```
 
-Physical microphone, speaker, host service-manager, large model download, and paid-provider smoke tests remain host-specific.
+Physical microphone, speaker, host service-manager, large model download, and paid-provider checks remain host-specific.
 
 ## Cleanup
 
-Stop containers without deleting configuration:
+Stop containers without deleting configuration or cache volumes:
 
 ```bash
 docker compose down
 ```
 
-Delete the named configuration volume only when permanent reset is intended:
+Delete named volumes only when a permanent reset is intended:
 
 ```bash
 docker compose down -v
 ```
 
-The Linux audio container stores transient recordings in its tmpfs `/tmp`; removing the container removes those files.
+Transient recordings live in the audio container's tmpfs `/tmp` and disappear with the container.
