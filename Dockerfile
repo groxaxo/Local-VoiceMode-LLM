@@ -39,7 +39,7 @@ RUN apt-get update \
     && chown -R voicemode:voicemode /home/voicemode /app
 
 WORKDIR /app
-COPY --chown=voicemode:voicemode README.md LICENSE ./
+COPY --chown=voicemode:voicemode README.md ./
 COPY --chown=voicemode:voicemode frontend ./frontend
 COPY --chown=voicemode:voicemode service ./service
 COPY --chown=voicemode:voicemode integrations ./integrations
