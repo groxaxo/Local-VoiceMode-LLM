@@ -258,6 +258,23 @@ PY
 
 detect_lang() {
     local text="$1"
+    # Accents and Spanish-only punctuation are decisive on their own.
+    if printf '%s' "$text" | grep -qE '[áéíóúñü¿¡ÁÉÍÓÚÑÜ]'; then
+        echo "es"
+        return
+    fi
+    # Function-word scoring: a hand-picked keyword list mislabels ordinary
+    # unaccented Spanish ("frase de prueba, para que...") as English.
+    local helper="${LANG_DETECT_PY:-$HOME/.config/opencode/lang_detect.py}"
+    if [ -f "$helper" ]; then
+        local guess
+        guess="$(python3 "$helper" "$text" 2>/dev/null | tr -d '[:space:]')"
+        case "$guess" in
+            es|en) echo "$guess"; return ;;
+        esac
+    fi
+    # Fallback: keyword heuristic below.
+    local text="$1"
     if [ -f "$TTS_LANG_SH" ]; then
         resolve_lang "" "$text"
     elif echo "$text" | LC_ALL=C grep -q '[áéíóúñü¿¡ÁÉÍÓÚÑÜ]'; then
