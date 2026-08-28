@@ -244,6 +244,19 @@ class VADRecorder:
         self._activated = False  # set by SIGUSR1 (talk.sh) to force the ignore window closed
         self._vad_offset = 0  # ring-buffer sample count at VAD reset (fixes coordinate mismatch)
 
+        # Live terminal meter (--meter): REC banner + voice-level wave on stderr.
+        # On a real TTY it animates in place at 4 fps; when stderr is captured
+        # (agent harness, pipe) it emits sparse plain lines instead, so a long
+        # turn doesn't flood the captured output with kilobytes of frames.
+        self._meter = bool(getattr(args, "meter", False))
+        self._meter_tty = sys.stderr.isatty()
+        self._meter_live = False    # banner printed once the mic is actually live
+        self._meter_last = 0.0      # last draw timestamp (throttle)
+        self._meter_sampled = 0.0   # last wave-sample timestamp
+        self._meter_state = None    # last drawn speech_active (draw now on change)
+        self._meter_wave = []       # recent sampled level indices
+        self._speech_wall = 0.0     # wall clock at speech start (for the REC timer)
+
     @property
     def _stop_requested(self):
         return self._stop_event.is_set()
@@ -275,6 +288,9 @@ class VADRecorder:
                 self.speech_active = False
                 self.frames_since_speech = 0
 
+        if self._meter:
+            self._meter_tick(frame)
+
         tensor = torch.from_numpy(frame).unsqueeze(0)
         result = self.vad(tensor)
 
@@ -292,6 +308,7 @@ class VADRecorder:
                     self.speech_start_sample = result["start"] + self._vad_offset
                     self.frames_since_speech = 0
                     self._heard_speech = True
+                    self._speech_wall = time.time()
                     # Barge-in mode: just detect speech start and exit
                     if self.args.barge_in:
                         emit_json("barge_in", sample=result["start"])
@@ -316,6 +333,10 @@ class VADRecorder:
         if reason:
             payload["reason"] = reason
         emit_json("speech_end", **payload)
+        if self._meter:
+            clear = "\r\033[K" if self._meter_tty else ""
+            print(f"{clear}📤 grabado {dur_ms / 1000:.1f}s — audio enviado a transcripción",
+                  file=sys.stderr, flush=True)
 
         if self.args.oneshot:
             self._stop_event.set()
@@ -334,8 +355,56 @@ class VADRecorder:
         elapsed = time.time() - self._listen_start
         if elapsed >= idle_timeout:
             emit_json("idle_timeout", elapsed_s=round(elapsed, 1))
+            if self._meter:
+                clear = "\r\033[K" if self._meter_tty else ""
+                print(f"{clear}⏱  {int(elapsed)}s sin voz — cierro la escucha",
+                      file=sys.stderr, flush=True)
             return True
         return False
+
+    METER_BLOCKS = " ▁▂▃▄▅▆▇█"
+
+    def _meter_tick(self, frame: np.ndarray):
+        """Draw the live REC banner + voice wave on stderr.
+
+        TTY: in-place \\r animation at 4 fps. Captured stderr (pipe/agent):
+        plain newline lines every ~2s plus an immediate line on state change,
+        keeping a long turn's output to ~2KB/min instead of ~30KB/min.
+
+        Runs on the audio thread only — the same thread that mutates speech
+        state — so reading speech_active without the lock is safe here.
+        """
+        now = time.time()
+        # Sample the level at 4 Hz regardless of draw cadence so the wave
+        # keeps moving even when non-TTY draws are sparse.
+        if now - self._meter_sampled >= 0.25:
+            self._meter_sampled = now
+            rms = float(np.sqrt(np.mean(frame * frame)))
+            top = len(self.METER_BLOCKS) - 1
+            self._meter_wave.append(min(top, int(min(1.0, rms * 14) * top + 0.5)))
+            del self._meter_wave[:-(28 if self._meter_tty else 12)]
+
+        interval = 0.25 if self._meter_tty else 2.0
+        state_changed = self.speech_active != self._meter_state
+        if not state_changed and now - self._meter_last < interval:
+            return
+        self._meter_last = now
+        self._meter_state = self.speech_active
+
+        if not self._meter_live:
+            self._meter_live = True
+            print("🎙  micrófono abierto — hablá cuando quieras",
+                  file=sys.stderr, flush=True)
+        wave = "".join(self.METER_BLOCKS[i] for i in self._meter_wave)
+        if self.speech_active:
+            body = f"🔴 GRABANDO {now - (self._speech_wall or now):5.1f}s {wave}"
+        else:
+            body = f"⚪ escuchando        {wave}"
+        if self._meter_tty:
+            sys.stderr.write(f"\r\033[K{body}")
+            sys.stderr.flush()
+        else:
+            print(body, file=sys.stderr, flush=True)
 
     def audio_callback(self, indata, frames, time_info, status):
         """sounddevice.InputStream callback — called from audio thread."""
@@ -439,10 +508,12 @@ def main():
                    help="Audio before detected speech to include (default: 800ms)")
     p.add_argument("--ready-delay-ms", type=int, default=0,
                    help="Ignore mic/VAD for N ms after start (post ready-cue)")
-    p.add_argument("--max-duration-s", type=float, default=30,
-                   help="Max recording duration (default: 30s)")
+    p.add_argument("--max-duration-s", type=float, default=180,
+                   help="Max recording duration (default: 180s)")
     p.add_argument("--idle-timeout-s", type=float, default=0,
                    help="Exit if no speech detected within N seconds (0=disabled)")
+    p.add_argument("--meter", action="store_true",
+                   help="Draw a live REC banner + voice-level wave on stderr")
     p.add_argument("--mic-device", type=int, default=None,
                    help="Audio input device index")
     p.add_argument("--mic-query", default=None,

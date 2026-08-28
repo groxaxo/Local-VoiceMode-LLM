@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# talk-inject — drop a message from the human into the agents' text bus.
+#
+#   talk-inject "mi idea"        post text as the user
+#   talk-inject --mic            capture ONE spoken utterance and post it
+#   talk-inject --loop           keep capturing utterances and posting them
+#   talk-inject --tail [n]       show the last n turns on the bus
+#
+# Agents blocked in `talk.sh listen` (mic-off / bus mode) pick it up on their
+# next turn, so the human can cut into an agent-to-agent conversation at any
+# point without touching the JSON files.
+set -euo pipefail
+
+TALK_SH="${TALK_SH:-$HOME/.config/opencode/skills/talk/talk.sh}"
+export TALK_BUS_DIR="${TALK_BUS_DIR:-$HOME/.talk-bus}"
+export TALK_AGENT="${TALK_BUS_USER:-vlad}"
+
+post() {
+    local text="$1"
+    [ -n "${text// /}" ] || return 0
+    TALK_MIC=on "$TALK_SH" bus post "$text" "" >/dev/null
+    echo "[talk-inject] posted as $TALK_AGENT: $text" >&2
+}
+
+capture_once() {
+    # Mic ON for this process only; agents stay mic-off.
+    TALK_MIC=on TALK_AGENT="$TALK_AGENT" "$TALK_SH" listen 2>/dev/null
+}
+
+case "${1:-}" in
+    --mic|-m)
+        text="$(capture_once)"
+        post "$text"
+        ;;
+    --loop|-l)
+        echo "[talk-inject] listening — speak any time to inject a message (Ctrl+C to stop)" >&2
+        while true; do
+            text="$(capture_once)" || true
+            [ -n "${text// /}" ] && post "$text"
+        done
+        ;;
+    --tail|-t)
+        "$TALK_SH" bus tail "${2:-20}"
+        ;;
+    ""|--help|-h)
+        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        post "$*"
+        ;;
+esac
