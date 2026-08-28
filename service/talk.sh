@@ -952,6 +952,37 @@ print('  silero-vad :', silero_vad.__version__)
 " 2>&1
 }
 
+cmd_voices() {
+    cat <<'VOICES'
+=== xAI TTS (TTS_ENGINE=xai, default) — set XAI_TTS_VOICE ===
+  eve (default)  iris  ara  leo  rex  sal
+
+=== Google Gemini TTS (TTS_ENGINE=google) — set GEMINI_TTS_VOICE ===
+  Zephyr   Bright        Puck          Upbeat
+  Charon   Informative   Kore          Firm (Google default)
+  Fenrir   Excitable     Leda          Youthful
+  Orus     Firm          Aoede         Breezy
+  Callirrhoe Easy-going  Autonoe       Bright
+  Enceladus Breathy      Iapetus       Clear
+  Umbriel  Easy-going    Algieba       Smooth
+  Despina  Smooth        Erinome       Clear
+  Algenib  Gravelly      Rasalgethi    Informative
+  Laomedeia Upbeat       Achernar      Soft
+  Alnilam  Firm          Schedar       Even
+  Gacrux   Mature        Pulcherrima   Forward
+  Achird   Friendly      Zubenelgenubi Casual
+  Vindemiatrix Gentle    Sadachbia     Lively
+  Sadaltager Knowledgeable  Sulafat    Warm
+
+Examples:
+  XAI_TTS_VOICE=leo talk.sh speak 'hola'
+  TTS_ENGINE=google GEMINI_TTS_VOICE=Sulafat talk.sh speak '[warmly]hola'
+
+Google direction is English in square brackets and needs GEMINI_API_KEY or
+GOOGLE_API_KEY (the login keychain entry GEMINI_API_KEY is used as a fallback).
+VOICES
+}
+
 cmd_devices() {
     echo "=== Audio Input Devices ===" >&2
     "$PYTHON" "$VAD_PY" --list-devices
@@ -982,11 +1013,14 @@ case "${1:-listen}" in
         shift
         _bus "$@"
         ;;
+    voices|list-voices)
+        cmd_voices
+        ;;
     devices|mic|list-devices)
         cmd_devices
         ;;
     *)
-        echo "Usage: talk.sh {listen|speak|loop|status|devices|bus {post|read|wait|tail}}" >&2
+        echo "Usage: talk.sh {listen|speak|loop|status|devices|voices|bus {post|read|wait|tail}}" >&2
         exit 1
         ;;
 esac
