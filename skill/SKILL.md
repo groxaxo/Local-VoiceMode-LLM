@@ -256,3 +256,30 @@ Google direction is **English natural-language square brackets** placed at token
 boundaries (`[warmly, with quiet confidence] Welcome home.`), not the xAI tag
 catalog — the two providers do not share a tag syntax. Contract follows
 `docs/GOOGLE_TTS_REFERENCE.md` in `groxaxo/xAI-Voice-Studio`.
+
+## Conversation audio archive (Opus)
+
+Every synthesized utterance and every microphone capture is kept as **Opus**
+under a per-conversation subfolder, so a session can be replayed later at a
+fraction of WAV's size:
+
+```
+$TALK_AUDIO_DIR/<session>/<UTCstamp>-<pid>-spoken-<agent>.opus
+$TALK_AUDIO_DIR/<session>/<UTCstamp>-<pid>-heard-user.opus
+$TALK_AUDIO_DIR/<session>/conversation.opus        # the merged session
+```
+
+For a chunked xAI reply the sentence chunks are concatenated first, so one clip
+is one utterance rather than one sentence.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `TALK_AUDIO_ARCHIVE` | `1` | `0` disables archiving entirely |
+| `TALK_AUDIO_DIR` | `~/.talk-audio` | archive root |
+| `TALK_SESSION` | `<UTC date>-<agent>` | conversation subfolder name |
+| `TALK_AUDIO_BITRATE` | `32k` | Opus bitrate (mono, 48 kHz) |
+
+`talk.sh archive-merge [dir]` concatenates a session's clips in timestamp order
+into `conversation.opus`. It runs automatically when a stop phrase ends the
+session; run it by hand for a session that ended some other way. Requires
+`ffmpeg`; archiving silently no-ops without it.

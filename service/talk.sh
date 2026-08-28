@@ -399,9 +399,11 @@ with open('$vad_out') as f:
         return
     fi
 
+    _archive_heard "$file"
     if is_stop_phrase "$text"; then
         echo "[talk] Stop phrase detected (\"$text\"): ending session" >&2
         rm -f "$file"
+        cmd_archive_merge >/dev/null 2>&1 || true
         echo "__TALK_STOP__"
         return
     fi
@@ -410,6 +412,64 @@ with open('$vad_out') as f:
     rm -f "$file"
 }
 
+
+
+
+# --- conversation audio archive (heard side + merge) --------------------------
+TALK_AUDIO_DIR="${TALK_AUDIO_DIR:-$HOME/.talk-audio}"
+TALK_AUDIO_BITRATE="${TALK_AUDIO_BITRATE:-32k}"
+export TALK_AUDIO_DIR TALK_AUDIO_BITRATE
+
+_audio_session_dir() {
+    local s="${TALK_SESSION:-$(date -u +%Y-%m-%d)-${TALK_AGENT:-agent}}"
+    local d="$TALK_AUDIO_DIR/$s"
+    mkdir -p "$d" 2>/dev/null || return 1
+    printf '%s' "$d"
+}
+
+# Keep what the microphone captured, so the merged file is a real conversation
+# and not just one side of it.
+_archive_heard() {
+    [ "${TALK_AUDIO_ARCHIVE:-1}" = "1" ] || return 0
+    local src="$1"
+    [ -f "$src" ] && [ -s "$src" ] || return 0
+    command -v ffmpeg >/dev/null 2>&1 || return 0
+    local dir out
+    dir="$(_audio_session_dir)" || return 0
+    out="$dir/$(date -u +%Y%m%dT%H%M%S)-$$-heard-user.opus"
+    ffmpeg -nostdin -y -loglevel error -i "$src" \
+        -c:a libopus -b:a "$TALK_AUDIO_BITRATE" -ar 48000 -ac 1 "$out" >/dev/null 2>&1 || true
+}
+
+# Merge one session's clips, in timestamp order, into a single Opus file.
+cmd_archive_merge() {
+    local dir out list
+    dir="${1:-$(_audio_session_dir)}"
+    [ -d "$dir" ] || { echo "[talk] no audio session at $dir" >&2; return 1; }
+    command -v ffmpeg >/dev/null 2>&1 || { echo "[talk] ffmpeg required to merge" >&2; return 1; }
+    out="$dir/conversation.opus"
+    list="$dir/.merge.txt"
+    : > "$list"
+    local f n=0
+    for f in $(ls "$dir"/*.opus 2>/dev/null | grep -v '/conversation\.opus$' | sort); do
+        printf "file '%s'\n" "$f" >> "$list"
+        n=$((n + 1))
+    done
+    if [ "$n" -eq 0 ]; then
+        rm -f "$list"; echo "[talk] nothing to merge in $dir" >&2; return 1
+    fi
+    if ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "$list" \
+            -c:a libopus -b:a "$TALK_AUDIO_BITRATE" -ar 48000 -ac 1 "$out" >/dev/null 2>&1; then
+        rm -f "$list"
+        echo "[talk] merged $n clips -> $out" >&2
+        printf '%s\n' "$out"
+        return 0
+    fi
+    rm -f "$list"
+    echo "[talk] merge failed" >&2
+    return 1
+}
+# --- end conversation audio archive -------------------------------------------
 
 
 # --- text bus (mic-free agent-to-agent channel) -------------------------------
@@ -589,6 +649,7 @@ with open('$vad_out') as f:
                 stt_url="$(printf '%s\n' "$stt_info" | sed -n '1p')"
                 stt_model="$(printf '%s\n' "$stt_info" | sed -n '2p')"
                 if text=$(transcribe_file "$file" "$stt_url" "$stt_model"); then
+                    _archive_heard "$file"
                     if is_stop_phrase "$text"; then
                         echo "[talk] Stop phrase detected (\"$text\"): ending session" >&2
                         rm -f "$file"
@@ -1013,6 +1074,10 @@ case "${1:-listen}" in
         shift
         _bus "$@"
         ;;
+    archive-merge|merge-audio)
+        shift
+        cmd_archive_merge "${1:-}"
+        ;;
     voices|list-voices)
         cmd_voices
         ;;
@@ -1020,7 +1085,7 @@ case "${1:-listen}" in
         cmd_devices
         ;;
     *)
-        echo "Usage: talk.sh {listen|speak|loop|status|devices|voices|bus {post|read|wait|tail}}" >&2
+        echo "Usage: talk.sh {listen|speak|loop|status|devices|voices|archive-merge|bus {post|read|wait|tail}}" >&2
         exit 1
         ;;
 esac
