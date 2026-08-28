@@ -3,15 +3,15 @@
     Windows voice conversation orchestrator for OpenCode Voice Service.
 
 .DESCRIPTION
-    Equivalent of talk.sh for Windows. Drives VAD → Parakeet STT → Supertonic TTS
+    Equivalent of talk.sh for Windows. Drives VAD -> Parakeet STT -> Supertonic TTS
     in a pipelined voice conversation loop. All inference is local/CPU-only.
 
 .PARAMETER Command
-    listen  — record one utterance, transcribe, print text
-    speak   — TTS synthesis + auto-listen
-    status  — health check all backends
-    devices — list audio input devices
-    loop    — continuous conversation loop
+    listen  - record one utterance, transcribe, print text
+    speak   - TTS synthesis + auto-listen
+    status  - health check all backends
+    devices - list audio input devices
+    loop    - continuous conversation loop
 
 .EXAMPLE
     .\talk.ps1 listen
@@ -25,12 +25,12 @@ param(
     [string]$Command = "listen",
 
     [Parameter(Position=1, ValueFromRemainingArguments)]
-    [string[]]$Args = @()
+    [string[]]$TextArgs = @()
 )
 
 $ServiceDir = $PSScriptRoot
 
-# ── Config ───────────────────────────────────────────────────────────────────
+# Config
 $ConfigDir      = "$env:USERPROFILE\.config\opencode"
 $VenvPython     = if ($env:PYTHON) { $env:PYTHON } else { "$ConfigDir\tts-venv\Scripts\python.exe" }
 $VadPy          = "$ServiceDir\vad_recorder.py"
@@ -41,6 +41,14 @@ $XaiTtsVoice    = if ($env:XAI_TTS_VOICE)   { $env:XAI_TTS_VOICE }   else { "rex
 $SttUrl         = if ($env:STT_URL)         { $env:STT_URL }         else { "http://127.0.0.1:5093/v1/audio/transcriptions" }
 $SttModel       = if ($env:STT_MODEL)       { $env:STT_MODEL }       else { "parakeet-tdt-0.6b-v3" }
 $SupertonicUrl  = if ($env:SUPERTONIC_URL)  { $env:SUPERTONIC_URL }  else { "http://127.0.0.1:8766" }
+$SupertonicVoice = if ($env:SUPERTONIC_VOICE) { $env:SUPERTONIC_VOICE } else { "F1" }
+$IndexTtsUrl    = if ($env:INDEXTTS_URL)    { $env:INDEXTTS_URL.TrimEnd('/') } else { "http://127.0.0.1:7863" }
+$IndexTtsRefAudio = if ($env:INDEXTTS_REF_AUDIO) { $env:INDEXTTS_REF_AUDIO } else { "" }
+$SttHealthUrl   = "http://127.0.0.1:5093/health"
+try {
+    $sttUri = [Uri]$SttUrl
+    $SttHealthUrl = "$($sttUri.Scheme)://$($sttUri.Authority)/health"
+} catch {}
 $MicQuery       = if ($env:MIC_QUERY)       { $env:MIC_QUERY }       else { "" }
 $VadThreshold   = if ($env:VAD_THRESHOLD)   { $env:VAD_THRESHOLD }   else { "0.5" }
 $MinSilenceMs   = if ($env:VAD_MIN_SILENCE_MS) { $env:VAD_MIN_SILENCE_MS } else { "500" }
@@ -50,7 +58,7 @@ $IdleTimeoutS   = if ($env:TALK_IDLE_TIMEOUT_S) { $env:TALK_IDLE_TIMEOUT_S } els
 $ReadyCue       = if ($env:TALK_READY_CUE)      { $env:TALK_READY_CUE }      else { "1" }
 $ReadyDelayMs   = if ($env:TALK_READY_DELAY_MS) { $env:TALK_READY_DELAY_MS } else { "700" }
 
-# ── Audio playback (cross-platform WAV player) ─────────────────────────────
+# Audio playback (cross-platform WAV player)
 function Play-Wav {
     param([string]$Path)
     if (-not (Test-Path $Path)) { return }
@@ -75,7 +83,7 @@ function Play-ReadyCue {
     [Console]::Beep(880, 120)
 }
 
-# ── Transcribe WAV file via Parakeet STT ──────────────────────────────────
+# Transcribe WAV file via Parakeet STT
 function Invoke-Transcribe {
     param([string]$File)
 
@@ -103,7 +111,7 @@ function Invoke-Transcribe {
     }
 }
 
-# ── VAD listen ────────────────────────────────────────────────────────────
+# VAD listen
 function Invoke-Listen {
     $tmpVadOut = [System.IO.Path]::GetTempFileName() + ".json"
     $outWav    = [System.IO.Path]::GetTempFileName() + ".wav"
@@ -148,25 +156,61 @@ function Invoke-Listen {
     return $text
 }
 
-# ── TTS speak via supertonic / xai ────────────────────────────────────────
+# TTS speak via Supertonic / xAI
 function Invoke-TTS {
     param([string]$Text, [string]$Lang = "en")
 
     $outputWav = [System.IO.Path]::GetTempFileName() + ".wav"
 
-    if ($TtsEngine -eq "supertonic" -or $TtsEngine -eq "coreml-tts") {
-        $body = (@{ text = $Text; language = $Lang } | ConvertTo-Json -Compress)
-        $httpCode = & curl.exe -sS -m 60 `
-            -o $outputWav -w '%{http_code}' `
-            "$SupertonicUrl/v1/audio/speech" `
-            -H "Content-Type: application/json" `
-            -d $body 2>$null
-        if ($httpCode -ge 200 -and $httpCode -lt 300 -and (Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
-            Play-Wav $outputWav
-            Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
-            return $true
+    if ($TtsEngine -eq "indextts") {
+        if (-not $IndexTtsRefAudio -or -not (Test-Path $IndexTtsRefAudio)) {
+            Write-Host "[tts] IndexTTS requires INDEXTTS_REF_AUDIO to point to a speaker reference WAV" -ForegroundColor Red
+            return $false
         }
-        Write-Host "[tts] Supertonic failed (HTTP $httpCode), trying xAI..." -ForegroundColor Yellow
+        $body = (@{
+            text = $Text
+            ref_audio = $IndexTtsRefAudio
+            language = $Lang
+        } | ConvertTo-Json -Compress)
+        try {
+            $result = Invoke-WebRequest -Uri "$IndexTtsUrl/generate" -Method Post `
+                -ContentType "application/json" -Body $body -UseBasicParsing `
+                -TimeoutSec 600 -ErrorAction Stop | Select-Object -ExpandProperty Content | ConvertFrom-Json
+            $audioUrl = if ($result.audio_url -match '^https?://') { $result.audio_url } else { "$IndexTtsUrl$($result.audio_url)" }
+            Invoke-WebRequest -Uri $audioUrl -OutFile $outputWav -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+            if ((Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
+                Play-Wav $outputWav
+                Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+                return $true
+            }
+        } catch {
+            Write-Host "[tts] IndexTTS failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+
+    if ($TtsEngine -eq "supertonic" -or $TtsEngine -eq "coreml-tts") {
+        $body = (@{
+            input = $Text
+            voice = $SupertonicVoice
+            model = "supertonic"
+            response_format = "wav"
+            stream = $false
+        } | ConvertTo-Json -Compress)
+        try {
+            Invoke-WebRequest -Uri "$SupertonicUrl/v1/audio/speech" -Method Post `
+                -ContentType "application/json" -Body $body -OutFile $outputWav `
+                -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
+            if ((Test-Path $outputWav) -and (Get-Item $outputWav).Length -gt 0) {
+                Play-Wav $outputWav
+                Remove-Item $outputWav -Force -ErrorAction SilentlyContinue
+                return $true
+            }
+        } catch {
+            Write-Host "[tts] Supertonic failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        Write-Host "[tts] Supertonic returned no audio, trying xAI..." -ForegroundColor Yellow
     }
 
     if ($env:XAI_API_KEY) {
@@ -190,17 +234,17 @@ function Invoke-TTS {
     return $false
 }
 
-# ── Commands ─────────────────────────────────────────────────────────────
+# Commands
 function Cmd-Listen {
     $text = Invoke-Listen
     if ($text) { Write-Output $text }
 }
 
 function Cmd-Speak {
-    $text = if ($Args.Count -gt 0) { $Args[0] } else { "" }
+    $text = if ($TextArgs.Count -gt 0) { $TextArgs[0] } else { "" }
     if (-not $text) { Write-Host "[talk] No text provided" -ForegroundColor Yellow; return }
 
-    $lang = if ($Args.Count -gt 1) { $Args[1] } else { "en" }
+    $lang = if ($TextArgs.Count -gt 1) { $TextArgs[1] } else { "en" }
 
     Invoke-TTS $text $lang | Out-Null
 
@@ -213,13 +257,15 @@ function Cmd-Speak {
 
 function Cmd-Status {
     Write-Host "=== Audio Devices ===" -ForegroundColor Cyan
-    & $VenvPython $VadPy --list-devices 2>&1
+    & $VenvPython $VadPy --list-devices
 
     Write-Host ""
     Write-Host "=== Parakeet STT (:5093) ===" -ForegroundColor Cyan
     try {
-        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5093/health" -TimeoutSec 2 -ErrorAction Stop
-        Write-Host "  RUNNING — $($resp.StatusCode)" -ForegroundColor Green
+        $resp = Invoke-WebRequest -Uri $SttHealthUrl -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $health = $resp.Content | ConvertFrom-Json
+        if (-not $health.ready) { throw 'Parakeet is still loading its model.' }
+        Write-Host "  RUNNING - $($resp.StatusCode)" -ForegroundColor Green
     } catch {
         Write-Host "  NOT RUNNING" -ForegroundColor Red
         Write-Host "  Start: Start-ScheduledTask 'OpenCode-Parakeet-STT'"
@@ -228,11 +274,26 @@ function Cmd-Status {
     Write-Host ""
     Write-Host "=== Supertonic TTS (:$($SupertonicUrl.Split(':')[-1])) ===" -ForegroundColor Cyan
     try {
-        $resp = Invoke-WebRequest -Uri "$SupertonicUrl/health" -TimeoutSec 2 -ErrorAction Stop
-        Write-Host "  RUNNING — $($resp.StatusCode)" -ForegroundColor Green
+        $resp = Invoke-WebRequest -Uri "$SupertonicUrl/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $health = $resp.Content | ConvertFrom-Json
+        if (-not $health.model_loaded) { throw 'Supertonic is still loading its model.' }
+        Write-Host "  RUNNING - $($resp.StatusCode)" -ForegroundColor Green
     } catch {
         Write-Host "  NOT RUNNING" -ForegroundColor Red
         Write-Host "  Start: Start-ScheduledTask 'OpenCode-Supertonic'"
+    }
+
+    if ($TtsEngine -eq "indextts") {
+        Write-Host ""
+        Write-Host "=== IndexTTS CUDA (:$($IndexTtsUrl.Split(':')[-1])) ===" -ForegroundColor Cyan
+        try {
+            $resp = Invoke-WebRequest -Uri "$IndexTtsUrl/health" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+            $health = $resp.Content | ConvertFrom-Json
+            Write-Host "  RUNNING - $($health.device_name), $($health.precision)" -ForegroundColor Green
+            Write-Host "  Reference: $IndexTtsRefAudio"
+        } catch {
+            Write-Host "  NOT RUNNING" -ForegroundColor Red
+        }
     }
 
     Write-Host ""
@@ -245,11 +306,11 @@ function Cmd-Status {
 
 function Cmd-Devices {
     Write-Host "=== Audio Input Devices ===" -ForegroundColor Cyan
-    & $VenvPython $VadPy --list-devices 2>&1
+    & $VenvPython $VadPy --list-devices
 }
 
 function Cmd-Loop {
-    Write-Host "Talk loop — Ctrl+C to stop" -ForegroundColor Cyan
+    Write-Host "Talk loop - Ctrl+C to stop" -ForegroundColor Cyan
     while ($true) {
         $text = Invoke-Listen
         if ($text) {
@@ -264,7 +325,7 @@ function Cmd-Loop {
     }
 }
 
-# ── Dispatch ─────────────────────────────────────────────────────────────
+# Dispatch
 switch ($Command) {
     { $_ -in "listen","record","hear" } { Cmd-Listen }
     { $_ -in "speak","say","tts" }      { Cmd-Speak }

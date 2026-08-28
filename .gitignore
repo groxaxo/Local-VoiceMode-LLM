@@ -3,7 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
-dist/
+/dist/*
+!/dist/windows/
+!/dist/windows/*.exe
+!/dist/windows/*.exe.config
 build/
 .eggs/
 

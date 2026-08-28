@@ -1,286 +1,408 @@
-# Architecture Reference
+# Architecture reference
 
-## Overview
+## Scope
 
-The OpenCode Voice Service provides real-time voice conversation capabilities through a three-stage pipeline: **VAD → STT → TTS**. It is designed as both a standalone CLI service and an OpenCode skill.
+Local VoiceMode LLM is a speech orchestration layer, not an LLM server. It owns microphone capture, endpointing, transcription, synthesis, playback, and the contract used by supported AI agents.
 
-The architecture is modeled after OpenVoiceApp iOS, a production voice app whose on-device voice stack patterns we adopt for the macOS/CLI environment.
+The core runtime is intentionally split into independently replaceable stages:
 
-## Pipeline
-
-```
-  Mic ──▶ Silero VAD ──▶ WAV ──▶ Parakeet STT (:5093, local ONNX)
-                                      │
-                                      ▼
-                               Agent / OpenCode
-                                      │
-                                      ▼
-                     ┌──────────────────────────────────┐
-                     │ Supertonic TTS (:8766)  — default │
-                     │ Supertonic 2  (:8880)   — optional│
-                     │ NeuTTS (:8020)         — fallback │
-                     │ xAI (cloud)            — fallback │
-                     └──────────────────────────────────┘
-                                      │
-                                      ▼
-                               afplay ──▶ listen again
+```text
+VAD → STT → agent/LLM → TTS → playback
 ```
 
-## VAD Pipeline (vad_recorder.py)
+The default deployment keeps VAD, STT, and TTS local. Optional remote providers replace only the selected speech stage.
 
-```
-sounddevice.InputStream ──▶ Silero VAD (ONNX) ──▶ Endpointer ──▶ RingBuffer.slice ──▶ save_wav
-    16kHz mono               512-sample frames      500ms silence     gain norm to        16-bit WAV
-    float32 chunks           ~32ms per frame        trailing          -20dBFS
+## System overview
+
+```text
+┌──────────────┐
+│ Microphone   │
+└──────┬───────┘
+       │ 16 kHz mono float32
+       ▼
+┌──────────────────────────────┐
+│ service/vad_recorder.py      │
+│ sounddevice + Silero VAD     │
+│ bounded absolute ring buffer │
+└──────────────┬───────────────┘
+               │ normalized PCM WAV
+               ▼
+┌──────────────────────────────┐
+│ Parakeet STT                 │
+│ OpenAI-compatible multipart  │
+│ default: 127.0.0.1:5093      │
+└──────────────┬───────────────┘
+               │ transcript
+               ▼
+┌──────────────────────────────┐
+│ Agent or local LLM           │
+│ Claude Code / OpenCode /     │
+│ OpenClaw / Hermes / Codex /  │
+│ Ollama integration           │
+└──────────────┬───────────────┘
+               │ reply text
+               ▼
+┌──────────────────────────────┐
+│ service/tts.sh               │
+│ engine selection + fallback  │
+└──────────────┬───────────────┘
+               │ WAV / streamed chunks
+               ▼
+┌──────────────────────────────┐
+│ Platform playback            │
+│ afplay / ffplay / aplay /    │
+│ paplay / SoundPlayer         │
+└──────────────┬───────────────┘
+               │
+               └──────────────► next microphone turn
 ```
 
-### Component Breakdown
+## Runtime components
 
 | Component | Responsibility |
-|-----------|---------------|
-| `sounddevice.InputStream` | Continuous 16kHz mono float32 capture |
-| `RingBuffer` | Rolling buffer of audio frames, capacity-trimmed |
-| `VADIterator` | Silero VAD: speech probability per 512-sample frame |
-| `Endpointer` | Track start/end of speech segment; fire on trailing silence |
-| `normalize_audio()` | Boost quiet signals to -20dBFS RMS, hard ceiling at 0.98 |
-| `save_wav()` | Write float32 → 16-bit PCM WAV |
+|---|---|
+| `service/vad_recorder.py` | Device selection, capture, Silero VAD, endpointing, bounded buffering, normalization, WAV output |
+| `service/talk.sh` | Unix orchestration, STT routing, TTS invocation, ready cues, auto-listen, stop phrases, optional barge-in |
+| `windows/talk.ps1` | Windows orchestration and local backend use |
+| `service/tts.sh` | Unix TTS engine implementations and fallback dispatch |
+| `service/tts_lang.sh` | Lightweight language selection and normalization |
+| `service/inworld_steer.sh` | Optional expressive delivery-tag generation for Inworld |
+| `skill/SKILL.md` | Agent-facing protocol for entering and maintaining a voice conversation |
+| `frontend/server.py` | Local dashboard proxy, configuration persistence, status checks, Linux service controls |
+| `integrations/ollama/ollama-voice` | Ollama HTTP chat loop with streamed text and sentence-level TTS scheduling |
 
-### VAD Parameters
+## VAD recorder
 
-| Parameter | Default | Rationale |
-|-----------|---------|-----------|
-| `--vad-threshold` | 0.5 | Standard Silero threshold |
-| `--min-silence-ms` | 500 | Trailing silence for turn end |
-| `--pre-speech-ms` | 800 | Audio padding before detected speech |
-| `--max-duration-s` | 30 | Safety limit |
+### Input format
 
-## STT Pipeline (Parakeet ONNX)
+The recorder opens one `sounddevice.InputStream` with:
 
-```
-  multipart/form-data POST
-  ───────────────────────────▶ http://127.0.0.1:5093/v1/audio/transcriptions
-  WAV file + model name            │
-                                   ▼
-                              Parakeet TDT 0.6B v3
-                              ONNX Runtime (INT8)
-                                   │
-                                   ▼
-                              {"text": "..."}
-```
+- 16,000 Hz sample rate
+- one input channel
+- `float32` samples
+- two VAD frames per callback block
 
-- Local ONNX-based inference via [parakeet-tdt-0.6b-v3-fastapi-openai](https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai)
-- Auto-installed by `setup.sh` into `~/.config/opencode/parakeet-stt/`
-- launchd auto-start on `:5093`
-- INT8 quantized; measured 8–21× realtime on an Intel i7-12700KF (CPU only)
-- 25 languages, automatic language detection
+Silero consumes frames of 512 samples, approximately 32 ms each.
 
-## TTS Pipeline (Supertonic ONNX)
-
-```
-  JSON POST
-  ──────────▶ http://127.0.0.1:8766/v1/audio/speech  (OpenAI-compatible)
-  text + voice style + lang            │
-                                        ▼
-  Supertonic 3 (FP16 ONNX)
-  (groxaxo/supertonic-3-v2 · Supertone/supertonic-3)
-                                        │
-                                        ▼
-  WAV ──▶ afplay
+```text
+InputStream callback
+      │
+      ├── frame 0: 512 samples ─► ring buffer ─► Silero
+      └── frame 1: 512 samples ─► ring buffer ─► Silero
 ```
 
-- Local ONNX-based inference via [supertonic-express-3](https://github.com/groxaxo/supertonic-express-3)
-  (graph: `text_encoder → duration_predictor → vector_estimator → vocoder`,
-  auto-detected as v3 by the presence of `onnx/tts.json`)
-- FP16 model (~196 MB) pulled from [groxaxo/supertonic-3-v2](https://github.com/groxaxo/supertonic-3-v2)
-  (CPU-optimized), with `Supertone/supertonic-3` on Hugging Face as fallback
-- Auto-installed by `setup.sh` into `~/.config/opencode/supertonic-tts/`; forced to the
-  CPU ONNX Runtime backend (`SUPERTONIC_ORT_BACKEND=cpu`)
-- launchd / systemd auto-start on `:8766`
-- Measured 1.6–2.8× realtime on an Intel i7-12700KF (CPU only); FP16, 8 denoising steps
-- Multilingual: EN, ES, KO, PT, FR; voices F1–F5 / M1–M5
+### Absolute ring-buffer coordinates
 
-### Optional: Supertonic 2 (`:8880`)
+`RingBuffer` tracks two quantities:
 
-[Supertonic Express 2](https://github.com/groxaxo/supertonic-express)
-(model [`onnx-community/Supertonic-TTS-2-ONNX`](https://huggingface.co/onnx-community/Supertonic-TTS-2-ONNX),
-66M params) is a separate, opt-in backend exposing the **same** OpenAI-compatible
-`/v1/audio/speech` API. It is *not* auto-installed — add it with
-`bash integrations/supertonic2/install.sh`. It runs on `:8880` (so it coexists
-with Supertonic 3), is forced to the CPU ONNX Runtime backend, and is driven by
-`tts.sh` via `TTS_ENGINE=supertonic2` (graph:
-`text_encoder → latent_denoiser → voice_decoder`). Same language and voice
-coverage as Supertonic 3. See [`integrations/supertonic2/`](../integrations/supertonic2/README.md).
+- total samples appended since the most recent clear
+- samples still retained after capacity eviction
 
-### TTS Fallback Chain
+From those values:
 
-**Policy:** local engines are always exhausted before the xAI cloud — xAI is the
-last resort, used only if every local engine fails. (Selecting `xai` explicitly
-honors that choice first, then still falls back to local engines.)
-
-| Primary | Fallback 1 | Fallback 2 | Fallback 3 (last resort) |
-|---------|-----------|-----------|--------------------------|
-| `supertonic` (default) → | `neutts` (local) → | `xai` (cloud) | — |
-| `supertonic2` (opt-in) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
-| `qwen` (opt-in, MLX) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
-| `openai` (remote, slow-CPU offload) → | `supertonic` (local) → | `neutts` (local) | — |
-| `inworld` (opt-in, cloud) → | `supertonic` (local) → | `neutts` (local) → | `xai` (cloud) |
-| `neutts` → | `supertonic` (local) → | `xai` (cloud) | — |
-| `xai` (explicit) → | `supertonic` (local) → | `neutts` (local) | — |
-
-> **Remote engines for slow CPUs:** `openai` hits any OpenAI-compatible
-> `/v1/audio/speech` (OpenAI, a hosted provider, or your own box) and streams by
-> sentence; `inworld` adds per-sentence expressive steering. STT can likewise be
-> pointed at a remote OpenAI-compatible endpoint via `STT_ENGINE=remote` +
-> `STT_REMOTE_URL` + `STT_API_KEY`. Full matrix: [`providers.md`](providers.md).
-
-> Optional engines opt in via `TTS_ENGINE=<name>`. `qwen` needs a local MLX
-> server (Apple Silicon) — see https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi.
-> `inworld` needs `INWORLD_API_KEY`. Every TTS clip/chunk is passed through a
-> short fade-in/out (`TTS_FADE_MS`, default 6 ms) to remove onset/offset clicks
-> at sentence boundaries.
-
-## Full Turn Data Flow
-
-```
-User speaks ◀──────────────────────────────────┐
-  │                                            │
-  ▼                                            │
-[sounddevice] 16kHz float32 frames             │
-  │                                            │
-  ▼                                            │
-[Silero VAD] per-frame speech detection        │
-  │                                            │
-  ▼                                            │
-[RingBuffer] accumulates audio                 │
-  │                                            │
-  ▼                                            │
-[Endpointer] 500ms silence → turn complete     │
-  │                                            │
-  ▼                                            │
-[normalize_audio] boost to -20dBFS             │
-  │                                            │
-  ▼                                            │
-[save_wav] 16-bit PCM WAV                      │
-  │                                            │
-  ▼                                            │
-[Parakeet STT :5093] HTTP multipart POST       │
-  │                                            │
-  ▼                                            │
-[Transcribed text] output to stdout            │
-  │                                            │
-  ▼                                            │
-[OpenCode / CLI] process as user message       │
-  │                                            │
-  ▼                                            │
-[Supertonic TTS :8766] HTTP POST               │
-  (fallback: NeuTTS :8020, xAI cloud)          │
-  │                                            │
-  ▼                                            │
-[afplay] audio output ─────────────────────────┘
+```text
+first_sample = total_appended - retained_samples
+end_sample   = total_appended
 ```
 
-## Timings
+Evicting old frames reduces retained samples but never moves the absolute end coordinate backward. This is important because Silero emits sample offsets relative to its current state, while the recorder may reset that state after a ready-delay window.
 
-Measured on an Intel Core i7-12700KF (CPU only, no GPU); see the
-[Benchmarks](../README.md#benchmarks) table for the full set.
+Slices are clamped to the retained interval:
 
-| Stage | Latency (measured) |
-|-------|-----------------|
-| VAD per-frame | ~0.09ms per 32ms frame (~350× realtime) |
-| VAD endpointing | ~500ms trailing silence (configurable) |
-| STT (Parakeet ONNX, local) | ~280ms short → ~810ms long (8–21× realtime) |
-| TTS (Supertonic 3 ONNX, local) | ~1.7s short → ~5.5s long (1.6–2.8× realtime) |
-| TTS (xAI, cloud) | ~500–2000ms |
-| **E2E voice overhead (speak → hear, excl. LLM)** | **~2s** local |
-
-## Web Dashboard (frontend/)
-
-A browser-based control panel for live testing and configuration, served by a
-FastAPI proxy at `:7862`.
-
-```
-Browser :7862 ──▶ frontend/server.py ──▶ Supertonic :8766  (TTS proxy)
-                                     ──▶ Parakeet   :5093  (STT proxy)
-                                     ──▶ systemctl          (GPU restart)
+```text
+[first_sample, end_sample)
 ```
 
-### Panels
+That protects long recordings and prevents stale coordinates from creating empty or shifted utterances.
 
-| Panel | What it does |
-|-------|-------------|
-| **TTS Test** | Type text → pick voice (F1–F5 / M1–M5), language, steps (1–20), speed (0.5–2×) → Synthesize → plays in-browser `<audio>` |
-| **STT Test** | Record from mic (MediaRecorder) or upload a WAV → Transcribe → shows Parakeet output |
-| **VAD Settings** | Live sliders for threshold / min-silence / pre-speech / max-duration → Save persists to `frontend-config.json` |
-| **Backend Settings** | GPU/CPU toggle per service → Apply & Restart writes systemd drop-in override and restarts immediately |
+### VAD coordinate offset
 
-### Launch
+During pre-warmed listening, the recorder captures audio while ignoring VAD decisions. When it becomes live, it resets Silero and records an offset equal to the current absolute frame position. Later `start` and `end` events are translated into recorder coordinates by adding that offset once.
+
+The max-duration path already operates in absolute ring-buffer coordinates and therefore uses `ring.end_sample` directly.
+
+### Turn finalization
+
+When Silero reports an end event, or the maximum duration is reached:
+
+1. Subtract pre-speech padding from the detected start.
+2. Clamp the start to the first retained sample.
+3. Slice the ring buffer through the absolute end sample.
+4. Reject events shorter than 100 ms.
+5. Normalize toward -20 dBFS, capped at 4× gain and a 0.98 ceiling.
+6. Write mono, 16-bit PCM WAV at 16 kHz.
+7. Emit a JSON-line `speech_end` event.
+8. Reset VAD state and sample coordinates for the next turn.
+
+Example recorder protocol:
+
+```json
+{"event":"listening","timestamp":0.0}
+{"event":"speech_end","timestamp":0.0,"file":"/tmp/opencode-turn-...wav","duration_ms":2450}
+```
+
+Other terminal events include `idle_timeout`, `barge_in`, and `error`.
+
+### Device selection
+
+When no explicit query is supplied, selection prefers:
+
+1. The operating-system default input when it is usable.
+2. On macOS, a built-in MacBook microphone as a legacy fallback.
+3. The first acceptable physical input.
+4. As a final fallback, any input device.
+
+Known virtual/remote adapters are skipped in the preferred paths. When `--mic-query` is supplied, failure to match returns no device rather than silently choosing an unrelated microphone.
+
+## STT boundary
+
+The Unix orchestrator resolves one URL and model pair per transcription:
+
+```text
+local:
+  STT_URL + STT_MODEL
+
+remote:
+  STT_REMOTE_URL + STT_REMOTE_MODEL
+```
+
+The request shape is:
+
+```http
+POST /v1/audio/transcriptions
+Content-Type: multipart/form-data
+
+file=<wav>
+model=<model id>
+```
+
+A bearer token is included only when the resolved `STT_API_KEY` is non-empty.
+
+The managed local service is Parakeet on:
+
+```text
+http://127.0.0.1:5093/v1/audio/transcriptions
+```
+
+The PowerShell orchestrator uses `STT_URL` and `STT_MODEL` directly and does not currently mirror every Unix remote-routing feature.
+
+## Unix conversation orchestration
+
+### First turn
+
+```text
+talk.sh listen
+  ├── start recorder
+  ├── play ready cue
+  ├── wait for speech_end or timeout
+  ├── POST WAV to STT
+  └── print transcript to stdout
+```
+
+Stdout is reserved for the transcript so an agent can consume it directly. Diagnostics go to stderr.
+
+### Speak and auto-listen
+
+With `TALK_AUTO_LISTEN=1`, `talk.sh speak` uses a pre-record path:
+
+1. Ask `tts.sh` to synthesize without playing and return a WAV path.
+2. Start the recorder with a long ignore window so model loading and microphone opening overlap playback.
+3. Play the generated reply.
+4. Play the ready beep.
+5. Send `SIGUSR1` to activate the recorder immediately on Unix platforms that support it.
+6. Wait for the next utterance.
+7. Transcribe it and print it to stdout.
+
+```text
+TTS generation ───────► WAV
+                         │
+recorder preload ────────┼──► playback ─► beep ─► SIGUSR1 ─► live VAD
+                         │                                  │
+                         └──────────────────────────────────┘
+```
+
+A ready-delay remains as a safety fallback if signal activation is unavailable.
+
+### Session termination
+
+The agent must interpret empty stdout from `speak` as a clean end-of-session signal. Empty output can result from:
+
+- idle timeout
+- a configured spoken stop phrase
+- no completed utterance
+
+The agent must not automatically call `listen` again after that signal.
+
+### Barge-in
+
+When enabled, TTS is generated to a WAV and played in the background while a separate VAD recorder watches for speech. If VAD triggers first, playback is terminated.
+
+This is acoustic detection, not echo cancellation. Speaker bleed can trigger false interruption.
+
+## TTS dispatcher
+
+`service/tts.sh` implements provider-specific request functions behind a shared contract:
+
+```text
+input:  reply text + language hint + environment
+output: playback side effect, or a WAV path when TTS_NO_PLAY=1
+```
+
+Supported dispatcher values are:
+
+```text
+supertonic
+qwen
+qwen-lazy
+neutts
+inflect
+openai
+inworld
+xai
+```
+
+The exact fallback graph is documented in [`providers.md`](providers.md). The optional Supertonic 2 service exposes a compatible endpoint but currently has no separate dispatcher alias; it is selected by overriding `SUPERTONIC_URL` while using `TTS_ENGINE=supertonic`.
+
+### Chunked remote playback
+
+OpenAI-compatible, Inworld, and xAI paths can split normal playback on sentence boundaries. Requests run concurrently, but completed chunks are played in original order.
+
+```text
+sentence 0 ─► request ─► chunk 0 ─┐
+sentence 1 ─► request ─► chunk 1 ─┼─► ordered playback
+sentence 2 ─► request ─► chunk 2 ─┘
+```
+
+When the orchestrator needs one file for pre-warmed playback or barge-in, provider paths use or assemble a single WAV rather than returning multiple chunk paths.
+
+### Click reduction
+
+TTS WAVs can receive a short edge fade controlled by `TTS_FADE_MS`. This is especially useful for independently synthesized sentence chunks whose first sample may not start at zero amplitude.
+
+## Windows architecture
+
+Windows uses the same installed Python recorder and backend services but a PowerShell orchestration layer:
+
+```text
+windows/talk.ps1
+  ├── Start-Process vad_recorder.py
+  ├── parse JSON-line output
+  ├── curl.exe to Parakeet
+  ├── invoke configured TTS wrapper
+  └── ffplay or SoundPlayer
+```
+
+Automatic startup is provided by Task Scheduler rather than launchd or systemd. The Windows path is intentionally treated as its own implementation; provider routing and advanced Unix signal behavior should not be assumed to be identical.
+
+## Agent integration model
+
+The installer creates one canonical OpenCode skill and copies it into the selected agent directories. Each copy contains the scripts needed to run the protocol locally.
+
+```text
+setup
+  └── ~/.config/opencode/skills/talk/
+        ├── SKILL.md
+        ├── talk.sh
+        ├── talk.ps1
+        ├── tts.sh
+        ├── tts_lang.sh
+        └── vad_recorder.py
+
+then copied to selected agent skill directories
+```
+
+The skill contract tells the agent to:
+
+- invoke the real shell command rather than simulate audio
+- use `listen` only for the initial turn
+- use `speak` stdout for subsequent turns
+- keep spoken answers concise
+- exit cleanly on empty stdout
+
+## Dashboard
+
+The dashboard is a static page served through a FastAPI proxy on `:7862`:
+
+```text
+Browser :7862
+    │
+    ▼
+frontend/server.py
+    ├── /api/tts    ─► Supertonic endpoint
+    ├── /api/stt    ─► Parakeet endpoint
+    ├── /api/status ─► backend health checks
+    └── /api/config ─► frontend-config.json
+```
+
+Configuration is stored at:
+
+```text
+~/.config/opencode/frontend-config.json
+```
+
+The compute-toggle restart implementation writes `systemd --user` drop-ins. Therefore:
+
+- synthesis/transcription tests are portable when the URLs are reachable
+- Linux service restart controls are systemd-specific
+- macOS and Windows services must be managed through launchd or Task Scheduler
+
+## Process and service boundaries
+
+| Platform | STT startup | TTS startup | Playback |
+|---|---|---|---|
+| macOS | launchd | launchd | `afplay` |
+| Linux | `systemd --user` | `systemd --user` | `ffplay`, `aplay`, `paplay`, `cvlc`, or `mpv` |
+| Windows | Task Scheduler | Task Scheduler | `ffplay` or SoundPlayer |
+
+Default managed ports:
+
+| Component | Port |
+|---|---:|
+| Parakeet STT | `5093` |
+| Supertonic 3 TTS | `8766` |
+| Supertonic 2 optional service | `8880` |
+| Dashboard | `7862` |
+| Ollama integration target | `11434` |
+
+## Configuration ownership
+
+Configuration enters the runtime through several layers:
+
+1. Shell/process environment
+2. Defaults declared in the orchestrator or provider script
+3. Saved microphone file used by `talk.sh`
+4. Dashboard JSON for dashboard-managed VAD/backend values
+5. Service-manager environment in launchd, systemd, or Task Scheduler
+
+These layers are not automatically synchronized. For predictable operation, export critical endpoint and latency values in the environment that launches the agent:
 
 ```bash
-cd frontend && bash start.sh       # http://localhost:7862
-PORT=8080 bash start.sh            # custom port
+export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
+export SUPERTONIC_URL=http://127.0.0.1:8766
+export TTS_QUALITY=normal
+export VAD_MIN_SILENCE_MS=700
 ```
 
-`start.sh` auto-installs `fastapi`, `uvicorn`, `httpx`, `python-multipart`
-into the existing `tts-venv` on first run.
+## Failure model
 
-### Frontend API
+| Failure | Expected behavior |
+|---|---|
+| No microphone | recorder emits an error and exits non-zero |
+| Explicit microphone query has no match | selection fails instead of choosing another device |
+| Idle without speech | recorder emits `idle_timeout`; talk loop returns empty stdout |
+| Tiny VAD event | event is discarded and VAD/sample state is reset |
+| STT HTTP error | orchestrator reports failure and does not fabricate text |
+| Primary TTS failure | dispatcher follows the selected engine's explicit fallback chain |
+| Inworld auth rejection | Unix dispatcher exits with a configuration error rather than silently changing voice |
+| No audio player | playback reports a missing-player error |
+| Agent receives empty stdout | agent should end the conversation loop |
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/` | GET | Serve `index.html` |
-| `/api/voices` | GET | List available Supertonic voices |
-| `/api/status` | GET | Health of Supertonic + Parakeet |
-| `/api/tts` | POST | Proxy to Supertonic `:8766/v1/audio/speech` |
-| `/api/stt` | POST | Proxy multipart to Parakeet `:5093/v1/audio/transcriptions` |
-| `/api/config` | GET/POST | Read/write VAD + GPU settings (`frontend-config.json`) |
+## Testing boundary
 
-### GPU toggle flow
+Repository CI performs:
 
-1. POST `/api/config` with `use_gpu_supertonic: true`
-2. Writes `~/.config/systemd/user/opencode-supertonic.service.d/gpu-override.conf`
-3. Runs `systemctl --user daemon-reload && restart opencode-supertonic`
-4. Returns `{"restarted": ["opencode-supertonic"]}`
+- Python compilation
+- unit tests for ring-buffer coordinates and slicing
+- shell syntax validation
 
-Same pattern for `use_gpu_parakeet` → `opencode-parakeet-stt`.
-
-## Install paths
-
-| Component | Path | Port |
-|-----------|------|------|
-| Voice skill | `~/.config/opencode/skills/talk/` | — |
-| Voice venv | `~/.config/opencode/tts-venv/` | — |
-| Parakeet STT | `~/.config/opencode/parakeet-stt/` | 5093 |
-| Supertonic TTS | `~/.config/opencode/supertonic-tts/` | 8766 |
-| **Web dashboard** | `frontend/` (repo) | **7862** |
-| VAD/GPU config | `~/.config/opencode/frontend-config.json` | — |
-
-### Launchd services (macOS)
-
-| Label | Description | Log |
-|-------|-------------|-----|
-| `com.opencode.parakeet-stt` | Parakeet ONNX STT | `~/.config/opencode/parakeet-stt.log` |
-| `com.opencode.supertonic` | Supertonic ONNX TTS | `~/.config/opencode/supertonic.log` |
-
-### Systemd services (Linux)
-
-| Unit | Description | Log |
-|------|-------------|-----|
-| `opencode-parakeet-stt.service` | Parakeet ONNX STT | `~/.config/opencode/parakeet-stt.log` |
-| `opencode-supertonic.service` | Supertonic ONNX TTS | `~/.config/opencode/supertonic.log` |
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `silero-vad` | >=6.0 | VAD model (ONNX via PyTorch) |
-| `sounddevice` | >=0.5 | Microphone capture |
-| `onnxruntime` | >=1.18 | ONNX inference engine |
-| `torch` | >=2.0 | Tensor ops for VAD |
-| `numpy` | >=1.26 | Audio buffer math |
-| `onnx-asr[hub]` | >=0.10 | Parakeet STT runtime |
-| `uvicorn` | >=0.30 | ASGI server (STT + TTS) |
-| `fastapi` | >=0.115 | API framework |
-| `transformers` | >=4.30 | Hugging Face tokenizers (TTS) |
-| `huggingface-hub` | >=0.20 | Model download |
-| `soundfile` | >=0.12 | Audio I/O |
-| `librosa` | >=0.10 | Audio processing |
+CI does not provide a physical microphone, speaker, platform service manager, model download, or live provider credentials. Release validation should still include manual smoke tests on each supported operating system.

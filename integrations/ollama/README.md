@@ -1,259 +1,296 @@
 # Ollama voice integration
 
-Talk to your local [Ollama](https://github.com/ollama/ollama) models and hear them reply —
-a **local, CPU-only** voice interface built on the `opencode-voice-service` speech stack
-(Silero VAD → Parakeet STT → Supertonic TTS). All speech inference runs on the CPU; the
-GPU stays free for the model that's actually thinking.
+Talk to an Ollama model through the Local VoiceMode LLM speech stack:
 
-There are two ways to install it. **Most people want Option A.**
+```text
+microphone → Silero VAD → Parakeet STT → Ollama chat → Supertonic TTS → speakers
+```
 
-| | Option A — `ollama-voice` command | Option B — native `ollama voice` subcommand |
+The default speech stages run locally on CPU, leaving the GPU available for Ollama's model.
+
+## Choose an integration
+
+| | Recommended: `ollama-voice` command | Advanced: native `ollama voice` patch |
 |---|---|---|
-| Ollama | uses your **already-installed** binary | **rebuilds** Ollama from source (Go 1.26+) |
-| Install | `bash install.sh` (autoinstaller) | clone → `git am` patch → `go build` |
-| Talks via | Ollama HTTP API (`:11434`), like `ollama run` | in-process Ollama API client |
-| Command | `ollama-voice <model>` | `ollama voice <model>` + `/voice` in the REPL |
-| Best for | anyone with a normal Ollama install | distributing a custom Ollama build |
+| Existing Ollama install | reused as-is | replaced by a custom source build |
+| Setup | one installer | apply patch and compile Ollama |
+| Chat transport | Ollama HTTP API on `:11434` | in-process Ollama client |
+| Command | `ollama-voice <model>` | `ollama voice <model>` |
+| Best use | normal installations | custom Ollama distributions and development |
 
----
+Most users should use the standalone `ollama-voice` command.
 
-## Option A — autoinstaller (recommended, no rebuild)
+## Standalone `ollama-voice` command
 
-Wires the voice stack into the Ollama you already have. It installs a small `ollama-voice`
-command that drives the **listen → chat → speak** loop against Ollama's HTTP API — so any
-model you can `ollama run`, you can `ollama-voice`.
+### Requirements
+
+- An installed and working Ollama CLI/server
+- Bash
+- Python 3
+- curl
+- A supported audio player
+- A microphone for voice input; `--text` can be used without one
+
+Verify Ollama first:
+
+```bash
+ollama --version
+ollama list
+```
 
 ### Install
 
+From the Local VoiceMode LLM repository root:
+
 ```bash
-# from this repo's root
 bash integrations/ollama/install.sh
-# …or, once the command is on your PATH, repair/reinstall anytime with:
-ollama-voice --setup
+```
+
+Non-interactive setup:
+
+```bash
+bash integrations/ollama/install.sh --yes
 ```
 
 The installer:
 
-1. Verifies the stock `ollama` binary is present (it does **not** rebuild it).
-2. Installs the CPU speech backends — Parakeet STT (`:5093`) and Supertonic TTS — by
-   delegating to the repo's `setup.sh`. **Skipped automatically** if they're already
-   installed and healthy.
-3. Installs the `ollama-voice` command onto your `PATH` (`~/.local/bin` by default).
-4. Smoke-checks Ollama + the backends and prints how to start talking.
+1. Verifies the existing Ollama installation.
+2. Installs or repairs the Local VoiceMode LLM speech backends unless skipped.
+3. Installs `ollama-voice` into a user executable directory, normally `~/.local/bin`.
+4. Checks Ollama, Parakeet, and the selected local TTS endpoint.
 
-It is **self-contained and non-destructive**: it installs to your user `PATH`, never edits
-your shell profile, and never touches other agents' skill installs. The `ollama-voice`
-command then **auto-detects the local TTS port at runtime** on whatever machine it runs —
-no per-host configuration needed (see [Portable, local-first TTS](#portable-local-first-tts)).
+It does not rebuild Ollama or edit its source tree.
 
-Flags: `--yes` (no prompts) · `--bindir DIR` · `--model NAME` (ensure a model is pulled) ·
-`--skip-backends` · `--reinstall-backends` · `--uninstall [--backends]`.
+### Installer options
 
-**Prerequisites:** an installed Ollama (`ollama --version`), `python3`, `bash`, `curl`, and
-an audio player (`afplay` on macOS; `ffplay`/`aplay`/`paplay` on Linux). The speech backends
-themselves are installed for you in step 2.
+Run the installer with `--help` for the current complete list. Common options include:
 
-### Talk to a model
+| Option | Effect |
+|---|---|
+| `--yes` | Run non-interactively |
+| `--bindir DIR` | Install the command in a specific directory |
+| `--model NAME` | Ensure an Ollama model is available |
+| `--skip-backends` | Install only the command |
+| `--reinstall-backends` | Rerun backend setup |
+| `--uninstall` | Remove the command |
+| `--uninstall --backends` | Also remove managed speech backends |
 
-```bash
-ollama-voice                 # talk to your default model (speak after the tone)
-ollama-voice llama3.2        # talk to a specific model (pulled if missing)
-ollama-voice --setup         # install/repair the voice backends + this command
-ollama-voice --text          # type instead of speaking (mic-free test; replies still spoken)
-ollama-voice --once          # one exchange, then exit
-ollama-voice --no-stream-tts # speak the whole reply at once (default: sentence-by-sentence)
-ollama-voice --list          # list local Ollama models
-ollama-voice --status        # check Ollama + STT/TTS backends (shows the detected TTS)
-# Ctrl-C to leave the conversation. Say "goodbye"/"exit"/"adiós" to end by voice.
-```
-
-Want the `ollama voice <model>` ergonomics without rebuilding? Add a shell function that
-intercepts the `voice` verb and passes everything else through to the real CLI:
+### Use
 
 ```bash
-ollama() { [ "$1" = voice ] && { shift; command ollama-voice "$@"; } || command ollama "$@"; }
+ollama-voice                     # default/first installed model
+ollama-voice llama3.2            # explicit model
+ollama-voice llama3.2 --text     # keyboard input; replies remain spoken
+ollama-voice llama3.2 --once     # one exchange and exit
+ollama-voice --list              # list local models
+ollama-voice --status            # check Ollama and speech services
+ollama-voice --setup             # install or repair the integration
 ```
 
-### How it works
+Use `Ctrl+C` to stop. The runtime also recognizes configured voice-exit phrases.
 
+### Runtime flow
+
+```text
+ollama-voice
+   │
+   ├── talk.sh listen
+   │     └── VAD → WAV → Parakeet → transcript
+   │
+   ├── POST /api/chat to Ollama
+   │     └── streamed assistant response
+   │
+   ├── filter reasoning/code from spoken stream
+   │
+   └── talk.sh speak
+         └── selected TTS → playback → next listen
 ```
-  mic ─▶ Silero VAD ─▶ Parakeet STT     (talk.sh listen, :5093, local ONNX/CPU)
-                            │
-                            ▼
-                  Ollama  POST /api/chat (:11434)   ← your installed ollama, streamed
-                            │   (full conversation history; chain-of-thought is never spoken)
-                            ▼
-            local TTS  (talk.sh speak, auto-detected port) ─▶ playback ─▶ listen again
+
+The command maintains bounded conversation history and uses Ollama's streaming chat API. Reasoning sections such as `<think>...</think>` are not sent to TTS.
+
+### Sentence-streamed TTS
+
+Sentence-level TTS is enabled by default. As Ollama streams text, complete natural-language sentences are queued for speech while generation continues.
+
+```text
+Ollama tokens ─► sentence 1 ─► TTS/playback
+             └► sentence 2 ─► TTS/playback
+             └► sentence 3 ─► TTS/playback
 ```
 
-`ollama-voice` is a thin orchestrator: it shells out to the same `talk.sh` the rest of the
-project uses for STT/TTS, and calls Ollama's streaming chat API in between — the exact shape
-of the upstream `ollama voice` Go command (Option B), minus the rebuild. It keeps a bounded
-conversation history, streams the reply to your terminal, and never speaks the model's
-chain-of-thought.
+This reduces time to first audio but can produce more TTS requests. Disable it when the selected provider charges per request, handles long text more naturally, or needs one complete utterance:
 
-**Sentence-by-sentence speech (on by default).** Rather than waiting for the whole reply,
-`ollama-voice` speaks each sentence the moment its terminating `.`/`!`/`?` arrives in the
-stream — so the first sentence plays while the model is still writing the next one,
-cutting time-to-first-audio to roughly one sentence. Sentences are queued and spoken in
-order by a background worker, so synthesis overlaps generation (and pairs especially well
-with the fast [Supertonic 2](../supertonic2/) backend). Reasoning (`<think>`) and code
-blocks are held back, never spoken mid-stream. Turn it off with `--no-stream-tts` or
-`OLLAMA_VOICE_STREAM_TTS=0` to speak the whole reply at once.
+```bash
+ollama-voice llama3.2 --no-stream-tts
+```
+
+Equivalent environment:
+
+```bash
+export OLLAMA_VOICE_STREAM_TTS=0
+```
 
 ### Configuration
 
-`ollama-voice` reads these (and forwards all the usual `talk.sh` variables — `VAD_THRESHOLD`,
-`MIC_QUERY`, `TTS_ENGINE`, `SUPERTONIC_VOICE`, `TALK_IDLE_TIMEOUT_S`, …):
+| Variable | Typical/default behavior | Purpose |
+|---|---|---|
+| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama API base URL |
+| `OLLAMA_VOICE_MODEL` | first available model when unset | default model |
+| `OLLAMA_VOICE_THINK` | `false` | Ollama reasoning mode; reasoning is never spoken |
+| `OLLAMA_VOICE_SYSTEM` | concise spoken-answer prompt | system instruction |
+| `OLLAMA_VOICE_LANG` | auto | TTS language hint |
+| `OLLAMA_VOICE_STREAM_TTS` | `1` | speak completed sentences during generation |
+| `OLLAMA_VOICE_KEEPALIVE` | Ollama default | model keep-alive value |
+| `OLLAMA_VOICE_NUM_PREDICT` | `400` | maximum generated tokens; `0` removes the cap |
+| `OLLAMA_VOICE_HISTORY` | `20` | retained conversation messages; `0` keeps all |
+| `OLLAMA_VOICE_NO_DETECT` | unset | set `1` to disable local TTS endpoint probing |
+| `TALK_SH` | installed skill path | explicit orchestrator path |
+| `OLLAMA_VOICE_ENV` | `~/.config/opencode/ollama-voice.env` | defaults and endpoint-detection cache |
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama endpoint |
-| `OLLAMA_VOICE_MODEL` | _(first installed)_ | default model when none is given |
-| `OLLAMA_VOICE_THINK` | `false` | `false`/`true`/`high`/`medium`/`low`/`default`. Reasoning is **never spoken**; `false` also skips it for snappier replies |
-| `OLLAMA_VOICE_SYSTEM` | _(concise spoken-style prompt)_ | system prompt; set empty to use the model's own |
-| `OLLAMA_VOICE_LANG` | _(auto)_ | TTS language hint: `en` / `es` / `""` |
-| `OLLAMA_VOICE_STREAM_TTS` | `1` (on) | speak each sentence as the reply streams; `0` speaks the whole reply at once (same as `--no-stream-tts`) |
-| `OLLAMA_VOICE_KEEPALIVE` | _(server default)_ | keep the model warm between turns, e.g. `10m` |
-| `OLLAMA_VOICE_NUM_PREDICT` | `400` | cap reply length in tokens (`0` = unlimited) |
-| `OLLAMA_VOICE_HISTORY` | `20` | conversation messages kept for context (`0` = all) |
-| `OLLAMA_VOICE_NO_DETECT` | _(off)_ | set `1` to skip TTS port auto-detection (trust env/`talk.sh`) |
-| `TALK_SH` | _(installed copy)_ | path to `talk.sh` if not in the standard location |
-| `OLLAMA_VOICE_ENV` | `~/.config/opencode/ollama-voice.env` | `KEY=VALUE` defaults file / detection cache (your shell env overrides it) |
+The normal Local VoiceMode LLM variables are also forwarded, including:
 
-<a name="portable-local-first-tts"></a>
-**Portable, local-first TTS:** voice replies are synthesized by `talk.sh`/`tts.sh`, whose
-engine chain is local **Supertonic** → local **NeuTTS** → **xAI** (cloud, last resort).
-`ollama-voice` keeps you on local synthesis on **any machine** by auto-detecting the TTS port
-**at runtime**: it POSTs a tiny probe to the candidate ports — the project default `:8766`
-first, then the common alternative `:8765` — and uses whichever actually returns audio,
-caching the winner to `~/.config/opencode/ollama-voice.env` for fast subsequent runs. This
-handles the common case where another service (e.g. a Cursor API) has taken `:8766` while
-Supertonic runs on `:8765`.
+```text
+STT_URL
+STT_MODEL
+TTS_ENGINE
+SUPERTONIC_URL
+SUPERTONIC_VOICE
+TTS_QUALITY
+VAD_THRESHOLD
+VAD_MIN_SILENCE_MS
+MIC_QUERY
+TALK_IDLE_TIMEOUT_S
+```
 
-If no local Supertonic is found it prefers local **NeuTTS** (`:8020`); only if every local
-engine fails does it reach the **xAI cloud** (and only when `XAI_API_KEY` is set). Pin a
-specific server by exporting `SUPERTONIC_URL`; disable probing with `OLLAMA_VOICE_NO_DETECT=1`;
-force a re-detect by deleting the cache file. Check engine health with
-`bash ~/.config/opencode/skills/talk/talk.sh status`.
+Recommended managed-backend baseline:
+
+```bash
+export STT_URL=http://127.0.0.1:5093/v1/audio/transcriptions
+export STT_MODEL=parakeet-tdt-0.6b-v3
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8766
+export TTS_QUALITY=normal
+export VAD_THRESHOLD=0.5
+export VAD_MIN_SILENCE_MS=700
+```
+
+### TTS endpoint detection
+
+The standalone integration can probe common local Supertonic endpoints and cache a working selection. Explicit `SUPERTONIC_URL` remains the most predictable configuration.
+
+Managed Supertonic 3:
+
+```bash
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8766
+```
+
+Optional Supertonic 2 service:
+
+```bash
+bash integrations/supertonic2/install.sh
+export TTS_ENGINE=supertonic
+export SUPERTONIC_URL=http://127.0.0.1:8880
+```
+
+The core dispatcher currently has no separate `supertonic2` engine value. It uses the normal Supertonic-compatible client with the alternate URL.
+
+To bypass probing and trust the configured endpoint:
+
+```bash
+export OLLAMA_VOICE_NO_DETECT=1
+```
+
+### Text-only input test
+
+This isolates Ollama and TTS from microphone/VAD problems:
+
+```bash
+ollama-voice llama3.2 --text --once
+```
+
+When this succeeds but voice input fails, diagnose microphone permissions, device selection, and VAD rather than the Ollama API.
+
+### Status and diagnosis
+
+```bash
+ollama-voice --status
+curl -fsS http://127.0.0.1:11434/api/tags
+~/.config/opencode/skills/talk/talk.sh status
+~/.config/opencode/skills/talk/talk.sh devices
+```
+
+See [`../../docs/troubleshooting.md`](../../docs/troubleshooting.md) for backend and microphone recovery.
 
 ### Uninstall
 
 ```bash
-bash integrations/ollama/install.sh --uninstall            # remove the ollama-voice command
-bash integrations/ollama/install.sh --uninstall --backends # also remove Parakeet/Supertonic
+bash integrations/ollama/install.sh --uninstall
+bash integrations/ollama/install.sh --uninstall --backends
 ```
 
-### Files
+The first command removes the `ollama-voice` command. The second also removes managed speech services according to the installer behavior.
+
+## Files
 
 | File | Purpose |
-| --- | --- |
-| `install.sh` | autoinstaller (Option A) — verifies Ollama, installs backends + command |
-| `ollama-voice` | the runtime `listen → chat → speak` loop (Python; talks to Ollama's HTTP API) |
-| `0001-ollama-voice.patch` | the source patch for Option B (native subcommand) |
+|---|---|
+| `install.sh` | standalone command/backend installer |
+| `ollama-voice` | Python runtime using Ollama's HTTP API |
+| `0001-ollama-voice.patch` | optional native Ollama source patch |
 
----
+## Advanced native `ollama voice` patch
 
-## Option B — native `ollama voice` subcommand (build from source)
+The included patch adds voice functionality directly to an Ollama source checkout. Use this path only when maintaining a custom Ollama binary.
 
-This patch adds a first-class `voice` subcommand **inside** Ollama. Use it only if you want
-to build and distribute a custom Ollama binary; it requires a full Go toolchain and replaces
-your installed binary with your build.
+### Requirements
 
-After applying it, Ollama gains:
+- A compatible Go toolchain for the targeted Ollama revision
+- Ollama's native build dependencies
+- Git
+- Python and the speech backend requirements
 
-- **`ollama voice <model>`** — a hands-free spoken conversation loop
-- **`/voice`** — a toggle inside the `ollama run` REPL to switch a session to speech
-- **`ollama voice --setup`** — installs and starts the local speech backends
+Ollama's development requirements change over time. Follow the version-specific build documentation in the Ollama checkout rather than relying on a permanently fixed Go version in this repository.
 
-The patch adds a `voice/` Go package (with the Bash/PowerShell/Python speech scripts embedded
-via `go:embed`), a `cmd/voice.go` subcommand, a `/voice` toggle in `cmd/interactive.go`, and
-`docs/voice.md`. Ollama only orchestrates the loop; it reuses its existing chat API.
-
-### Prerequisites
-
-- **Go 1.26+** and a working Ollama build toolchain (see Ollama's `docs/development.md`)
-- **git**, **python 3.10+** on your `PATH`
-- An audio player: `afplay` (macOS), `ffplay`/`aplay`/`paplay` (Linux), built-in (Windows)
-
-### 1. Apply the patch to an Ollama checkout
+### Apply
 
 ```bash
 git clone https://github.com/ollama/ollama.git
 cd ollama
 
-# with git am (keeps the commit), from this repo:
-git am /path/to/integrations/ollama/0001-ollama-voice.patch
-# …or a plain apply:
-git apply /path/to/integrations/ollama/0001-ollama-voice.patch
+git am /path/to/Local-VoiceMode-LLM/integrations/ollama/0001-ollama-voice.patch
+# or, without preserving commit metadata:
+git apply /path/to/Local-VoiceMode-LLM/integrations/ollama/0001-ollama-voice.patch
 ```
 
-### 2. Build Ollama
+A patch is revision-sensitive. If it does not apply cleanly, inspect upstream changes and port it deliberately; do not force-apply rejected hunks.
+
+### Build
+
+Use the build procedure documented by the checked-out Ollama revision. A simple development build may be:
 
 ```bash
-go build .          # produces the ./ollama binary
-# (or the full native build per Ollama's docs: cmake -B build . && cmake --build build)
+go build .
 ```
 
-### 3. Install the speech backends (one time)
+The full native build can require additional steps and platform toolchains.
+
+### Setup and use
+
+After building the patched binary:
 
 ```bash
 ./ollama voice --setup
+./ollama voice llama3.2
 ```
 
-`--setup` is an **interactive installer**: it detects your OS/GPU, proposes an acceleration
-backend, and lets you pick. It installs everything under `~/.ollama/voice/` (override with
-`OLLAMA_VOICE_HOME`): the Parakeet STT server on `:5093` and the Supertonic TTS server on
-`:8766`, and registers auto-start units — **systemd `--user`** on Linux, **launchd** on
-macOS, **Task Scheduler** on Windows.
+The patch may also add a `/voice` command inside an interactive `ollama run` session, depending on the upstream revision it targets.
 
-Acceleration (`--accel`, default `auto`):
+### Maintenance warning
 
-| Value | Where | Backend |
-| --- | --- | --- |
-| `cpu` | any | plain `onnxruntime` (portable) |
-| `cuda` | Linux | `onnxruntime-gpu` on NVIDIA |
-| `coreml` | macOS | Apple Neural Engine — Supertonic-3 CoreML (`CPU_AND_NE`) |
-| `directml` | Windows | `onnxruntime-directml` (GPU) |
+The native patch embeds or coordinates speech scripts separately from the standalone installation. Treat the two paths as distinct products:
 
-```bash
-./ollama voice --setup --accel cpu --yes   # non-interactive
-./ollama voice --setup --accel coreml      # macOS Neural Engine
-```
+- The standalone `ollama-voice` command follows this repository's current scripts.
+- The patch reflects the Ollama source revision against which it was authored.
 
-On Windows, `--setup` invokes the bundled `setup.ps1` (CPU or DirectML) and registers the
-Task Scheduler tasks.
-
-### 4. Talk to a model
-
-```bash
-./ollama serve            # in one terminal (or let the CLI start it)
-./ollama voice llama3.2   # in another — speak after the tone, Ctrl-C to exit
-```
-
-Or inside a normal chat session:
-
-```
-./ollama run llama3.2
->>> /voice        # start talking
->>> /voice off    # back to the keyboard
-```
-
-### Configuration (Option B)
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `OLLAMA_VOICE_HOME` | `~/.ollama/voice` | Install/runtime directory |
-| `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Speech-to-text endpoint |
-| `SUPERTONIC_URL` | `http://127.0.0.1:8766` | Text-to-speech endpoint |
-| `TTS_ENGINE` | `supertonic` | TTS engine (`supertonic`, `neutts`, `xai`) |
-| `VAD_THRESHOLD` | `0.5` | Mic speech-detection sensitivity |
-| `TALK_IDLE_TIMEOUT_S` | `30` | Stop listening after N seconds of silence |
-| `MIC_QUERY` | _(auto)_ | Substring to pick a specific microphone |
-
-### Notes
-
-- The `0001-ollama-voice.patch` targets `ollama/ollama` `main`. If upstream has moved and a
-  hunk fails, apply with `git apply --3way` or re-base the change.
-- This is a downstream patch, not part of upstream Ollama. It adds a Python/Bash (or
-  PowerShell) runtime requirement for the speech backends.
+For long-term reliability, prefer the standalone HTTP integration unless a custom Ollama binary is an explicit requirement.

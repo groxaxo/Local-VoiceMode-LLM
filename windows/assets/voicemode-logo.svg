@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title>Local VoiceMode LLM</title>
+  <defs>
+    <linearGradient id="orb" x1="72" y1="64" x2="438" y2="452" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4CC9F0"/>
+      <stop offset="0.48" stop-color="#4361EE"/>
+      <stop offset="1" stop-color="#24135D"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="150" y1="130" x2="365" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#B8F2FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0B1020"/>
+  <circle cx="256" cy="256" r="185" fill="url(#orb)"/>
+  <circle cx="256" cy="256" r="149" fill="none" stroke="#8BE9FD" stroke-opacity=".34" stroke-width="3"/>
+  <path d="M110 257c25-50 54-50 79 0 24 48 53 48 77 0 25-50 54-50 79 0 24 48 53 48 77 0" fill="none" stroke="url(#signal)" stroke-linecap="round" stroke-width="18"/>
+  <path d="M256 151a54 54 0 0 0-54 54v49a54 54 0 1 0 108 0v-49a54 54 0 0 0-54-54Z" fill="#0B1020" stroke="#FFF" stroke-width="12"/>
+  <path d="M169 251c0 55 38 93 87 93s87-38 87-93M256 344v45M211 389h90" fill="none" stroke="#FFF" stroke-linecap="round" stroke-width="13"/>
+  <circle cx="371" cy="137" r="19" fill="#8BE9FD"/>
+</svg>
