@@ -2,14 +2,13 @@
 # talk.sh — VAD-driven voice conversation orchestrator
 #
 # A complete voice conversation cycle in two commands:
-#   talk.sh listen   → VAD record + STT → prints transcribed text
-#   talk.sh speak    → TTS (Supertonic local default → NeuTTS → xAI last-resort), then auto-listen
-#                      (slow CPU? set TTS_ENGINE=openai/inworld — see docs/providers.md)
+#   talk.sh listen   → VAD record + xAI STT → prints transcribed text
+#   talk.sh speak    → TTS (xAI voice iris by default), then auto-listen
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
 #   tts.sh           (NeuTTS / xAI / VibeVoice / Supertonic)
-#   Parakeet STT     (local :5093 — ONNX, CPU, on all platforms)
+#   xAI STT          (POST https://api.x.ai/v1/stt — non-streaming)
 #
 # Usage:
 #   talk.sh listen                  — record one utterance, transcribe, print text
@@ -51,12 +50,10 @@ play_wav() {
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS — Supertonic (local ONNX, CPU) is the repo default; all other engines are
-# secondary. Local fallback chain: Supertonic (:8766) → NeuTTS (local GGUF, :8020)
-# → xAI (cloud, requires XAI_API_KEY). Remote engines for slow CPUs (openai/inworld)
-# are opt-in via TTS_ENGINE — see docs/providers.md. Qwen3-TTS (local MLX) is also
-# opt-in (TTS_ENGINE=qwen); its URLs are resolved below but unused unless selected.
-: "${TTS_ENGINE:=supertonic}"
+# TTS — xAI cloud only. Local engines (qwen3-mlx, chatterbox, supertonic, qwen,
+# neutts, inflect, vibevoice) were removed from the default path: they do not
+# work on this setup. Override per call with TTS_ENGINE=<engine>.
+: "${TTS_ENGINE:=xai}"
 # Qwen3-TTS (opt-in): fast 0.6B (:18881) / HQ 1.7B (:18882) MLX servers.
 # QWEN_TTS_QUALITY=fast|hq picks which; tts.sh resolves the actual URL.
 : "${QWEN_TTS_QUALITY:=hq}"
@@ -73,27 +70,49 @@ case "$(printf '%s' "$QWEN_TTS_QUALITY" | tr '[:upper:]' '[:lower:]')" in
 esac
 : "${QWEN_TTS_VOICE:=vivian}"
 export QWEN_TTS_QUALITY QWEN_TTS_URL QWEN_TTS_URL_FAST QWEN_TTS_URL_HQ QWEN_TTS_URL_LAZY QWEN_TTS_VOICE
-: "${XAI_TTS_VOICE:=rex}"
+: "${XAI_TTS_VOICE:=iris}"
 : "${VIBEVOICE_MODEL:=vibe-realtime-8bit}"
 : "${VIBEVOICE_VOICE:=en-Emma_woman}"
 : "${VIBEVOICE_VOICE_AUTO:=1}"
 : "${VIBEVOICE_CFG_SCALE:=2.0}"
 : "${VIBEVOICE_DDPM_STEPS:=15}"
-export TTS_ENGINE
+export TTS_ENGINE XAI_TTS_VOICE
 # STT: local Parakeet on :5093 — ONNX, CPU, on EVERY platform. setup.sh installs
 # the same ONNX server (groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai) with the
 # CPU onnxruntime wheel on macOS/Linux/Windows, so the default model is the CPU
 # ONNX one everywhere. (Apple Silicon CoreML is opt-in: set STT_MODEL to a CoreML
 # model name only if you run a CoreML-backed server.)
 : "${STT_MODEL:=parakeet-tdt-0.6b-v3}"
-: "${STT_ENGINE:=local}"    # local | remote; both default to local :5093 unless env overrides
+# local | remote | xai. Default is local CoreML Parakeet (launchd com.opencode.parakeet-stt,
+# restored 2026-08-23 with the FluidAudio CoreML speech-server on 127.0.0.1:5093).
+# Cost: ~0.5 GiB RSS / ~468 MB ANE neural footprint. Switch to `xai` to save it.
+: "${STT_ENGINE:=local}"
 : "${STT_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_URL:=http://127.0.0.1:5093/v1/audio/transcriptions}"
 : "${STT_REMOTE_MODEL:=${STT_MODEL}}"
+# --- xAI STT (non-streaming) -------------------------------------------------
+# NOT OpenAI-compatible: there is no `model` field, and `file` MUST be the last
+# multipart field. Response is {text, language, duration, words[]} — the existing
+# parser already reads .text. The streaming WebSocket endpoint (wss://api.x.ai/v1/stt)
+# is deliberately NOT used; VAD endpointing is handled locally by vad_recorder.py.
+: "${XAI_STT_URL:=https://api.x.ai/v1/stt}"
+# Leave empty to auto-detect language (needed for es/en code-switching). Setting it
+# (e.g. "en") also switches on format=true → Inverse Text Normalization, which
+# rewrites spoken numbers/currency/units into written form ("twenty seven" -> "27").
+: "${XAI_STT_LANGUAGE:=}"
+: "${XAI_STT_FILLER_WORDS:=false}"
+# Speech-probability gate, 0.0-1.0 (xAI default 0.5). Lower transcribes quieter
+# speech at the cost of spurious text on background noise; 0 disables the gate.
+: "${XAI_STT_VAD_THRESHOLD:=}"
 # Optional bearer key for a REMOTE STT endpoint (e.g. OpenAI Whisper for slow CPUs).
 # Local Parakeet needs none, so this stays empty by default. STT_REMOTE_KEY wins,
 # then STT_API_KEY, then OPENAI_API_KEY.
 : "${STT_API_KEY:=${STT_REMOTE_KEY:-${OPENAI_API_KEY:-}}}"
+# For the xai engine the bearer is XAI_API_KEY (same key as xAI TTS) unless an
+# explicit STT key was already provided above.
+if [ "${STT_ENGINE}" = "xai" ] && [ -z "${STT_API_KEY:-}" ]; then
+    STT_API_KEY="${XAI_API_KEY:-}"
+fi
 # VAD parameters (passed to vad_recorder.py)
 # 700ms trailing silence tolerates natural mid-sentence pauses without cutting
 # the turn early; lower to ~500 for snappier (but more interrupt-prone) endpointing.
@@ -128,15 +147,13 @@ export TTS_ENGINE
 # Grace period (ms) before barge-in VAD activates after TTS playback starts
 # Prevents the VAD from triggering on the initial TTS audio burst
 : "${TALK_BARGE_IN_DELAY_MS:=2000}"
-# Idle timeout: exit listen if no speech detected within N seconds (0=disabled).
-# Session-silence window: if the user is silent for this long, cmd_listen
-# returns empty stdout, signalling the agent to end the conversation loop.
-# Default 300s (5 min) keeps the session open across natural pauses.
-: "${TALK_IDLE_TIMEOUT_S:=300}"
+# Idle timeout for a single VAD attempt (0=disabled). Conversation mode must
+# remain available until the user explicitly ends it, so the default is off.
+: "${TALK_IDLE_TIMEOUT_S:=0}"
 # Spoken phrases that end the session (case-insensitive substring match,
 # pipe-separated). Default: "stop talk". Spanish example: "para de hablar".
-# When matched, cmd_listen prints empty stdout (= "session ended") so the
-# agent's outer `while true; do talk.sh speak; done` loop can exit.
+# When matched, cmd_listen prints the unambiguous `__TALK_STOP__` marker.
+# Empty output is never an end-session signal: it is retried internally.
 : "${TALK_STOP_PHRASES:=stop talk}"
 # -----------------------------------------------------------------------------
 
@@ -159,7 +176,9 @@ TTS_LANG_SH="${TTS_LANG_SH:-$HOME/.config/opencode/tts_lang.sh}"
 [ -f "$TTS_LANG_SH" ] && . "$TTS_LANG_SH"
 
 resolve_stt() {
-    if [ "${STT_ENGINE}" = "remote" ]; then
+    if [ "${STT_ENGINE}" = "xai" ]; then
+        printf '%s\n%s\n' "$XAI_STT_URL" "xai"
+    elif [ "${STT_ENGINE}" = "remote" ]; then
         printf '%s\n%s\n' "${STT_REMOTE_URL:-$STT_URL}" "${STT_REMOTE_MODEL:-$STT_MODEL}"
     else
         printf '%s\n%s\n' "$STT_URL" "$STT_MODEL"
@@ -172,17 +191,28 @@ transcribe_file() {
     local stt_model="$3"
     local response_file http_code
 
-    response_file="$(mktemp /tmp/opencode-stt-response.XXXXXX.json)"
+    response_file="$(mktemp /tmp/opencode-stt-response.json.XXXXXX)"
     # Send a bearer header only when a key is set (remote OpenAI-compatible STT).
     local auth_args=()
     [ -n "${STT_API_KEY:-}" ] && auth_args=(-H "Authorization: Bearer ${STT_API_KEY}")
+    # Request shape differs per backend. OpenAI-compatible servers take a `model`
+    # field; xAI takes none and requires `file` to be the LAST multipart field.
+    local form_args=()
+    if [ "$stt_model" = "xai" ]; then
+        [ -n "${XAI_STT_LANGUAGE:-}" ] && form_args+=(-F "language=${XAI_STT_LANGUAGE}" -F "format=true")
+        [ -n "${XAI_STT_VAD_THRESHOLD:-}" ] && form_args+=(-F "vad_threshold=${XAI_STT_VAD_THRESHOLD}")
+        form_args+=(-F "filler_words=${XAI_STT_FILLER_WORDS:-false}")
+        form_args+=(-F "file=@$file")   # MUST stay last
+    else
+        form_args+=(-F "file=@$file" -F "model=$stt_model")
+    fi
+
     http_code=$(curl -sS -m "${STT_TIMEOUT_SECONDS:-45}" \
         -o "$response_file" \
         -w '%{http_code}' \
         "${auth_args[@]}" \
         "$stt_url" \
-        -F "file=@$file" \
-        -F "model=$stt_model") || {
+        "${form_args[@]}") || {
         local curl_status=$?
         echo "STT request failed (curl exit $curl_status): $stt_url" >&2
         rm -f "$response_file"
@@ -305,6 +335,10 @@ is_stop_phrase() {
 }
 
 cmd_listen() {
+    if _mic_off; then
+        _bus_wait
+        return $?
+    fi
     local outfile="${1:-opencode-utterance.wav}"
     local ready_delay=0
     [ "${TALK_READY_CUE}" != "0" ] && ready_delay="${TALK_READY_DELAY_MS}"
@@ -321,7 +355,7 @@ cmd_listen() {
         --vad-threshold "$VAD_THRESHOLD" \
         --min-silence-ms "$VAD_MIN_SILENCE_MS" \
         --ready-delay-ms "$ready_delay" \
-        --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-300}" \
+        --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-1440}" \
         2>/dev/null >"$vad_out" &
     local vad_pid=$!
 
@@ -348,8 +382,9 @@ with open('$vad_out') as f:
     rm -f "$vad_out"
 
     if [ -z "$file" ] || [ ! -f "$file" ]; then
-        echo ""
-        exit 0
+        echo "[talk] No speech captured; continuing to listen" >&2
+        cmd_listen "$outfile"
+        return
     fi
 
     # Transcribe (local Parakeet on :5093 — ONNX, CPU, on all platforms)
@@ -359,27 +394,130 @@ with open('$vad_out') as f:
     stt_model="$(printf '%s\n' "$stt_info" | sed -n '2p')"
     if ! text=$(transcribe_file "$file" "$stt_url" "$stt_model"); then
         rm -f "$file"
-        return 1
+        echo "[talk] Transcription failed; continuing to listen" >&2
+        cmd_listen "$outfile"
+        return
     fi
 
     if is_stop_phrase "$text"; then
         echo "[talk] Stop phrase detected (\"$text\"): ending session" >&2
         rm -f "$file"
-        echo ""
-        exit 0
+        echo "__TALK_STOP__"
+        return
     fi
 
     echo "$text"
     rm -f "$file"
 }
 
+
+
+# --- text bus (mic-free agent-to-agent channel) -------------------------------
+# When the mic must stay off (TALK_MIC=off / TALK_NO_MIC=1), agents exchange
+# turns as timestamped JSON files under $TALK_BUS_DIR/<date>/ instead of
+# speaking into and listening on the same microphone.
+TALK_BUS_DIR="${TALK_BUS_DIR:-$HOME/.talk-bus}"
+TALK_AGENT="${TALK_AGENT:-agent}"
+TALK_BUS_PY="${TALK_BUS_PY:-$SERVICE_DIR/bus/talk_bus.py}"
+export TALK_BUS_DIR TALK_AGENT
+
+_mic_off() {
+    case "${TALK_MIC:-on}" in
+        0|off|no|false|OFF|Off) return 0 ;;
+    esac
+    [ "${TALK_NO_MIC:-0}" = "1" ] && return 0
+    return 1
+}
+
+_bus() {
+    if [ ! -f "$TALK_BUS_PY" ]; then
+        echo "[talk] bus helper missing: $TALK_BUS_PY" >&2
+        return 1
+    fi
+    python3 "$TALK_BUS_PY" "$@"
+}
+
+# Record every outgoing turn so the other agent can pick up from it later,
+# whether or not the mic is in play.
+_bus_post() {
+    [ "${TALK_BUS_LOG:-1}" = "1" ] || return 0
+    _bus post "$1" "${2:-}" >/dev/null 2>&1 || true
+}
+
+# Block until another agent posts a turn; prints its text (same stdout contract
+# as `listen`), or nothing on timeout so the caller exits the loop.
+_bus_wait() {
+    echo "[talk] mic off — waiting on the text bus ($TALK_BUS_DIR) as '$TALK_AGENT'" >&2
+    _bus wait "${TALK_BUS_TIMEOUT_S:-${TALK_IDLE_TIMEOUT_S:-1440}}"
+}
+# --- end text bus -------------------------------------------------------------
+
+
+# --- global audio lock -------------------------------------------------------
+# Prevents two agents (Claude, Codex, opencode, Hermes) from speaking over each
+# other on the same speakers: TTS playback is serialized across processes.
+TALK_AUDIO_LOCK="${TALK_AUDIO_LOCK:-/tmp/talk-audio.lock}"
+TALK_LOCK_TIMEOUT_S="${TALK_LOCK_TIMEOUT_S:-300}"
+_talk_lock_held=0
+
+_talk_lock_release() {
+    [ "$_talk_lock_held" = "1" ] || return 0
+    rm -rf "$TALK_AUDIO_LOCK" 2>/dev/null || true
+    _talk_lock_held=0
+}
+
+_talk_lock_acquire() {
+    [ "${TALK_AUDIO_LOCK_DISABLE:-0}" = "1" ] && return 0
+    local waited=0 owner
+    while ! mkdir "$TALK_AUDIO_LOCK" 2>/dev/null; do
+        owner=$(cat "$TALK_AUDIO_LOCK/pid" 2>/dev/null || true)
+        if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+            echo "[talk] clearing stale audio lock (pid $owner)" >&2
+            rm -rf "$TALK_AUDIO_LOCK" 2>/dev/null || true
+            continue
+        fi
+        [ "$waited" = "0" ] && echo "[talk] another agent is speaking; waiting for the audio lock" >&2
+        sleep 0.2
+        waited=$((waited + 1))
+        if [ "$waited" -gt $((TALK_LOCK_TIMEOUT_S * 5)) ]; then
+            echo "[talk] audio lock timeout after ${TALK_LOCK_TIMEOUT_S}s; taking it over" >&2
+            rm -rf "$TALK_AUDIO_LOCK" 2>/dev/null || true
+            mkdir "$TALK_AUDIO_LOCK" 2>/dev/null || true
+            break
+        fi
+    done
+    printf '%s' "$$" > "$TALK_AUDIO_LOCK/pid" 2>/dev/null || true
+    _talk_lock_held=1
+    trap '_talk_lock_release' EXIT INT TERM
+    return 0
+}
+# --- end global audio lock ---------------------------------------------------
+
 cmd_speak() {
     local text="$1"
     local lang="${2:-$(detect_lang "$text")}"
 
+    _talk_lock_acquire
+    _bus_post "$text" "$lang"
+
+    # Mic-off mode: speak (unless silenced) and take the next turn from the bus.
+    if _mic_off; then
+        if [ "${TALK_SILENT:-0}" != "1" ]; then
+            TTS_ENGINE="$TTS_ENGINE" bash "$TTS_SH" "$text" "$lang" \
+                || echo "[talk] TTS failed for text: $text" >&2
+        fi
+        _talk_lock_release
+        if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+            _bus_wait
+        fi
+        return 0
+    fi
+
+
     if [ "${TALK_BARGE_IN}" = "1" ] && [ "${TALK_AUTO_LISTEN}" = "1" ]; then
         # Barge-in mode: generate TTS, play with background monitoring
         if _speak_with_barge_in "$text" "$lang"; then
+            _talk_lock_release
             return 0
         fi
         echo "[talk] Barge-in failed, falling back to simple mode" >&2
@@ -415,7 +553,7 @@ cmd_speak() {
                 --vad-threshold "$VAD_THRESHOLD" \
                 --min-silence-ms "$VAD_MIN_SILENCE_MS" \
                 --ready-delay-ms 600000 \
-                --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-300}" \
+                --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-1440}" \
                 2>/dev/null >"$vad_out" &
             vad_pid=$!
 
@@ -424,6 +562,7 @@ cmd_speak() {
             play_wav "$tts_wav"        # speak the reply (blocking)
             rm -f "$tts_wav"
             play_beep                  # cue the instant speech ends
+            _talk_lock_release         # audio done: let other agents speak
             kill -USR1 "$vad_pid" 2>/dev/null  # flip the recorder live now
             echo "Listening…" >&2
 
@@ -453,8 +592,8 @@ with open('$vad_out') as f:
                     if is_stop_phrase "$text"; then
                         echo "[talk] Stop phrase detected (\"$text\"): ending session" >&2
                         rm -f "$file"
-                        echo ""
-                        exit 0
+                        echo "__TALK_STOP__"
+                        return
                     fi
                     echo "$text"
                     rm -f "$file"
@@ -462,8 +601,9 @@ with open('$vad_out') as f:
                 fi
                 rm -f "$file"
             fi
-            echo ""
-            return 0
+            echo "[talk] No speech captured; continuing to listen" >&2
+            cmd_listen
+            return
         fi
 
         echo "[talk] TTS pre-generation failed, falling back to simple mode" >&2
@@ -478,10 +618,16 @@ with open('$vad_out') as f:
     VIBEVOICE_DDPM_STEPS="${VIBEVOICE_DDPM_STEPS:-15}" \
     VIBEVOICE_WS_URI="${VIBEVOICE_WS_URI:-ws://127.0.0.1:8010/ws/tts}" \
         bash "$TTS_SH" "$text" "$lang"; then
+        _talk_lock_release
         echo "[talk] TTS failed for text: $text" >&2
-        return 1
+        if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+            echo "[talk] Continuing to listen despite TTS failure" >&2
+            cmd_listen
+        fi
+        return 0
     fi
 
+    _talk_lock_release
     if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
         echo "Listening for your reply…" >&2
         cmd_listen
@@ -672,7 +818,20 @@ cmd_status() {
     echo ""
 
     echo "=== TTS (engine=$TTS_ENGINE) ==="
-    if [ "$TTS_ENGINE" = "qwen" ] || [ "$TTS_ENGINE" = "qwen3" ] || [ "$TTS_ENGINE" = "qwen3-tts" ] || [ "$TTS_ENGINE" = "qwen-lazy" ] || [ "$TTS_ENGINE" = "lazy" ]; then
+    if [ "$TTS_ENGINE" = "qwen3-mlx" ] || [ "$TTS_ENGINE" = "qwen-mlx" ] || [ "$TTS_ENGINE" = "qwen3-tts-mlx" ]; then
+        echo "  Model: ${QWEN3_MLX_MODEL}"
+        echo "  Quantization: MLX W8 (8-bit, group size 64)"
+        echo "  English reference: ${QWEN3_MLX_REF_AUDIO_EN:-$HOME/voices/qwen3-mlx-carina-en.wav}"
+        echo "  Spanish reference: ${QWEN3_MLX_REF_AUDIO_ES:-$HOME/voices/qwen3-mlx-carina-es.wav}"
+        echo "  Lazy server: http://127.0.0.1:${QWEN3_MLX_PORT:-18885}"
+        echo "  Metal cache: ${QWEN3_MLX_CACHE_LIMIT_MB:-512} MiB"
+        echo "  Chunking: ${QWEN3_MLX_CHUNK_WORDS:-25} words, ${QWEN3_MLX_CHUNK_PAUSE_MS:-350} ms pause"
+        if [ -d "${QWEN3_MLX_MODEL}" ]; then
+            echo "  Checkpoint: present"
+        else
+            echo "  Checkpoint: MISSING"
+        fi
+    elif [ "$TTS_ENGINE" = "qwen" ] || [ "$TTS_ENGINE" = "qwen3" ] || [ "$TTS_ENGINE" = "qwen3-tts" ] || [ "$TTS_ENGINE" = "qwen-lazy" ] || [ "$TTS_ENGINE" = "lazy" ]; then
         local qwen_url="${QWEN_TTS_URL:-http://127.0.0.1:18881}"
         echo "  Quality: ${QWEN_TTS_QUALITY:-fast}  (fast=0.6B :18881 · hq=1.7B :18882 · lazy=1.7B :18883 auto-start)"
         echo "  Active URL: $qwen_url"
@@ -690,13 +849,7 @@ cmd_status() {
         echo "  xAI voice: ${XAI_TTS_VOICE:-eve}"
         echo "  xAI model: ${XAI_TTS_MODEL:-grok-2-audio}"
         echo "  API key: $([ -n "${XAI_API_KEY:-}" ] && echo 'set' || echo 'NOT SET')"
-        echo "  Fallback: VibeVoice only; macOS say disabled"
-    elif [ "$TTS_ENGINE" = "inworld" ]; then
-        echo "  Inworld voice: ${INWORLD_TTS_VOICE:-Ashley}"
-        echo "  Inworld model: ${INWORLD_TTS_MODEL:-inworld-tts-2}"
-        echo "  Inworld endpoint: ${INWORLD_TTS_URL:-https://api.inworld.ai/tts/v1/voice}"
-        echo "  API key: $([ -n "${INWORLD_API_KEY:-}${INWORLD_TTS_API:-}" ] && echo 'set' || echo 'NOT SET')"
-        echo "  Encoding: ${INWORLD_TTS_ENCODING:-LINEAR16} @ ${INWORLD_TTS_SAMPLE_RATE:-48000} Hz"
+        echo "  Fallback: none (xAI only; local TTS removed); macOS say disabled"
     elif [ "$TTS_ENGINE" = "vibevoice" ] || [ "$TTS_ENGINE" = "vibe" ] || [ "$TTS_ENGINE" = "mlx-vibe" ]; then
         echo "  VibeVoice model: ${VIBEVOICE_MODEL:-vibe-realtime-8bit}"
         echo "  VibeVoice voice: ${VIBEVOICE_VOICE:-en-Emma_woman}"
@@ -734,14 +887,27 @@ print('  models:', ', '.join(h.get('available_models') or []))
     stt_model="$(printf '%s\n' "$stt_info" | sed -n '2p')"
     echo "=== STT (engine=$STT_ENGINE, model=$stt_model) ==="
     echo "  Endpoint: $stt_url"
-    local stt_host
-    stt_host=$(echo "$stt_url" | sed 's|http://||;s|/.*||')
-    if nc -z -w 2 "${stt_host%:*}" "${stt_host#*:}" 2>/dev/null; then
-        echo "  REACHABLE"
+    # Strip scheme, then path. Default the port from the scheme when absent,
+    # otherwise an https endpoint yields no port and nc always fails.
+    local stt_host stt_port stt_scheme
+    stt_scheme=$(echo "$stt_url" | sed -n 's|^\([a-z]*\)://.*|\1|p')
+    stt_host=$(echo "$stt_url" | sed 's|^[a-z]*://||;s|/.*||')
+    case "$stt_host" in
+        *:*) stt_port="${stt_host##*:}"; stt_host="${stt_host%:*}" ;;
+        *)   [ "$stt_scheme" = "https" ] && stt_port=443 || stt_port=80 ;;
+    esac
+    if nc -z -w 2 "$stt_host" "$stt_port" 2>/dev/null; then
+        echo "  REACHABLE ($stt_host:$stt_port)"
     else
-        echo "  NOT REACHABLE"
+        echo "  NOT REACHABLE ($stt_host:$stt_port)"
     fi
-    if [ "${STT_ENGINE}" != "remote" ]; then
+    if [ -n "${XAI_STT_LANGUAGE:-}" ] && [ "${STT_ENGINE}" = "xai" ]; then
+        echo "  Language: ${XAI_STT_LANGUAGE} (format=true, ITN on)"
+    elif [ "${STT_ENGINE}" = "xai" ]; then
+        echo "  Language: auto-detect (ITN off)"
+        echo "  API key: $([ -n "${STT_API_KEY:-}" ] && echo 'set' || echo 'NOT SET')"
+    fi
+    if [ "${STT_ENGINE}" != "remote" ] && [ "${STT_ENGINE}" != "xai" ]; then
         if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
             if systemctl --user is-active --quiet opencode-parakeet-stt 2>/dev/null; then
                 echo "  systemd: opencode-parakeet-stt active"
@@ -777,7 +943,7 @@ print('  models:', ', '.join(h.get('available_models') or []))
     echo "  VibeVoice WS: ${VIBEVOICE_WS_URI:-ws://127.0.0.1:8010/ws/tts}"
     echo "  Auto-listen after speak: $([ "$TALK_AUTO_LISTEN" = 1 ] && echo yes || echo no)"
     echo "  Barge-in: $([ "$TALK_BARGE_IN" = 1 ] && echo "enabled (interrupt TTS on speech)" || echo disabled)"
-    echo "  Idle timeout: ${TALK_IDLE_TIMEOUT_S:-30}s (0=disabled)"
+    echo "  Idle timeout: ${TALK_IDLE_TIMEOUT_S:-1440}s (0=disabled)"
     "$PYTHON" -c "
 import sounddevice as sd, torch, silero_vad
 print('  sounddevice : OK')
@@ -812,11 +978,15 @@ case "${1:-listen}" in
     status|health)
         cmd_status
         ;;
+    bus)
+        shift
+        _bus "$@"
+        ;;
     devices|mic|list-devices)
         cmd_devices
         ;;
     *)
-        echo "Usage: talk.sh {listen|speak|loop|status|devices}" >&2
+        echo "Usage: talk.sh {listen|speak|loop|status|devices|bus {post|read|wait|tail}}" >&2
         exit 1
         ;;
 esac

@@ -128,7 +128,7 @@ speak_xai_tagged() {
     fi
 
     echo "[tts] xAI voice=${XAI_VOICE} lang=${LANG} tagged_sentences=${tag_status} mode=${TAG_MODE}" >&2
-    http_code="$(curl -sS -m "${XAI_TTS_TIMEOUT_SECONDS:-60}" \
+    http_code="$(curl -sS -m "${XAI_TTS_TIMEOUT_SECONDS:-180}" \
         -o "$output_file" -w '%{http_code}' \
         "$XAI_URL" \
         -H "Authorization: Bearer $XAI_KEY" \

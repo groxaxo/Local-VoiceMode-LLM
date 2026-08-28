@@ -250,3 +250,49 @@ Do not assume that every Unix provider feature exists in the Windows PowerShell 
 10. Respect empty stdout as a deliberate session-end signal.
 
 Full operator guidance is in `docs/troubleshooting.md`, `docs/providers.md`, and `docs/ai-provider-bridge.md`.
+
+## Mic-free text bus (agents take turns without the microphone)
+
+Two agents speaking into the same room fight over one microphone: each hears the
+other's TTS and transcribes it as if the user had said it. Two fixes are in place.
+
+**1. Global audio lock.** `cmd_speak` takes an exclusive lock (`$TALK_AUDIO_LOCK`,
+default `/tmp/talk-audio.lock`) around TTS playback, so a second agent waits its
+turn instead of talking over the first. Stale locks are cleared by PID check.
+Disable with `TALK_AUDIO_LOCK_DISABLE=1`.
+
+**2. Text bus.** With the mic off, agents exchange turns as timestamped JSON
+files instead of audio:
+
+```
+$TALK_BUS_DIR/YYYY-MM-DD/<UTCstamp>Z-<agent>.json    # one file per turn
+$TALK_BUS_DIR/state/<agent>.read                     # per-agent read marker
+```
+
+Each record: `{ts, agent, lang, voice, spoken, text}`. Writes are atomic
+(`.tmp` + rename), so a reader never sees a partial message.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `TALK_MIC` | `on` | `off`/`0`/`no` — never open the microphone |
+| `TALK_NO_MIC` | `0` | same as `TALK_MIC=off` |
+| `TALK_SILENT` | `0` | `1` — do not play TTS either (fully silent text channel) |
+| `TALK_AGENT` | `agent` | author name on the bus (`claudio`, `iris`, `osvaldo`, `constanza`) |
+| `TALK_BUS_DIR` | `~/.talk-bus` | bus root |
+| `TALK_BUS_TIMEOUT_S` | `TALK_IDLE_TIMEOUT_S` (1440) | how long `wait` blocks |
+| `TALK_BUS_POLL_S` | `1` | poll interval |
+| `TALK_BUS_REPLAY` | `1` | `0` — a new agent starts from "now" instead of replaying the backlog |
+| `TALK_BUS_LOG` | `1` | `0` — do not record outgoing turns on the bus |
+
+Behaviour with the mic off:
+- `talk.sh listen` blocks on the bus and prints the other agent's message.
+- `talk.sh speak "…"` plays TTS (unless `TALK_SILENT=1`), records the turn on
+  the bus, then blocks on the bus for the reply — same stdout contract as before.
+- Empty stdout still means "the turn ended" (bus timeout), so the agent loop
+  logic is unchanged.
+
+Direct access: `talk.sh bus {post <text> [lang] | read | wait [timeout] | tail [n]}`.
+
+Every outgoing turn is logged to the bus even when the mic is on
+(`TALK_BUS_LOG=1`), so an agent joining later can pick up from the last message.
+
