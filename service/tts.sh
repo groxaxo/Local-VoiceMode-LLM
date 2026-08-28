@@ -13,6 +13,9 @@ set -e
 
 # Cross-platform WAV playback (macOS afplay, Linux ffplay/aplay/paplay)
 play_wav() {
+    # Central archive point: one clip per played utterance, every engine.
+    # The xAI chunked path suppresses this and archives the joined utterance.
+    [ "${_ARCHIVE_SUPPRESS:-0}" = "1" ] || _archive_audio "$1" spoken
     local f="$1"
     [ -f "$f" ] || return 1
     case "$(uname -s 2>/dev/null)" in
@@ -418,6 +421,42 @@ speak_gemini() {
 }
 # --- end Google Gemini TTS ----------------------------------------------------
 
+
+# --- conversation audio archive ----------------------------------------------
+# Every synthesized utterance is kept as Opus under
+# $TALK_AUDIO_DIR/<session>/, so a conversation can be replayed and later merged
+# into a single file. Opus keeps speech quality at a fraction of WAV's size.
+TALK_AUDIO_DIR="${TALK_AUDIO_DIR:-$HOME/.talk-audio}"
+TALK_AUDIO_BITRATE="${TALK_AUDIO_BITRATE:-32k}"
+
+_archive_session_dir() {
+    local s="${TALK_SESSION:-}"
+    if [ -z "$s" ]; then
+        # One session per calendar day per agent unless TALK_SESSION is set.
+        s="$(date -u +%Y-%m-%d)-${TALK_AGENT:-agent}"
+    fi
+    local d="$TALK_AUDIO_DIR/$s"
+    mkdir -p "$d" 2>/dev/null || return 1
+    printf '%s' "$d"
+}
+
+# _archive_audio <wav-or-audio-file> [role]
+_archive_audio() {
+    [ "${TALK_AUDIO_ARCHIVE:-1}" = "1" ] || return 0
+    local src="$1" role="${2:-spoken}"
+    [ -f "$src" ] && [ -s "$src" ] || return 0
+    command -v ffmpeg >/dev/null 2>&1 || return 0
+    local dir stamp out
+    dir="$(_archive_session_dir)" || return 0
+    stamp="$(date -u +%Y%m%dT%H%M%S)-$$"
+    out="$dir/${stamp}-${role}-${TALK_AGENT:-agent}.opus"
+    ffmpeg -nostdin -y -loglevel error -i "$src" \
+        -c:a libopus -b:a "$TALK_AUDIO_BITRATE" -ar 48000 -ac 1 \
+        "$out" >/dev/null 2>&1 || return 0
+    return 0
+}
+# --- end conversation audio archive ------------------------------------------
+
 speak_xai() {
     local text="$1"
     local lang="$2"
@@ -527,9 +566,25 @@ _speak_xai_chunked() {
             sleep 0.05
         done
         if [ -f "${wav_prefix}.ready" ]; then
-            play_wav "${wav_prefix}.wav"
+            _ARCHIVE_SUPPRESS=1 play_wav "${wav_prefix}.wav"
         fi
     done
+
+    # Archive the whole utterance as one file rather than per sentence.
+    if [ "${TALK_AUDIO_ARCHIVE:-1}" = "1" ] && command -v ffmpeg >/dev/null 2>&1; then
+        local list joined
+        list="${chunk_dir}/concat.txt"
+        joined="${chunk_dir}/utterance.wav"
+        : > "$list"
+        for ((i=0; i<count; i++)); do
+            wav_prefix="${chunk_dir}/chunk_$(printf '%03d' $i)"
+            [ -f "${wav_prefix}.wav" ] && printf "file '%s'\\n" "${wav_prefix}.wav" >> "$list"
+        done
+        if [ -s "$list" ] && ffmpeg -nostdin -y -loglevel error -f concat -safe 0 \
+                -i "$list" -c copy "$joined" >/dev/null 2>&1; then
+            _archive_audio "$joined" spoken
+        fi
+    fi
 
     rm -rf "$chunk_dir"
     return 0
