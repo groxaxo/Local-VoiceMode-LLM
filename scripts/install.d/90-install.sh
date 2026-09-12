@@ -8,6 +8,7 @@ if [[ "$DOCTOR_ONLY" == true ]]; then
 fi
 if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
+preflight_supertonic_source
 info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
 info "Supertonic backend policy: ${SUPERTONIC_BACKEND}$( [[ "$SUPERTONIC_INSTALL_MLX" == true ]] && printf ' (MLX assets enabled)' )"
 

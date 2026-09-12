@@ -1,4 +1,23 @@
 # shellcheck shell=bash
+SUPERTONIC_REPO_URL="${SUPERTONIC_REPO_URL:-https://github.com/groxaxo/supertonic-express-3}"
+
+preflight_supertonic_source() {
+  [[ "$SKIP_SUPERTONIC" == true || "$VENV_ONLY" == true ]] && return 0
+  # Existing checkouts retain their configured remote and normal update path.
+  [[ -d "$SUPERTONIC_DIR/.git" ]] && return 0
+  if [[ -e "$SUPERTONIC_DIR" && "$FORCE" != true ]]; then
+    die "$SUPERTONIC_DIR exists but is not a git checkout; use --force"
+  fi
+  info "Checking access to the Supertonic 3 runtime repository"
+  # Use configured credentials, but disable terminal prompts and hide probe errors.
+  if ! GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code -- "$SUPERTONIC_REPO_URL" HEAD >/dev/null 2>&1; then
+    err "Cannot access the Supertonic 3 runtime repository."
+    err "It may be private, missing, or unreachable; a GitHub login alone does not grant repository access."
+    err "Check access/network connectivity, or set SUPERTONIC_REPO_URL to a trusted compatible source."
+    die "See docs/supertonic-source.md. Use --skip-supertonic only for a partial install without local TTS."
+  fi
+}
+
 verify_supertonic_model() {
   local model="$SUPERTONIC_DIR/assets/supertonic-3" f
   [[ -s "$model/onnx/tts.json" && -s "$model/onnx/unicode_indexer.json" ]] || return 1
@@ -50,8 +69,8 @@ install_supertonic() {
   if [[ -d "$SUPERTONIC_DIR/.git" ]]; then retry 3 2 git -C "$SUPERTONIC_DIR" pull --ff-only
   elif [[ -e "$SUPERTONIC_DIR" ]]; then
     [[ "$FORCE" == true ]] || die "$SUPERTONIC_DIR exists but is not a git checkout; use --force"
-    rm -rf "$SUPERTONIC_DIR"; retry 3 2 git clone https://github.com/groxaxo/supertonic-express-3 "$SUPERTONIC_DIR"
-  else retry 3 2 git clone https://github.com/groxaxo/supertonic-express-3 "$SUPERTONIC_DIR"; fi
+    rm -rf "$SUPERTONIC_DIR"; retry 3 2 env GIT_TERMINAL_PROMPT=0 git clone -- "$SUPERTONIC_REPO_URL" "$SUPERTONIC_DIR"
+  else retry 3 2 env GIT_TERMINAL_PROMPT=0 git clone -- "$SUPERTONIC_REPO_URL" "$SUPERTONIC_DIR"; fi
   create_venv "$SUPERTONIC_VENV" Supertonic
   pip_install "$SUPERTONIC_VENV/bin/python" --upgrade pip setuptools wheel
   [[ -f "$SUPERTONIC_DIR/py/requirements.txt" ]] || die "Supertonic requirements are missing"
