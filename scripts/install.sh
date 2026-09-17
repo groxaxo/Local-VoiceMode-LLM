@@ -10,6 +10,7 @@ for module in \
   00-config.sh \
   10-common.sh \
   20-probes.sh \
+  05-supertonic-compat.sh \
   30-parakeet.sh \
   40-supertonic.sh \
   90-install.sh \
