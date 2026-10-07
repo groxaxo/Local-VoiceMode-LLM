@@ -37,8 +37,10 @@ done
 chmod +x "$SKILL_DIR"/*.sh "$SKILL_DIR"/vad_recorder.py "$SKILL_DIR"/xai_sentence_tagger.py 2>/dev/null || true
 # The backend source still supports legacy Chatterbox on :8765. Installed
 # Supertonic clients must point to this installer's selected Supertonic port.
-sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/tts_backends.sh"
-rm -f "$SKILL_DIR/tts_backends.sh.bak"
+for client in tts.sh tts_backends.sh; do
+  sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/$client"
+  rm -f "$SKILL_DIR/$client.bak"
+done
 for file in tts.sh tts_backends.sh xai_sentence_tagger.py tts_lang.sh; do
   cp "$SKILL_DIR/$file" "$CONFIG_DIR/$file"
 done

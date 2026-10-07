@@ -50,18 +50,12 @@ SERVICE
 Description=Supertonic TTS on ${SUPERTONIC_PORT}
 After=network.target
 [Service]
-ExecStart=${SUPERTONIC_VENV}/bin/python -m uvicorn api.src.main:app --host 127.0.0.1 --port ${SUPERTONIC_PORT} --app-dir ${SUPERTONIC_DIR}/py
-WorkingDirectory=${SUPERTONIC_DIR}/py
+ExecStart=${SUPERTONIC_VENV}/bin/python -m uvicorn local_voicemode_server:create_app --factory --host 127.0.0.1 --port ${SUPERTONIC_PORT} --app-dir ${SUPERTONIC_DIR}
+WorkingDirectory=${SUPERTONIC_DIR}
 Restart=always
 RestartSec=3
 Environment=HOME=${HOME}
 Environment=SUPERTONIC_MODEL_DIR=${SUPERTONIC_DIR}/assets/supertonic-3
-Environment=ONNX_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/onnx
-Environment=VOICE_STYLES_DIR=${SUPERTONIC_DIR}/assets/supertonic-3/voice_styles
-Environment=SUPERTONIC_MLX_MODEL_DIR=${SUPERTONIC_MLX_DIR}
-Environment=SUPERTONIC_MLX_AUTO_DOWNLOAD=false
-Environment=SUPERTONIC_MLX_FALLBACK_TO_ONNX=${SUPERTONIC_MLX_FALLBACK}
-Environment=USE_GPU=${USE_GPU}
 Environment=SUPERTONIC_ORT_BACKEND=${SUPERTONIC_BACKEND}
 StandardOutput=append:${CONFIG_DIR}/supertonic.log
 StandardError=append:${CONFIG_DIR}/supertonic.log

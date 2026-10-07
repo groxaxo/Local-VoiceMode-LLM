@@ -6,7 +6,6 @@ PARAKEET_DIR="${CONFIG_DIR}/parakeet-stt"
 PARAKEET_VENV="${PARAKEET_DIR}/.venv"
 SUPERTONIC_DIR="${CONFIG_DIR}/supertonic-tts"
 SUPERTONIC_VENV="${SUPERTONIC_DIR}/.venv"
-SUPERTONIC_MLX_DIR="${SUPERTONIC_MLX_MODEL_DIR:-${SUPERTONIC_DIR}/assets/supertonic-3-mlx}"
 PARAKEET_PORT="${PARAKEET_PORT:-5093}"
 SUPERTONIC_PORT="${SUPERTONIC_PORT:-8766}"
 LAUNCHD_DIR="${HOME}/Library/LaunchAgents"
@@ -54,7 +53,7 @@ Installs or repairs the local voice stack and verifies it end to end.
   --skip-supertonic     Do not install or verify Supertonic TTS
   --skip-voices         Skip optional macOS reference voice generation
   --venv-only           Install only the shared voice Python environment
-  --mlx                 Force Supertonic MLX (Apple Silicon only; strict)
+  --mlx                 Unsupported by public runtime; fails with guidance
   --onnx                Force Supertonic ONNX CPU without changing STT
   --gpu                  Use NVIDIA CUDA on supported Linux hosts
   --cpu                  Force CPU execution and Supertonic ONNX
@@ -65,7 +64,7 @@ Installs or repairs the local voice stack and verifies it end to end.
   --no-integrations      Do not install agent skills
   -h, --help             Show this help
 
-Apple Silicon defaults to Supertonic backend=auto: MLX first, ONNX CPU fallback.
+Apple Silicon uses public Supertonic ONNX CPU. MLX is unavailable.
 USAGE
 }
 
@@ -115,7 +114,7 @@ if [[ $# -eq 0 && -t 0 && -t 1 ]]; then
   printf '\n\033[1;36m  Local VoiceMode LLM — verified setup\033[0m\n\n'
   ask_yn "Parakeet STT on :${PARAKEET_PORT}" y || SKIP_PARAKEET=true
   if [[ "$PLATFORM" == macos && "$ARCH" == arm64 ]]; then
-    ask_yn "Supertonic TTS on :${SUPERTONIC_PORT} (MLX first, ONNX fallback)" y || SKIP_SUPERTONIC=true
+    ask_yn "Supertonic TTS on :${SUPERTONIC_PORT} (public ONNX CPU)" y || SKIP_SUPERTONIC=true
   else
     ask_yn "Supertonic TTS on :${SUPERTONIC_PORT}" y || SKIP_SUPERTONIC=true
   fi

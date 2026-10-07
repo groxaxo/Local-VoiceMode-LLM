@@ -1,61 +1,104 @@
-# Supertonic runtime repository access
+# Public Supertonic runtime and issue #14
 
-Related: [issue #14](https://github.com/groxaxo/Local-VoiceMode-LLM/issues/14).
+Fresh installs use `supertone-oss-archive/supertonic-py` at
+`df0f9686dac7fbbde391b759e2ee5286a3737622` (SDK 1.3.1), plus this repository's
+small `service/supertonic_server.py` adapter. No private source is included,
+published, or made accessible. The previous private runtime is not a dependency.
 
-The Unix installer clones `groxaxo/supertonic-express-3` before installing the
-Supertonic Python packages or downloading models. At the investigation on
-2026-09-12, that runtime repository was private. GitHub returns `Repository not
-found` to callers without access. This is a dependency distribution problem,
-not evidence of a broken Mac, Python installation, MLX, or ONNX.
+## Candidate evaluation
 
-## What the preflight changes
+| Requirement | ARahim3/supertonic-server @ 8707a3ad | Supertone archived SDK @ df0f9686 |
+| --- | --- | --- |
+| Speech | `/v1/audio/speech`, input/voice/speed/total_steps/lang | Speech server exists, but OpenAI schema omits total_steps; SDK accepts it |
+| Health | `/healthz`; different response shape | `/v1/health`; lacks backend reporting |
+| Assets | SDK download, Supertonic 3, F1-F5/M1-M5 | Official pinned Supertonic 3 download, same ten voices |
+| Apple Silicon | ONNX CoreML selection with CPU fallback | ONNX CPU default; no MLX |
+| License evidence | MIT declared in pyproject; no standalone LICENSE in inspected snapshot | Full MIT LICENSE supplied |
+| Layout | src package, CLI, streaming/UI dependencies, Python >=3.11 | Root package, Python >=3.9, smaller dependency surface |
 
-Fresh installs check Git access before installing Python packages or changing
-service definitions. An inaccessible source exits non-zero with guidance rather
-than doing substantial setup before failing at the clone. Git terminal prompting
-is disabled, but existing configured credentials can still be used. The probe's
-raw error and the configured URL are not echoed, to avoid leaking URL credentials.
+Choose the archived SDK with a narrow adapter: it avoids the larger alternative's
+UI/streaming dependencies and preserves the required synthesis controls. The
+archive receives no upstream maintenance; updates require explicit review.
 
-`--skip-supertonic`, `--venv-only`, `--doctor`, and `--uninstall` do not trigger the
-probe. Existing Git checkouts keep their normal `pull --ff-only` path; the override
-is not a migration mechanism. A non-Git destination still requires `--force`, and
-a failed access preflight does not delete it even with `--force`.
+The adapter implements buffered WAV only. It maps both `lang` and legacy
+`lang_code` into the SDK's `lang`; conflicts fail. `model`, `input`, `voice`,
+`speed`, `total_steps`, `response_format=wav`, and `stream=false` are validated.
+Unknown voices/languages and unsupported formats fail before inference.
+It serializes inference and rejects empty/non-finite audio. `/health` and
+`/healthz` report readiness, model, sample rate, voice count and provider lists
+from all four instantiated ONNX sessions. Provider registration does not prove
+per-node GPU utilization; no performance claim is made.
 
-**This guard does not make the runtime public or complete an external user's TTS
-installation.** The maintainer must publish a reviewed compatible runtime, or
-explicitly grant access. A GitHub login by itself does not grant permission.
-Repository visibility is not changed by this patch.
+## Assets and license
 
-## Temporary partial installation
+The SDK downloads `Supertone/supertonic-3` at
+`724fb5abbf5502583fb520898d45929e62f02c0b`, preserving the model repository's
+LICENSE and model card. Required layout is `onnx/` (four model modules, `tts.json`,
+`unicode_indexer.json`) plus `voice_styles/` with F1-F5/M1-M5. Preparation loads
+all sessions and all ten styles before writing service definitions.
 
-From the existing Local-VoiceMode-LLM checkout, to install/verify Parakeet and the
-reporter's selected integrations while deliberately leaving Supertonic out:
+SDK code is MIT, copyright Supertone Inc. Model assets are **BigScience Open
+RAIL-M**, not MIT; use and redistribution must comply with the pinned model
+license, including its use restrictions and required notices. Model weights are
+not checked into this repository. Read the [model license](https://huggingface.co/Supertone/supertonic-3/blob/724fb5abbf5502583fb520898d45929e62f02c0b/LICENSE)
+and [SDK license](https://github.com/supertone-oss-archive/supertonic-py/blob/df0f9686dac7fbbde391b759e2ee5286a3737622/LICENSE).
+
+## Installation and migration
+
+Apple Silicon defaults to public ONNX CPU. `--onnx`/`--cpu` select CPU; `--mlx`
+fails explicitly before installation. Neither candidate supplies the private
+MLX implementation. Native macOS, launchd, CoreML, MLX, and CUDA speech are not
+validated by Linux contract tests. CUDA is opt-in and fails if its provider is
+unavailable; hardware performance must be tested separately.
+
+Existing checkout remotes are preserved. A different runtime or non-Git
+Supertonic directory fails with guidance, including with `--force`; no existing
+runtime is deleted. Tracked local edits also stop installation. Re-running the
+same public installation selects the pin without pulling upstream HEAD.
+`SUPERTONIC_REPO_URL` can select a trusted mirror containing that exact commit;
+it is not an arbitrary API-compatible runtime selector.
+
+For an isolated fresh Unix install, preserving the old directory:
 
 ```bash
-./setup.sh --skip-supertonic --integrations=claudecode,opencode
+VOICE_CONFIG_DIR="$HOME/.config/local-voicemode-public" ./setup.sh --onnx --skip-voices --no-integrations
 ```
 
-This does **not** provide local Supertonic speech output. The previously created
-Parakeet launchd definition alone does not prove the transcription API is working;
-the selected backend must still pass verification. Do not delete the working
-Python environments, use `--force`, or change to `--onnx` to solve repository access.
+The installer still manages the usual service labels, so test alongside an
+existing stack only after reviewing those labels/ports. Windows uses the same
+pin and adapter on CPU; its PowerShell changes require native validation.
 
-## Maintainer-approved alternate source
+## Release gate
 
-For a fresh clone, `SUPERTONIC_REPO_URL` can select a trusted, compatible copy of
-the Supertonic **3** runtime. It must retain `py/requirements.txt`, the
-`api.src.main:app` server, the version-3 model downloaders, and (for the default
-Apple Silicon path) `py[mlx]`, `supertonic_mlx`, and the MLX downloader. An access
-probe is not a compatibility or security audit. Do not put tokens in URLs or logs.
+**Keep #14 open.** Before declaring the macOS install repaired, perform an
+anonymous fresh install on Apple Silicon, check `/health` for HTTP 200,
+`ready=true`, `model=supertonic-3`, `backend=cpu`, ten voices, and all four provider
+lists, then POST `/v1/audio/speech`. Verify a parseable WAV with non-zero frames
+and non-silent samples; listen to it. Test English and Spanish, speed, steps,
+and a restart. Package/import success and synthetic-engine tests do not satisfy
+this gate. MLX remains unavailable; do not claim it was validated.
 
-The public `groxaxo/supertonic-express` repository targets Supertonic **2** and is
-not a validated drop-in replacement. There is no automatic fallback to that repo.
-The model-assets repository `groxaxo/supertonic-3-v2` is not the runtime server.
+## Validation on 8 October 2026 (Auckland)
 
-After a reviewed runtime is publicly accessible, verify an unauthenticated clone
-and perform a fresh Apple Silicon installation, a real `/v1/audio/speech` WAV
-request, and `/health` inspection. See [macOS verification](macos-repair.md).
-Do not mark the original issue resolved based on preflight tests alone.
+- Public pinned SDK installed/imported in a fresh Linux Python 3.12 environment.
+- 91 non-wrapper tests pass; shell/static checks, plist XML parsing, and diff
+  whitespace checks pass. Tests use a synthetic engine, not model speech.
+- Full suite: the five existing xAI-wrapper failures also reproduce with the
+  unchanged PR #15 `tts.sh`; they are not marked skipped or fixed here.
+- An anonymous model download began but did not complete. Automatic approval
+  review rejected an incidental Microsoft telemetry destination. No workaround
+  was attempted and no real WAV/health result is claimed.
+- Native macOS, launchd, Windows PowerShell, CUDA/CoreML/MLX, and anonymous full
+  setup remain untested. PR stays draft and issue #14 stays open.
 
-The separate Windows installer (`setup.ps1`) also references the private runtime;
-this narrowly scoped Unix patch does not change Windows behavior.
+To reproduce the available contract checks, install the pinned public SDK's
+`serve` extra plus `pytest` and `httpx`, then run:
+
+```bash
+python -m pytest -q
+bash tests/test_setup_static.sh
+git diff --check
+```
+
+The full pytest command retains and reports the known xAI-wrapper failures.
+No GitHub Actions are required or used for this validation.

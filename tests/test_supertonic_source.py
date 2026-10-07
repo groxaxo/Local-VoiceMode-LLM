@@ -11,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "scripts/install.d/40-supertonic.sh"
 INSTALL = ROOT / "scripts/install.d/90-install.sh"
-DEFAULT_URL = "https://github.com/groxaxo/supertonic-express-3"
+DEFAULT_URL = "https://github.com/supertone-oss-archive/supertonic-py.git"
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="Unix installer tests")
 
 
@@ -23,6 +23,7 @@ def env(tmp_path: Path) -> dict[str, str]:
     git.write_text('''#!/usr/bin/env bash
 printf 'PROMPT=%s\\n' "${GIT_TERMINAL_PROMPT-unset}" >> "$GIT_CALLS"
 printf '<%s>\\n' "$@" >> "$GIT_CALLS"
+if [[ "${1-}" == -C && "${3-}" == remote ]]; then printf '%s\\n' "${FAKE_REMOTE:-$SUPERTONIC_REPO_URL}"; fi
 printf '%s\\n' "${FAKE_GIT_STDERR-}" >&2
 exit "${FAKE_GIT_EXIT:-0}"
 ''')
@@ -140,32 +141,25 @@ def test_conflict_without_force_is_rejected_without_network(env: dict[str, str])
     assert not calls(env)
 
 
-def test_existing_checkout_keeps_normal_pull_path(env: dict[str, str]) -> None:
+def test_existing_checkout_does_not_migrate_remote(env):
     (Path(env["SUPERTONIC_DIR"]) / ".git").mkdir(parents=True)
-    env["SUPERTONIC_REPO_URL"] = "https://example.invalid/not-a-migration.git"
-    result = run_shell(env, "preflight_supertonic_source\ninstall_supertonic")
-    assert result.returncode == 91, result.stderr
-    assert "<ls-remote>" not in calls(env)
+    env["FAKE_REMOTE"] = "https://example.invalid/not-a-migration.git"
+    result = run_shell(env, "preflight_supertonic_source")
+    assert result.returncode == 1
+    assert "differs" in result.stderr
     assert "<clone>" not in calls(env)
-    assert "<pull>\n<--ff-only>" in calls(env)
-    assert "not-a-migration" not in calls(env)
+    assert "<pull>" not in calls(env)
 
 
-@pytest.mark.parametrize("force", [False, True])
-def test_both_clone_paths_use_checked_override(env: dict[str, str], force: bool) -> None:
-    # Spaces exercise shell argument quoting, without any real network access.
-    url = "/trusted local/runtime source"
-    env["SUPERTONIC_REPO_URL"] = url
-    if force:
-        Path(env["SUPERTONIC_DIR"]).mkdir(parents=True)
-        env["FORCE"] = "true"
-    result = run_shell(env, "preflight_supertonic_source\ninstall_supertonic")
-    assert result.returncode == 91, result.stderr
-    trace = calls(env)
-    assert trace.count(f"<{url}>") == 2
-    assert f"<clone>\n<-->\n<{url}>\n<{env['SUPERTONIC_DIR']}>" in trace
-    assert trace.count("PROMPT=0") == 2
-    assert DEFAULT_URL not in trace
+def test_force_preserves_conflicting_destination_even_with_public_access(env):
+    target = Path(env["SUPERTONIC_DIR"])
+    target.mkdir(parents=True)
+    (target/"keep-me").write_text("existing data")
+    env["FORCE"] = "true"
+    result = run_shell(env, "preflight_supertonic_source")
+    assert result.returncode == 1
+    assert (target/"keep-me").read_text() == "existing data"
+    assert not calls(env)
 
 
 @pytest.mark.parametrize("has_commit", [False, True])
@@ -186,3 +180,22 @@ def test_probe_against_real_local_git(env: dict[str, str], tmp_path: Path, has_c
     env["SUPERTONIC_REPO_URL"] = str(repo)
     result = run_shell(env, "preflight_supertonic_source")
     assert result.returncode == (0 if has_commit else 1), result.stderr
+
+
+def test_fresh_clone_selects_public_pin_before_packages(env):
+    result=run_shell(env,'preflight_supertonic_source\ninstall_supertonic')
+    assert result.returncode == 91, result.stderr
+    trace=calls(env)
+    assert '<clone>\n<-->\n<'+DEFAULT_URL+'>' in trace
+    assert '<checkout>\n<--detach>\n<df0f9686dac7fbbde391b759e2ee5286a3737622>' in trace
+    assert '<pull>' not in trace
+
+
+def test_matching_public_checkout_never_pulls_moving_head(env):
+    (Path(env['SUPERTONIC_DIR'])/'.git').mkdir(parents=True)
+    env['SUPERTONIC_REPO_URL']=DEFAULT_URL
+    result=run_shell(env,'preflight_supertonic_source\ninstall_supertonic')
+    assert result.returncode == 91, result.stderr
+    assert '<checkout>\n<--detach>' in calls(env)
+    assert '<pull>' not in calls(env)
+    assert '<clone>' not in calls(env)

@@ -39,27 +39,17 @@ def test_supertonic_paths_and_port_are_consistent() -> None:
     installer = installer_text()
     plist = SUPERTONIC_PLIST.read_text(encoding="utf-8")
     assert 'SUPERTONIC_PORT="${SUPERTONIC_PORT:-8766}"' in installer
-    assert "assets/supertonic-3/onnx" in installer
-    assert "assets/supertonic-3/voice_styles" in installer
-    assert "assets/supertonic-3-mlx" in installer
-    assert "assets/supertonic-3/onnx" in plist
-    assert "assets/supertonic-3/voice_styles" in plist
-    assert "assets/supertonic-3-mlx" in plist
     assert "127.0.0.1" in plist
 
 
-def test_apple_silicon_mlx_policy_and_fallback_are_present() -> None:
+def test_public_backend_policy_is_explicit() -> None:
     installer = installer_text()
     plist = SUPERTONIC_PLIST.read_text(encoding="utf-8")
-    assert "SUPERTONIC_INSTALL_MLX=true" in installer
-    assert "SUPERTONIC_BACKEND=auto" in installer
-    assert "SUPERTONIC_BACKEND=mlx" in installer
-    assert "SUPERTONIC_BACKEND=cpu" in installer
-    assert 'py[mlx]' in installer
-    assert "mlx-community/supertonic-3" in installer
-    assert "SUPERTONIC_MLX_FALLBACK_TO_ONNX" in installer
-    assert "SUPERTONIC_MLX_FALLBACK_TO_ONNX" in plist
-    assert "<string>auto</string>" in plist
+    assert '--mlx is unavailable' in installer
+    assert 'SUPERTONIC_BACKEND=cpu' in installer
+    assert 'local_voicemode_server:create_app' in plist
+    assert '<string>cpu</string>' in plist
+    assert 'supertonic-express-3' not in installer
 
 
 def test_installer_uses_real_api_probes_and_reports_backend() -> None:

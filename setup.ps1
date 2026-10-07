@@ -209,51 +209,44 @@ if (-not $SkipParakeet) {
 
 if (-not $SkipSupertonic) {
     Write-Info 'Installing local Supertonic TTS...'
+    $publicSource = 'https://github.com/supertone-oss-archive/supertonic-py.git'
+    $publicRevision = 'df0f9686dac7fbbde391b759e2ee5286a3737622'
     if (Test-Path (Join-Path $SupertonicDir '.git')) {
-        Invoke-Native git @('-C', $SupertonicDir, 'pull', '--ff-only')
+        $remote = (& git -C $SupertonicDir remote get-url origin)
+        if ($LASTEXITCODE -ne 0 -or $remote -ne $publicSource) {
+            throw 'Existing Supertonic runtime is preserved. Choose a fresh ConfigDir for the public runtime.'
+        }
+        $dirty = (& git -C $SupertonicDir status --porcelain --untracked-files=no)
+        if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Supertonic checkout has local changes; preserved.' }
+    } elseif (Test-Path $SupertonicDir) {
+        throw 'Existing Supertonic directory is preserved. Choose a fresh ConfigDir.'
     } else {
-        if (Test-Path $SupertonicDir) { Remove-Item $SupertonicDir -Recurse -Force }
-        Invoke-Native git @('clone', 'https://github.com/groxaxo/supertonic-express-3', $SupertonicDir)
+        $env:GIT_TERMINAL_PROMPT = '0'
+        Invoke-Native git @('clone', '--', $publicSource, $SupertonicDir)
     }
+    Invoke-Native git @('-C', $SupertonicDir, 'checkout', '--detach', $publicRevision)
     $supertonicVenv = Join-Path $SupertonicDir '.venv'
     $supertonicPython = New-PythonEnvironment $Python $supertonicVenv
-    Invoke-Native $supertonicPython @('-m', 'pip', 'install', '--quiet', '-r', (Join-Path $SupertonicDir 'py\requirements.txt'))
+    Invoke-Native $supertonicPython @('-m', 'pip', 'install', '--quiet', "$SupertonicDir`[serve`]")
     Invoke-Native $supertonicPython @('-c', 'import onnxruntime; print(onnxruntime.__version__)')
-
     $modelDir = Join-Path $SupertonicDir 'assets\supertonic-3'
-    $onnxDir = Join-Path $modelDir 'onnx'
-    $voiceDir = Join-Path $modelDir 'voice_styles'
-    $modelFiles = 'duration_predictor.onnx', 'text_encoder.onnx', 'vector_estimator.onnx', 'vocoder.onnx'
-    $modelReady = $true
-    foreach ($file in $modelFiles) {
-        $path = Join-Path $onnxDir $file
-        if (-not (Test-Path $path) -or (Get-Item $path).Length -lt 1000000) { $modelReady = $false }
-    }
-    if (-not $modelReady -or -not (Test-Path (Join-Path $onnxDir 'tts.json'))) {
-        New-Item -ItemType Directory -Force -Path $onnxDir, $voiceDir | Out-Null
-        $media = 'https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main'
-        $raw = 'https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main'
-        foreach ($file in $modelFiles) { Invoke-WebRequest -Uri "$media/onnx/$file" -OutFile (Join-Path $onnxDir $file) -UseBasicParsing }
-        foreach ($file in 'tts.json', 'unicode_indexer.json') { Invoke-WebRequest -Uri "$raw/onnx/$file" -OutFile (Join-Path $onnxDir $file) -UseBasicParsing }
-        foreach ($voice in 'F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5') {
-            Invoke-WebRequest -Uri "$raw/voice_styles/$voice.json" -OutFile (Join-Path $voiceDir "$voice.json") -UseBasicParsing
-        }
-    }
+    Copy-Item (Join-Path $RepoDir 'service\supertonic_server.py') (Join-Path $SupertonicDir 'local_voicemode_server.py') -Force
+    $env:SUPERTONIC_MODEL_DIR = $modelDir
+    $env:SUPERTONIC_ORT_BACKEND = 'cpu'
+    Invoke-Native $supertonicPython @((Join-Path $SupertonicDir 'local_voicemode_server.py'), '--prepare')
     if ($SkipVoices) { Write-Warn '-SkipVoices is retained for compatibility; bundled Supertonic style files are still required.' }
     $wrapper = Join-Path $SupertonicDir 'start-windows.ps1'
     $lines = @(
         "`$env:SUPERTONIC_MODEL_DIR = $(ConvertTo-PowerShellLiteral $modelDir)",
-        "`$env:ONNX_DIR = $(ConvertTo-PowerShellLiteral $onnxDir)",
-        "`$env:VOICE_STYLES_DIR = $(ConvertTo-PowerShellLiteral $voiceDir)",
         "`$env:USE_GPU = 'false'",
         "`$env:SUPERTONIC_ORT_BACKEND = 'cpu'",
         "`$env:PYTHONUNBUFFERED = '1'",
-        "Set-Location $(ConvertTo-PowerShellLiteral (Join-Path $SupertonicDir 'py'))",
-        "& $(ConvertTo-PowerShellLiteral $supertonicPython) -m uvicorn api.src.main:app --host 127.0.0.1 --port $SupertonicPort --app-dir $(ConvertTo-PowerShellLiteral (Join-Path $SupertonicDir 'py')) *>> $(ConvertTo-PowerShellLiteral (Join-Path $ConfigDir 'supertonic.log'))",
+        "Set-Location $(ConvertTo-PowerShellLiteral $SupertonicDir)",
+        "& $(ConvertTo-PowerShellLiteral $supertonicPython) -m uvicorn local_voicemode_server:create_app --factory --host 127.0.0.1 --port $SupertonicPort --app-dir $(ConvertTo-PowerShellLiteral $SupertonicDir) *>> $(ConvertTo-PowerShellLiteral (Join-Path $ConfigDir 'supertonic.log'))",
         'exit $LASTEXITCODE'
     )
     Set-Content $wrapper $lines -Encoding UTF8
-    Register-VoiceTask 'OpenCode-Supertonic' $wrapper (Join-Path $SupertonicDir 'py') "Supertonic ONNX TTS on 127.0.0.1:$SupertonicPort"
+    Register-VoiceTask 'OpenCode-Supertonic' $wrapper $SupertonicDir "Supertonic ONNX TTS on 127.0.0.1:$SupertonicPort"
     $installedTasks.Add('OpenCode-Supertonic')
 }
 
@@ -300,7 +293,20 @@ foreach ($taskName in $installedTasks) {
     Write-Info "Started $taskName"
 }
 if (-not $SkipParakeet) { [void](Wait-Endpoint 'Parakeet STT' "http://127.0.0.1:$ParakeetPort/health") }
-if (-not $SkipSupertonic) { [void](Wait-Endpoint 'Supertonic TTS' "http://127.0.0.1:$SupertonicPort/health") }
+if (-not $SkipSupertonic) {
+    [void](Wait-Endpoint 'Supertonic TTS' "http://127.0.0.1:$SupertonicPort/health")
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$SupertonicPort/health"
+    if (-not $health.ready -or $health.model -ne 'supertonic-3' -or $health.backend -ne 'cpu') {
+        throw 'Supertonic health did not confirm the expected public CPU backend.'
+    }
+    $probeWav = [System.IO.Path]::GetTempFileName()
+    try {
+        $request = @{model='supertonic-3'; input='Voice setup test.'; voice='F3'; lang='en';
+                     speed=1.05; total_steps=8; response_format='wav'; stream=$false} | ConvertTo-Json
+        Invoke-WebRequest -Uri "http://127.0.0.1:$SupertonicPort/v1/audio/speech" -Method Post -ContentType 'application/json' -Body $request -OutFile $probeWav -UseBasicParsing
+        Invoke-Native $supertonicPython @('-c', 'import sys,wave; w=wave.open(sys.argv[1]); assert w.getnframes()>0; assert any(w.readframes(w.getnframes()))', $probeWav)
+    } finally { Remove-Item $probeWav -Force -ErrorAction SilentlyContinue }
+}
 
 Write-Host ''
 Write-Ok 'Windows setup finished.'
