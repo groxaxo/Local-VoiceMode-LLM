@@ -1,4 +1,6 @@
 # shellcheck shell=bash
+# Suppress telemetry before any SDK/import validation initializes ONNX Runtime.
+export ORT_DISABLE_TELEMETRY=1
 require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 retry() {
   local attempts="$1" delay="$2" n=1; shift 2

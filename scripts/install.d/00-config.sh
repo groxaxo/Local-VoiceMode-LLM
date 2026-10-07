@@ -34,6 +34,7 @@ VENV_ONLY=false
 FORCE=false
 UNINSTALL=false
 DOCTOR_ONLY=false
+CHECK_INSTALL=false
 ACCEL_CHOICE=auto
 SUPERTONIC_BACKEND_CHOICE=auto
 INTEGRATE_CLAUDECODE=true
@@ -58,6 +59,7 @@ Installs or repairs the local voice stack and verifies it end to end.
   --gpu                  Use NVIDIA CUDA on supported Linux hosts
   --cpu                  Force CPU execution and Supertonic ONNX
   --force, -f            Replace conflicting managed service definitions
+  --check-install       Verify a temporary install without registering services
   --doctor               Diagnose currently installed services only
   --uninstall            Stop services; add --force to remove managed files
   --integrations=LIST    claudecode,opencode,openclaw,hermes,codex
@@ -79,6 +81,7 @@ for arg in "$@"; do
     --gpu) ACCEL_CHOICE=gpu ;;
     --cpu) ACCEL_CHOICE=cpu; SUPERTONIC_BACKEND_CHOICE=cpu ;;
     --force|-f) FORCE=true ;;
+    --check-install) CHECK_INSTALL=true ;;
     --doctor) DOCTOR_ONLY=true ;;
     --uninstall) UNINSTALL=true ;;
     --integrations=*) INTEGRATIONS_ARG="${arg#--integrations=}" ;;

@@ -6,6 +6,8 @@ Only buffered WAV is required by Local VoiceMode. Inference is serialized.
 from contextlib import asynccontextmanager
 import io
 import os
+# Opt out before ONNX Runtime initialization, including its minimal init event.
+os.environ["ORT_DISABLE_TELEMETRY"] = "1"
 import threading
 
 from fastapi import FastAPI, HTTPException
@@ -38,6 +40,7 @@ class SpeechRequest(BaseModel):
 
 def load_engine():
     import onnxruntime as ort
+    ort.disable_telemetry_events()
     import supertonic.loader as loader
     import supertonic.config as config
     from supertonic import TTS

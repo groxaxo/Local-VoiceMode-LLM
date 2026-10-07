@@ -113,3 +113,14 @@ speak_supertonic "$2" es
     payload=json.loads((tmp_path/'payload').read_text())
     assert payload == {'model':'supertonic-3','input':'Hola "capo"\n\\','voice':'M5',
                        'response_format':'wav','stream':False,'total_steps':12,'speed':1.2,'lang':'es'}
+
+
+def test_telemetry_opt_out_precedes_onnx_import(monkeypatch):
+    import os, onnxruntime
+    events=[]
+    monkeypatch.setattr(onnxruntime,'disable_telemetry_events',lambda:events.append('disabled'))
+    monkeypatch.setenv('SUPERTONIC_ORT_BACKEND','unsupported')
+    with pytest.raises(RuntimeError):
+        adapter.load_engine()
+    assert os.environ['ORT_DISABLE_TELEMETRY']=='1'
+    assert events==['disabled']

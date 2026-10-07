@@ -10,10 +10,13 @@ if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
 preflight_supertonic_source
 info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
-info "Supertonic backend policy: ${SUPERTONIC_BACKEND}$( [[ "$SUPERTONIC_INSTALL_MLX" == true ]] && printf ' (MLX assets enabled)' )"
+info "Supertonic backend policy: ${SUPERTONIC_BACKEND}"
 
 create_venv "$VENV_DIR" "Voice core"
 pip_install "$VENV_DIR/bin/python" --upgrade pip setuptools wheel
+if [[ "$ACCEL" == cpu ]]; then
+  pip_install "$VENV_DIR/bin/python" torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+fi
 pip_install "$VENV_DIR/bin/python" silero-vad sounddevice onnxruntime torch torchaudio numpy
 validate_imports "$VENV_DIR/bin/python" "Voice core" numpy onnxruntime torch silero_vad
 if [[ "$VENV_ONLY" == true ]]; then ok "Voice venv setup completed"; exit 0; fi

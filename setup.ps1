@@ -209,6 +209,7 @@ if (-not $SkipParakeet) {
 
 if (-not $SkipSupertonic) {
     Write-Info 'Installing local Supertonic TTS...'
+    $env:ORT_DISABLE_TELEMETRY = '1'
     $publicSource = 'https://github.com/supertone-oss-archive/supertonic-py.git'
     $publicRevision = 'df0f9686dac7fbbde391b759e2ee5286a3737622'
     if (Test-Path (Join-Path $SupertonicDir '.git')) {
@@ -239,6 +240,7 @@ if (-not $SkipSupertonic) {
     $lines = @(
         "`$env:SUPERTONIC_MODEL_DIR = $(ConvertTo-PowerShellLiteral $modelDir)",
         "`$env:USE_GPU = 'false'",
+        "`$env:ORT_DISABLE_TELEMETRY = '1'",
         "`$env:SUPERTONIC_ORT_BACKEND = 'cpu'",
         "`$env:PYTHONUNBUFFERED = '1'",
         "Set-Location $(ConvertTo-PowerShellLiteral $SupertonicDir)",

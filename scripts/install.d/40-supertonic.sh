@@ -55,7 +55,7 @@ install_supertonic() {
   SUPERTONIC_MODEL_DIR="$SUPERTONIC_DIR/assets/supertonic-3" SUPERTONIC_ORT_BACKEND="$SUPERTONIC_BACKEND" \
     "$SUPERTONIC_VENV/bin/python" "$SUPERTONIC_DIR/local_voicemode_server.py" --prepare
 
-  [[ "$PLATFORM" == macos ]] || return 0
+  [[ "$PLATFORM" == macos && "$CHECK_INSTALL" == false ]] || return 0
   local plist="$LAUNCHD_DIR/com.opencode.supertonic.plist"
   if [[ -f "$plist" ]] && ! grep -Fq "$SUPERTONIC_DIR" "$plist" && [[ "$FORCE" == false ]]; then die "Conflicting Supertonic plist exists; use --force"; fi
   export SUPERTONIC_DIR SUPERTONIC_VENV SUPERTONIC_PORT SUPERTONIC_BACKEND CONFIG_DIR
@@ -72,7 +72,7 @@ data = {
                          '--port', c['SUPERTONIC_PORT'], '--app-dir', root],
     'EnvironmentVariables': {'HOME': c['HOME'], 'PATH': c['SUPERTONIC_VENV']+'/bin:/usr/bin:/bin',
                              'SUPERTONIC_MODEL_DIR': root+'/assets/supertonic-3',
-                             'SUPERTONIC_ORT_BACKEND': c['SUPERTONIC_BACKEND']},
+                             'SUPERTONIC_ORT_BACKEND': c['SUPERTONIC_BACKEND'], 'ORT_DISABLE_TELEMETRY': '1'},
     'RunAtLoad': True, 'KeepAlive': True, 'WorkingDirectory': root,
     'StandardOutPath': c['CONFIG_DIR']+'/supertonic.log',
     'StandardErrorPath': c['CONFIG_DIR']+'/supertonic.log',

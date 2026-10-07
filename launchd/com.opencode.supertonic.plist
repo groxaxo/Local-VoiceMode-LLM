@@ -8,6 +8,8 @@
 		<string>HOME_PLACEHOLDER</string>
 		<key>LOG_LEVEL</key>
 		<string>INFO</string>
+		<key>ORT_DISABLE_TELEMETRY</key>
+		<string>1</string>
 		<key>PATH</key>
 		<string>HOME_PLACEHOLDER/.config/opencode/supertonic-tts/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
 		<key>SUPERTONIC_MODEL_DIR</key>

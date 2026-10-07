@@ -20,7 +20,7 @@ install_parakeet() {
   if "$PARAKEET_VENV/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,13) else 1)'; then pip_install "$PARAKEET_VENV/bin/python" audioop-lts; fi
   validate_imports "$PARAKEET_VENV/bin/python" Parakeet fastapi uvicorn multipart onnxruntime
 
-  [[ "$PLATFORM" == macos ]] || return 0
+  [[ "$PLATFORM" == macos && "$CHECK_INSTALL" == false ]] || return 0
   local plist="$LAUNCHD_DIR/com.opencode.parakeet-stt.plist"
   if [[ -f "$plist" ]] && ! grep -Fq "$PARAKEET_DIR" "$plist" && [[ "$FORCE" == false ]]; then
     PARAKEET_EXTERNAL=true

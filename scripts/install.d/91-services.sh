@@ -14,7 +14,28 @@ load_launchd_service() {
   ok "launchd started: $label"
 }
 
-if [[ "$PLATFORM" == macos ]]; then
+if [[ "$CHECK_INSTALL" == true ]]; then
+  # Temporary real API processes; no launchd/systemd labels are registered.
+  PROBE_PIDS=()
+  cleanup_install_check() {
+    local pid
+    for pid in "${PROBE_PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
+    for pid in "${PROBE_PIDS[@]}"; do wait "$pid" 2>/dev/null || true; done
+  }
+  trap cleanup_install_check EXIT
+  if [[ "$SKIP_PARAKEET" == false ]]; then
+    PARAKEET_PORT="$PARAKEET_PORT" PARAKEET_USE_GPU="$USE_GPU" \
+      "$PARAKEET_VENV/bin/python" "$PARAKEET_DIR/server.py" > "$CONFIG_DIR/parakeet-stt.log" 2>&1 &
+    PROBE_PIDS+=("$!")
+  fi
+  if [[ "$SKIP_SUPERTONIC" == false ]]; then
+    SUPERTONIC_MODEL_DIR="$SUPERTONIC_DIR/assets/supertonic-3" SUPERTONIC_ORT_BACKEND="$SUPERTONIC_BACKEND" \
+      "$SUPERTONIC_VENV/bin/python" -m uvicorn local_voicemode_server:create_app --factory \
+      --host 127.0.0.1 --port "$SUPERTONIC_PORT" --app-dir "$SUPERTONIC_DIR" > "$CONFIG_DIR/supertonic.log" 2>&1 &
+    PROBE_PIDS+=("$!")
+  fi
+  info "Verifying temporary API services (no persistent services registered)"
+elif [[ "$PLATFORM" == macos ]]; then
   info "── Starting macOS services ──"
   if [[ "$SKIP_PARAKEET" == false ]]; then
     if [[ "$PARAKEET_EXTERNAL" == true ]]; then info "Existing Parakeet-compatible service left untouched"
@@ -35,6 +56,7 @@ ExecStart=${PARAKEET_VENV}/bin/python ${PARAKEET_DIR}/server.py
 WorkingDirectory=${PARAKEET_DIR}
 Restart=always
 RestartSec=3
+Environment=ORT_DISABLE_TELEMETRY=1
 Environment=HOME=${HOME}
 Environment=PARAKEET_PORT=${PARAKEET_PORT}
 Environment=PARAKEET_USE_GPU=${USE_GPU}
@@ -54,6 +76,7 @@ ExecStart=${SUPERTONIC_VENV}/bin/python -m uvicorn local_voicemode_server:create
 WorkingDirectory=${SUPERTONIC_DIR}
 Restart=always
 RestartSec=3
+Environment=ORT_DISABLE_TELEMETRY=1
 Environment=HOME=${HOME}
 Environment=SUPERTONIC_MODEL_DIR=${SUPERTONIC_DIR}/assets/supertonic-3
 Environment=SUPERTONIC_ORT_BACKEND=${SUPERTONIC_BACKEND}
