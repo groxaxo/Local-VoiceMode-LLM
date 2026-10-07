@@ -43,7 +43,7 @@ install_supertonic() {
   git -C "$SUPERTONIC_DIR" checkout --detach "$SUPERTONIC_REVISION"
   create_venv "$SUPERTONIC_VENV" Supertonic
   pip_install "$SUPERTONIC_VENV/bin/python" --upgrade pip setuptools wheel
-  pip_install "$SUPERTONIC_VENV/bin/python" "${SUPERTONIC_DIR}[serve]"
+  pip_install "$SUPERTONIC_VENV/bin/python" "${SUPERTONIC_DIR}[serve]" socksio
   if [[ "$SUPERTONIC_BACKEND" == cuda ]]; then
     "$SUPERTONIC_VENV/bin/python" -m pip uninstall -y onnxruntime
     pip_install "$SUPERTONIC_VENV/bin/python" onnxruntime-gpu

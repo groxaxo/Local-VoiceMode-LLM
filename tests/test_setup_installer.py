@@ -72,3 +72,11 @@ def test_parakeet_template_uses_local_managed_paths() -> None:
     assert ".config/opencode/parakeet-stt/.venv/bin/python" in plist
     assert "PARAKEET_PORT" in plist
     assert "5093" in plist
+
+
+def test_cpu_parakeet_requirements_drop_gpu_only_packages() -> None:
+    import re
+    module=(MODULE_DIR/'30-parakeet.sh').read_text()
+    transform=re.search(r"sed -E '([^']+)'",module).group(1)
+    result=subprocess.run(['sed','-E',transform],input='onnxruntime-gpu[cuda,cudnn]==1.23.2\ntensorrt-cu12==10.9.0.34\nfastapi>=0.115\n',text=True,capture_output=True,check=True)
+    assert result.stdout=='onnxruntime==1.23.2\nfastapi>=0.115\n'

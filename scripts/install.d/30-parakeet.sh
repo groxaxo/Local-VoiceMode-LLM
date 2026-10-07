@@ -10,10 +10,13 @@ install_parakeet() {
   else retry 3 2 git clone https://github.com/groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai "$PARAKEET_DIR"; fi
   create_venv "$PARAKEET_VENV" Parakeet
   pip_install "$PARAKEET_VENV/bin/python" --upgrade pip setuptools wheel
+  if [[ "$ACCEL" == cpu ]]; then
+    pip_install "$PARAKEET_VENV/bin/python" torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+  fi
   [[ -f "$PARAKEET_DIR/requirements.txt" ]] || die "Parakeet requirements.txt is missing"
   if [[ "$ACCEL" == cuda ]]; then pip_install "$PARAKEET_VENV/bin/python" -r "$PARAKEET_DIR/requirements.txt"
   else
-    sed -E 's/^onnxruntime-gpu([^[:space:]]*)/onnxruntime/' "$PARAKEET_DIR/requirements.txt" > "$PARAKEET_DIR/requirements-cpu.txt"
+    sed -E '/^tensorrt/ d; s/^onnxruntime-gpu(\[[^]]*\])?/onnxruntime/' "$PARAKEET_DIR/requirements.txt" > "$PARAKEET_DIR/requirements-cpu.txt"
     pip_install "$PARAKEET_VENV/bin/python" -r "$PARAKEET_DIR/requirements-cpu.txt"
   fi
   pip_install "$PARAKEET_VENV/bin/python" 'uvicorn[standard]' fastapi python-multipart silero-vad
