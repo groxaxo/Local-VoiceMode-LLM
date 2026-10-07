@@ -80,19 +80,30 @@ this gate. MLX remains unavailable; do not claim it was validated.
 
 ## Validation on 8 October 2026 (Auckland)
 
-- Public pinned SDK installed/imported in a fresh Linux Python 3.12 environment.
-- 91 non-wrapper tests pass; shell/static checks, plist XML parsing, and diff
-  whitespace checks pass. Tests use a synthetic engine, not model speech.
-- Full suite: the five existing xAI-wrapper failures also reproduce with the
-  unchanged PR #15 `tts.sh`; they are not marked skipped or fixed here.
-- An anonymous model download began but did not complete. Automatic approval
-  review rejected an incidental Microsoft telemetry destination. No workaround
-  was attempted and no real WAV/health result is claimed.
-- Native macOS, launchd, Windows PowerShell, CUDA/CoreML/MLX, and anonymous full
-  setup remain untested. PR stays draft and issue #14 stays open.
+The anonymous Linux installation now passes with exit code 0. Real English and
+Spanish synthesis, expected /health and /healthz results, synthesis after server
+restart, and generated-speech transcription all pass. The test started from an
+empty isolated home and fresh environments; installer issues found during the
+run were fixed and published, and installation resumed without importing
+existing model assets. See [the verification report](anonymous-install-verification.md)
+for exact source commit, methodology, WAV metrics and remaining limitations.
 
-To reproduce the available contract checks, install the pinned public SDK's
-`serve` extra plus `pytest` and `httpx`, then run:
+The earlier telemetry rejection was addressed using ONNX Runtime's documented
+`ORT_DISABLE_TELEMETRY=1` process-wide opt-out before any runtime import, plus
+API event suppression. Both the installed runtime binary and official upstream
+privacy documentation support the environment opt-out. No telemetry destination
+was authorized or bypassed.
+
+`--check-install` starts temporary localhost API processes, runs the installer
+probes, and stops them on exit, without registering persistent services. It still
+installs the selected stack and skill files into VOICE_CONFIG_DIR. Use isolated
+HOME/config/cache paths, unused ports and `--no-integrations` for a bounded test.
+
+94 non-wrapper regression tests pass, as do shell/static, plist and whitespace
+checks. Five existing xAI-wrapper failures remain; the unchanged earlier tts.sh
+reproduces them. Native macOS/launchd, Windows, CUDA/CoreML/MLX, physical audio
+capture/playback and human listening remain untested. Keep #14 open and PR #15
+draft until the Apple Silicon release gate passes.
 
 ```bash
 python -m pytest -q
@@ -100,5 +111,5 @@ bash tests/test_setup_static.sh
 git diff --check
 ```
 
-The full pytest command retains and reports the known xAI-wrapper failures.
-No GitHub Actions are required or used for this validation.
+The full pytest command reports the existing xAI-wrapper failures. No GitHub
+Actions are used.
