@@ -19,7 +19,7 @@ install_parakeet() {
     sed -E '/^tensorrt/ d; s/^onnxruntime-gpu(\[[^]]*\])?/onnxruntime/' "$PARAKEET_DIR/requirements.txt" > "$PARAKEET_DIR/requirements-cpu.txt"
     pip_install "$PARAKEET_VENV/bin/python" -r "$PARAKEET_DIR/requirements-cpu.txt"
   fi
-  pip_install "$PARAKEET_VENV/bin/python" 'uvicorn[standard]' fastapi python-multipart silero-vad
+  pip_install "$PARAKEET_VENV/bin/python" 'uvicorn[standard]' fastapi python-multipart silero-vad socksio
   if "$PARAKEET_VENV/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,13) else 1)'; then pip_install "$PARAKEET_VENV/bin/python" audioop-lts; fi
   validate_imports "$PARAKEET_VENV/bin/python" Parakeet fastapi uvicorn multipart onnxruntime
 
