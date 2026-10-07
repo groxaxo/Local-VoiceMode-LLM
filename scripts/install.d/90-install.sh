@@ -8,11 +8,15 @@ if [[ "$DOCTOR_ONLY" == true ]]; then
 fi
 if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
+preflight_supertonic_source
 info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
-info "Supertonic backend policy: ${SUPERTONIC_BACKEND}$( [[ "$SUPERTONIC_INSTALL_MLX" == true ]] && printf ' (MLX assets enabled)' )"
+info "Supertonic backend policy: ${SUPERTONIC_BACKEND}"
 
 create_venv "$VENV_DIR" "Voice core"
 pip_install "$VENV_DIR/bin/python" --upgrade pip setuptools wheel
+if [[ "$ACCEL" == cpu ]]; then
+  pip_install "$VENV_DIR/bin/python" torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+fi
 pip_install "$VENV_DIR/bin/python" silero-vad sounddevice onnxruntime torch torchaudio numpy
 validate_imports "$VENV_DIR/bin/python" "Voice core" numpy onnxruntime torch silero_vad
 if [[ "$VENV_ONLY" == true ]]; then ok "Voice venv setup completed"; exit 0; fi
@@ -36,8 +40,10 @@ done
 chmod +x "$SKILL_DIR"/*.sh "$SKILL_DIR"/vad_recorder.py "$SKILL_DIR"/xai_sentence_tagger.py 2>/dev/null || true
 # The backend source still supports legacy Chatterbox on :8765. Installed
 # Supertonic clients must point to this installer's selected Supertonic port.
-sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/tts_backends.sh"
-rm -f "$SKILL_DIR/tts_backends.sh.bak"
+for client in tts.sh tts_backends.sh; do
+  sed -E -i.bak "s#SUPERTONIC_URL:=http://127\\.0\\.0\\.1:[0-9]+#SUPERTONIC_URL:=http://127.0.0.1:${SUPERTONIC_PORT}#" "$SKILL_DIR/$client"
+  rm -f "$SKILL_DIR/$client.bak"
+done
 for file in tts.sh tts_backends.sh xai_sentence_tagger.py tts_lang.sh; do
   cp "$SKILL_DIR/$file" "$CONFIG_DIR/$file"
 done

@@ -1,90 +1,84 @@
 # shellcheck shell=bash
-verify_supertonic_model() {
-  local model="$SUPERTONIC_DIR/assets/supertonic-3" f
-  [[ -s "$model/onnx/tts.json" && -s "$model/onnx/unicode_indexer.json" ]] || return 1
-  for f in duration_predictor.onnx text_encoder.onnx vector_estimator.onnx vocoder.onnx; do
-    [[ -f "$model/onnx/$f" && "$(wc -c < "$model/onnx/$f")" -gt 1000000 ]] || return 1
-  done
-  compgen -G "$model/voice_styles/*.json" >/dev/null
-}
-verify_supertonic_mlx_model() {
-  local model="$SUPERTONIC_MLX_DIR" f
-  [[ -s "$model/tts.json" && -s "$model/unicode_indexer.json" ]] || return 1
-  for f in duration_predictor text_encoder vector_estimator vocoder; do
-    [[ -s "$model/graphs/$f.json" && -s "$model/weights/$f.npz" ]] || return 1
-  done
-  compgen -G "$model/voice_styles/*.json" >/dev/null
-}
-download_supertonic_model() {
-  local model="$SUPERTONIC_DIR/assets/supertonic-3" media raw f voice
-  verify_supertonic_model && { ok "Supertonic ONNX fallback assets already verified"; return 0; }
-  rm -rf "$model"; mkdir -p "$model/onnx" "$model/voice_styles"
-  media=https://media.githubusercontent.com/media/groxaxo/supertonic-3-v2/main
-  raw=https://raw.githubusercontent.com/groxaxo/supertonic-3-v2/main
-  for f in duration_predictor.onnx text_encoder.onnx vector_estimator.onnx vocoder.onnx; do retry 3 2 curl -fL --retry 2 -o "$model/onnx/$f" "$media/onnx/$f" || break; done
-  for f in tts.json unicode_indexer.json; do retry 3 2 curl -fL --retry 2 -o "$model/onnx/$f" "$raw/onnx/$f" || break; done
-  for voice in F1 F2 F3 F4 F5 M1 M2 M3 M4 M5; do retry 3 2 curl -fL --retry 2 -o "$model/voice_styles/$voice.json" "$raw/voice_styles/$voice.json" || break; done
-  if ! verify_supertonic_model; then
-    warn "FP16 download incomplete; trying the repository downloader"
-    rm -rf "$model"; mkdir -p "$model"
-    "$SUPERTONIC_VENV/bin/python" "$SUPERTONIC_DIR/scripts/download_supertonic3.py" --repo-id Supertone/supertonic-3 --dest "$model"
+SUPERTONIC_REPO_URL="${SUPERTONIC_REPO_URL:-https://github.com/supertone-oss-archive/supertonic-py.git}"
+SUPERTONIC_REVISION=df0f9686dac7fbbde391b759e2ee5286a3737622
+
+preflight_supertonic_source() {
+  [[ "$SKIP_SUPERTONIC" == true || "$VENV_ONLY" == true ]] && return 0
+  # Existing runtime sources are never migrated or deleted.
+  if [[ -d "$SUPERTONIC_DIR/.git" ]]; then
+    local remote
+    remote="$(git -C "$SUPERTONIC_DIR" remote get-url origin)"
+    [[ "$remote" == "$SUPERTONIC_REPO_URL" ]] || die "Existing Supertonic runtime differs; select a fresh VOICE_CONFIG_DIR."
+    [[ -z "$(git -C "$SUPERTONIC_DIR" status --porcelain --untracked-files=no)" ]] || die "Existing Supertonic checkout has local changes; preserved."
+    return 0
   fi
-  verify_supertonic_model || die "Supertonic ONNX model download is incomplete"
-  ok "Supertonic ONNX fallback assets verified"
+  if [[ -e "$SUPERTONIC_DIR" ]]; then
+    die "$SUPERTONIC_DIR exists but is not a git checkout; select a fresh VOICE_CONFIG_DIR"
+  fi
+  info "Checking access to the Supertonic 3 runtime repository"
+  # Use configured credentials, but disable terminal prompts and hide probe errors.
+  if ! GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code -- "$SUPERTONIC_REPO_URL" HEAD >/dev/null 2>&1; then
+    err "Cannot access the Supertonic 3 runtime repository."
+    err "It may be private, missing, or unreachable; a GitHub login alone does not grant repository access."
+    err "Check access/network connectivity, or set SUPERTONIC_REPO_URL to a trusted compatible source."
+    die "See docs/supertonic-source.md. Use --skip-supertonic only for a partial install without local TTS."
+  fi
 }
-download_supertonic_mlx_model() {
-  [[ "$SUPERTONIC_INSTALL_MLX" == true ]] || return 0
-  verify_supertonic_mlx_model && { ok "Supertonic MLX model assets already verified"; return 0; }
-  local downloader="$SUPERTONIC_DIR/scripts/download_supertonic3_mlx.py"
-  [[ -f "$downloader" ]] || die "Supertonic MLX downloader is missing: $downloader"
-  rm -rf "$SUPERTONIC_MLX_DIR"; mkdir -p "$SUPERTONIC_MLX_DIR"
-  retry 3 3 "$SUPERTONIC_VENV/bin/python" "$downloader" \
-    --repo "${SUPERTONIC_MLX_MODEL_REPO:-mlx-community/supertonic-3}" \
-    --output "$SUPERTONIC_MLX_DIR"
-  verify_supertonic_mlx_model || die "Supertonic MLX model download is incomplete"
-  ok "Supertonic MLX model assets verified"
-}
+
 install_supertonic() {
   [[ "$SKIP_SUPERTONIC" == true ]] && return 0
-  info "── Installing Supertonic TTS ──"
-  if [[ -d "$SUPERTONIC_DIR/.git" ]]; then retry 3 2 git -C "$SUPERTONIC_DIR" pull --ff-only
+  info "Installing pinned public Supertonic runtime (ONNX)"
+  if [[ -d "$SUPERTONIC_DIR/.git" ]]; then
+    local remote
+    remote="$(git -C "$SUPERTONIC_DIR" remote get-url origin)"
+    [[ "$remote" == "$SUPERTONIC_REPO_URL" ]] || die "Existing Supertonic checkout uses another runtime; preserve it and select a fresh VOICE_CONFIG_DIR. See docs/supertonic-source.md."
   elif [[ -e "$SUPERTONIC_DIR" ]]; then
-    [[ "$FORCE" == true ]] || die "$SUPERTONIC_DIR exists but is not a git checkout; use --force"
-    rm -rf "$SUPERTONIC_DIR"; retry 3 2 git clone https://github.com/groxaxo/supertonic-express-3 "$SUPERTONIC_DIR"
-  else retry 3 2 git clone https://github.com/groxaxo/supertonic-express-3 "$SUPERTONIC_DIR"; fi
+    die "Existing Supertonic directory is preserved; select a fresh VOICE_CONFIG_DIR."
+  else
+    retry 3 2 env GIT_TERMINAL_PROMPT=0 git clone -- "$SUPERTONIC_REPO_URL" "$SUPERTONIC_DIR"
+  fi
+  # Never pull moving upstream HEAD; refuse dirty checkouts before selecting the pin.
+  [[ -z "$(git -C "$SUPERTONIC_DIR" status --porcelain --untracked-files=no)" ]] || die "Supertonic checkout has local changes; preserved without updating."
+  git -C "$SUPERTONIC_DIR" cat-file -e "${SUPERTONIC_REVISION}^{commit}" || die "Pinned Supertonic commit is unavailable"
+  git -C "$SUPERTONIC_DIR" checkout --detach "$SUPERTONIC_REVISION"
   create_venv "$SUPERTONIC_VENV" Supertonic
   pip_install "$SUPERTONIC_VENV/bin/python" --upgrade pip setuptools wheel
-  [[ -f "$SUPERTONIC_DIR/py/requirements.txt" ]] || die "Supertonic requirements are missing"
-  pip_install "$SUPERTONIC_VENV/bin/python" -r "$SUPERTONIC_DIR/py/requirements.txt"
-  pip_install "$SUPERTONIC_VENV/bin/python" huggingface-hub transformers
-  [[ "$ACCEL" == cuda ]] && pip_install "$SUPERTONIC_VENV/bin/python" onnxruntime-gpu
-  if [[ "$SUPERTONIC_INSTALL_MLX" == true ]]; then
-    [[ -f "$SUPERTONIC_DIR/py/pyproject.toml" ]] || die "Supertonic MLX package metadata is missing"
-    pip_install "$SUPERTONIC_VENV/bin/python" -e "${SUPERTONIC_DIR}/py[mlx]"
-    validate_imports "$SUPERTONIC_VENV/bin/python" "Supertonic MLX" mlx supertonic_mlx
+  pip_install "$SUPERTONIC_VENV/bin/python" "${SUPERTONIC_DIR}[serve]" socksio
+  if [[ "$SUPERTONIC_BACKEND" == cuda ]]; then
+    "$SUPERTONIC_VENV/bin/python" -m pip uninstall -y onnxruntime
+    pip_install "$SUPERTONIC_VENV/bin/python" onnxruntime-gpu
   fi
   validate_imports "$SUPERTONIC_VENV/bin/python" Supertonic fastapi uvicorn onnxruntime huggingface_hub
-  download_supertonic_model
-  download_supertonic_mlx_model
+  cp "$REPO_DIR/service/supertonic_server.py" "$SUPERTONIC_DIR/local_voicemode_server.py"
+  # Initialize all four sessions and all ten styles before installing a service.
+  # Upstream downloads Supertone/supertonic-3 at its pinned public model revision.
+  SUPERTONIC_MODEL_DIR="$SUPERTONIC_DIR/assets/supertonic-3" SUPERTONIC_ORT_BACKEND="$SUPERTONIC_BACKEND" \
+    "$SUPERTONIC_VENV/bin/python" "$SUPERTONIC_DIR/local_voicemode_server.py" --prepare
 
-  [[ "$PLATFORM" == macos ]] || return 0
+  [[ "$PLATFORM" == macos && "$CHECK_INSTALL" == false ]] || return 0
   local plist="$LAUNCHD_DIR/com.opencode.supertonic.plist"
   if [[ -f "$plist" ]] && ! grep -Fq "$SUPERTONIC_DIR" "$plist" && [[ "$FORCE" == false ]]; then die "Conflicting Supertonic plist exists; use --force"; fi
-  cat > "$plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>Label</key><string>com.opencode.supertonic</string>
-<key>ProgramArguments</key><array><string>${SUPERTONIC_VENV}/bin/python</string><string>-m</string><string>uvicorn</string><string>api.src.main:app</string><string>--host</string><string>127.0.0.1</string><string>--port</string><string>${SUPERTONIC_PORT}</string><string>--app-dir</string><string>${SUPERTONIC_DIR}/py</string></array>
-<key>EnvironmentVariables</key><dict>
-<key>HOME</key><string>${HOME}</string><key>PATH</key><string>${SUPERTONIC_VENV}/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-<key>SUPERTONIC_MODEL_DIR</key><string>${SUPERTONIC_DIR}/assets/supertonic-3</string><key>ONNX_DIR</key><string>${SUPERTONIC_DIR}/assets/supertonic-3/onnx</string><key>VOICE_STYLES_DIR</key><string>${SUPERTONIC_DIR}/assets/supertonic-3/voice_styles</string>
-<key>SUPERTONIC_MLX_MODEL_DIR</key><string>${SUPERTONIC_MLX_DIR}</string><key>SUPERTONIC_MLX_AUTO_DOWNLOAD</key><string>false</string><key>SUPERTONIC_MLX_FALLBACK_TO_ONNX</key><string>${SUPERTONIC_MLX_FALLBACK}</string>
-<key>USE_GPU</key><string>${USE_GPU}</string><key>SUPERTONIC_ORT_BACKEND</key><string>${SUPERTONIC_BACKEND}</string><key>LOG_LEVEL</key><string>INFO</string></dict>
-<key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>WorkingDirectory</key><string>${SUPERTONIC_DIR}/py</string>
-<key>StandardOutPath</key><string>${CONFIG_DIR}/supertonic.log</string><key>StandardErrorPath</key><string>${CONFIG_DIR}/supertonic.log</string>
-</dict></plist>
-PLIST
+  export SUPERTONIC_DIR SUPERTONIC_VENV SUPERTONIC_PORT SUPERTONIC_BACKEND CONFIG_DIR
+  SUPERTONIC_PLIST="$plist" "$SUPERTONIC_VENV/bin/python" - <<'PLISTPY'
+import os, plistlib
+from pathlib import Path
+# Shell variables are supplied below through exported installer configuration.
+c = os.environ
+root = c['SUPERTONIC_DIR']
+data = {
+    'Label': 'com.opencode.supertonic',
+    'ProgramArguments': [c['SUPERTONIC_VENV']+'/bin/python', '-m', 'uvicorn',
+                         'local_voicemode_server:create_app', '--factory', '--host', '127.0.0.1',
+                         '--port', c['SUPERTONIC_PORT'], '--app-dir', root],
+    'EnvironmentVariables': {'HOME': c['HOME'], 'PATH': c['SUPERTONIC_VENV']+'/bin:/usr/bin:/bin',
+                             'SUPERTONIC_MODEL_DIR': root+'/assets/supertonic-3',
+                             'SUPERTONIC_ORT_BACKEND': c['SUPERTONIC_BACKEND'], 'ORT_DISABLE_TELEMETRY': '1'},
+    'RunAtLoad': True, 'KeepAlive': True, 'WorkingDirectory': root,
+    'StandardOutPath': c['CONFIG_DIR']+'/supertonic.log',
+    'StandardErrorPath': c['CONFIG_DIR']+'/supertonic.log',
+}
+Path(c['SUPERTONIC_PLIST']).write_bytes(plistlib.dumps(data))
+PLISTPY
   plutil -lint "$plist" >/dev/null
   ok "Supertonic launchd definition installed (backend=${SUPERTONIC_BACKEND})"
 }

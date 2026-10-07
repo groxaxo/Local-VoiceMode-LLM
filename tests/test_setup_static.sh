@@ -11,12 +11,6 @@ grep -Fq -- '--onnx' <<< "$help_text"
 
 all_installer="$(cat "$ROOT/scripts/install.sh" "$ROOT"/scripts/install.d/*.sh)"
 grep -Fq 'SUPERTONIC_PORT="${SUPERTONIC_PORT:-8766}"' <<< "$all_installer"
-grep -Fq 'assets/supertonic-3/onnx' <<< "$all_installer"
-grep -Fq 'assets/supertonic-3/voice_styles' <<< "$all_installer"
-grep -Fq 'assets/supertonic-3-mlx' <<< "$all_installer"
-grep -Fq 'mlx-community/supertonic-3' <<< "$all_installer"
-grep -Fq 'py[mlx]' <<< "$all_installer"
-grep -Fq 'SUPERTONIC_MLX_FALLBACK_TO_ONNX' <<< "$all_installer"
 grep -Fq 'v1/audio/transcriptions' <<< "$all_installer"
 grep -Fq 'v1/audio/speech' <<< "$all_installer"
 grep -Fq 'Supertonic runtime backend' <<< "$all_installer"
@@ -34,9 +28,7 @@ for path in (root/'launchd/com.opencode.supertonic.plist', root/'launchd/com.ope
     with path.open('rb') as f: plistlib.load(f)
 mlx = plistlib.loads((root/'launchd/com.opencode.supertonic.plist').read_bytes())
 env = mlx['EnvironmentVariables']
-assert env['SUPERTONIC_ORT_BACKEND'] == 'auto'
-assert env['SUPERTONIC_MLX_FALLBACK_TO_ONNX'] == 'true'
-assert env['SUPERTONIC_MLX_MODEL_DIR'].endswith('assets/supertonic-3-mlx')
+assert env['SUPERTONIC_ORT_BACKEND'] == 'cpu'
 PY
 
 echo "setup static checks passed"

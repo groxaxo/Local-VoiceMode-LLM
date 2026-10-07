@@ -1,4 +1,6 @@
 # shellcheck shell=bash
+# Suppress telemetry before any SDK/import validation initializes ONNX Runtime.
+export ORT_DISABLE_TELEMETRY=1
 require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
 retry() {
   local attempts="$1" delay="$2" n=1; shift 2
@@ -64,26 +66,11 @@ fi
 USE_GPU=false; ORT_BACKEND=cpu
 if [[ "$ACCEL" == cuda ]]; then USE_GPU=true; ORT_BACKEND=cuda; fi
 
-SUPERTONIC_INSTALL_MLX=false
 SUPERTONIC_BACKEND="$ORT_BACKEND"
-SUPERTONIC_MLX_FALLBACK=true
 case "$SUPERTONIC_BACKEND_CHOICE" in
-  mlx)
-    [[ "$IS_APPLE_SILICON" == true ]] || die "--mlx requires macOS on Apple Silicon (M1 or newer)"
-    SUPERTONIC_INSTALL_MLX=true
-    SUPERTONIC_BACKEND=mlx
-    SUPERTONIC_MLX_FALLBACK=false
-    ;;
-  cpu)
-    SUPERTONIC_BACKEND=cpu
-    ;;
-  auto)
-    if [[ "$IS_APPLE_SILICON" == true ]]; then
-      SUPERTONIC_INSTALL_MLX=true
-      SUPERTONIC_BACKEND=auto
-      SUPERTONIC_MLX_FALLBACK=true
-    fi
-    ;;
+  mlx) die "--mlx is unavailable in the public Supertonic runtime; use --onnx. No private MLX source is installed." ;;
+  cpu) SUPERTONIC_BACKEND=cpu ;;
+  auto) : ;; # CPU on Apple Silicon; CoreML/MLX are not claimed as validated.
   *) die "Unknown Supertonic backend policy: $SUPERTONIC_BACKEND_CHOICE" ;;
 esac
 

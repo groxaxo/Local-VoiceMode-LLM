@@ -31,9 +31,21 @@ tts_probe_once() {
   tmp="$(mktemp "${TMPDIR:-/tmp}/lvml-tts.XXXXXX")"
   code="$(curl -sS --max-time 180 -o "$tmp" -w '%{http_code}' \
     -H 'Content-Type: application/json' \
-    -d '{"model":"supertonic","input":"Voice setup test.","voice":"F3","response_format":"wav","stream":false}' \
+    -d '{"model":"supertonic-3","input":"Voice setup test.","voice":"F3","lang":"en","speed":1.05,"total_steps":8,"response_format":"wav","stream":false}' \
     "$base/v1/audio/speech" || true)"
-  if [[ "$code" == 200 && "$(wc -c < "$tmp")" -gt 1000 && "$(head -c 4 "$tmp")" == RIFF ]]; then rc=0; fi
+  if [[ "$code" == 200 ]] && python3 - "$tmp" <<'WAVPY'
+import sys, wave
+try:
+    with wave.open(sys.argv[1], 'rb') as wav:
+        if wav.getnframes() <= 0 or wav.getsampwidth() != 2:
+            raise SystemExit(1)
+        data = wav.readframes(wav.getnframes())
+        if not data or not any(data):
+            raise SystemExit(1)
+except (wave.Error, EOFError):
+    raise SystemExit(1)
+WAVPY
+  then rc=0; fi
   rm -f "$tmp"; return "$rc"
 }
 supertonic_backend_once() {
@@ -45,6 +57,8 @@ supertonic_backend_once() {
 import json, sys
 with open(sys.argv[1], encoding="utf-8") as f:
     payload = json.load(f)
+if payload.get("ready") is not True or payload.get("model") != "supertonic-3":
+    raise SystemExit(1)
 backend = payload.get("backend")
 if not isinstance(backend, str) or not backend.strip():
     raise SystemExit(1)

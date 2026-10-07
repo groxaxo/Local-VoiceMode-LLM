@@ -22,7 +22,7 @@ Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, 
 |---|---|---:|---|
 | Voice activity detection | Silero VAD | — | CPU |
 | Speech-to-text | Parakeet TDT 0.6B v3, ONNX | `5093` | CPU by default |
-| Text-to-speech | Supertonic 3, ONNX/MLX | `8766` | CPU or Apple Silicon |
+| Text-to-speech | Supertonic 3, public ONNX | `8766` | CPU or Apple Silicon |
 | Dashboard | FastAPI + static HTML | `7862` | CPU |
 
 Your accelerator remains available for Ollama, vLLM, SGLang, MLX, or another model server.
@@ -266,7 +266,7 @@ The canonical agent contract is [`skill/SKILL.md`](skill/SKILL.md).
 
 | Path | Location | Selection |
 |---|---|---|
-| Supertonic 3 | local ONNX/MLX | `TTS_ENGINE=supertonic` |
+| Supertonic 3 | public ONNX CPU (CUDA opt-in) | `TTS_ENGINE=supertonic` |
 | Supertonic 2 | local ONNX, `:8880` | `TTS_ENGINE=supertonic` plus alternate URL |
 | Qwen3-TTS | local MLX service | `TTS_ENGINE=qwen` or `qwen-lazy` |
 | NeuTTS | local GGUF service | `TTS_ENGINE=neutts` |
