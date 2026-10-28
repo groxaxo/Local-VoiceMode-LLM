@@ -45,8 +45,11 @@ class TTSWrapperTests(unittest.TestCase):
             "import json, os, pathlib, sys\n"
             "args=sys.argv[1:]\n"
             "out=args[args.index('-o')+1]\n"
-            "data_arg=next(a for a in args if a.startswith('@'))\n"
-            "payload=json.loads(pathlib.Path(data_arg[1:]).read_text())\n"
+            "if '--data-binary' in args:\n"
+            "    data_arg=args[args.index('--data-binary')+1]\n"
+            "    payload=json.loads(pathlib.Path(data_arg[1:]).read_text())\n"
+            "else:\n"
+            "    payload=json.loads(args[args.index('-d')+1])\n"
             "pathlib.Path(os.environ['PAYLOAD_PATH']).write_text(json.dumps(payload))\n"
             "pathlib.Path(os.environ['CURL_LOG']).write_text('called')\n"
             "wav=(b'RIFF'+(36).to_bytes(4,'little')+b'WAVE'+b'fmt '+"
@@ -67,6 +70,10 @@ class TTSWrapperTests(unittest.TestCase):
                 "TTS_SENTENCE_TAGGER_PY": str(TAGGER),
                 "TTS_NO_PLAY": "1",
                 "TTS_TAG_MODE": "deterministic",
+                "TTS_LANG_SH": str(ROOT / "service" / "tts_lang.sh"),
+                "TTS_OUTPUT": str(root / "output.wav"),
+                "XAI_TAG": "0",
+                "TALK_AUDIO_ARCHIVE": "0",
                 "XAI_API_KEY": "test-key",
                 "PAYLOAD_PATH": str(payload_path),
                 "BACKEND_LOG": str(backend_log),
@@ -167,6 +174,45 @@ class TTSWrapperTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertEqual(backend_log.read_text().strip(), "unknown|")
         self.assertFalse(curl_log.exists())
+
+    def test_explicit_gemini_failure_does_not_switch_to_xai(self):
+        fixture, _, env, _, backend_log, curl_log = self._fixture(backend_exit=1)
+        self.addCleanup(fixture.cleanup)
+        env["TTS_ENGINE"] = "gemini"
+        completed = subprocess.run(
+            ["bash", str(WRAPPER), "Hello.", "en"],
+            env=env, capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 1)
+        self.assertEqual(backend_log.read_text().strip(), "gemini|")
+        self.assertFalse(curl_log.exists())
+
+    def test_invalid_sentence_proof_never_reaches_xai(self):
+        invalid_reports = []
+        report = TAGGER_MODULE.tag_text("One. Two!", "en", "deterministic")
+        report["sentences"][1]["tags"] = []
+        invalid_reports.append(report)
+        report = TAGGER_MODULE.tag_text("One. Two!", "en", "deterministic")
+        report["tagged_text"] = "One. Two!"
+        invalid_reports.append(report)
+        report = TAGGER_MODULE.tag_text("One. Two!", "en", "deterministic")
+        report["sentences"][0]["original"] = "Changed."
+        invalid_reports.append(report)
+
+        for report in invalid_reports:
+            with self.subTest(report=report):
+                fixture, root, env, _, _, curl_log = self._fixture()
+                with fixture:
+                    tagger = root / "bad_tagger.py"
+                    tagger.write_text("print(" + repr(json.dumps(report)) + ")\n")
+                    env.update(TTS_ENGINE="xai", TTS_SENTENCE_TAGGER_PY=str(tagger))
+                    completed = subprocess.run(
+                        ["bash", str(WRAPPER), "One. Two!", "en"],
+                        env=env, capture_output=True, text=True,
+                    )
+                    self.assertNotEqual(completed.returncode, 0)
+                    self.assertIn("sentence-tag invariant failed", completed.stderr)
+                    self.assertFalse(curl_log.exists())
 
 
 if __name__ == "__main__":

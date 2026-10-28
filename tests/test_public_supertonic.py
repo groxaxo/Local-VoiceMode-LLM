@@ -87,9 +87,6 @@ def test_unavailable_backend_fails_explicitly(monkeypatch,backend):
 @pytest.mark.parametrize('client_name',['tts.sh','tts_backends.sh'])
 def test_shell_client_serializes_public_fields_without_bad_json(tmp_path,client_name):
     import os, subprocess, json
-    source=(ROOT/'service'/client_name).read_text()
-    start=source.index('speak_supertonic() {')
-    end=source.index('\n}\n',start)+3
     fake=tmp_path/'curl'
     fake.write_text('''#!/usr/bin/env python3
 import sys, pathlib, os
@@ -99,17 +96,14 @@ pathlib.Path(args[args.index('-o')+1]).write_bytes(b'RIFFfake')
 print('200',end='')
 ''')
     fake.chmod(0o755)
-    env=dict(os.environ,PATH=str(tmp_path)+os.pathsep+os.environ['PATH'],PAYLOAD=str(tmp_path/'payload'))
-    script=source[start:end]+'''\nSUPERTONIC_VOICE=M5
-SUPERTONIC_STEPS=12
-SUPERTONIC_SPEED=1.2
-TTS_QUALITY=high
-SUPERTONIC_URL=http://127.0.0.1:8766
-TTS_NO_PLAY=1
-OUTPUT="$1"
-speak_supertonic "$2" es
-'''
-    subprocess.run(['bash','-c',script,'test',str(tmp_path/'wav'),'Hola "capo"\n\\'],env=env,check=True,capture_output=True)
+    env=dict(os.environ,PATH=str(tmp_path)+os.pathsep+os.environ['PATH'],PAYLOAD=str(tmp_path/'payload'),
+        TTS_ENGINE='supertonic',SUPERTONIC_VOICE='M5',SUPERTONIC_STEPS='12',
+        SUPERTONIC_SPEED='1.2',TTS_QUALITY='high',SUPERTONIC_URL='http://127.0.0.1:8766',
+        TTS_NO_PLAY='1',TTS_OUTPUT=str(tmp_path/'wav'),TALK_AUDIO_ARCHIVE='0',
+        TTS_LANG_SH=str(ROOT/'service/tts_lang.sh'))
+    completed=subprocess.run(['bash',str(ROOT/'service'/client_name),'Hola "capo"\n\\','es'],
+        env=env,check=True,capture_output=True,text=True)
+    assert completed.stdout.strip() == str(tmp_path/'wav')
     payload=json.loads((tmp_path/'payload').read_text())
     assert payload == {'model':'supertonic-3','input':'Hola "capo"\n\\','voice':'M5',
                        'response_format':'wav','stream':False,'total_steps':12,'speed':1.2,'lang':'es'}

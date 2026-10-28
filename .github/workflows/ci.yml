@@ -22,7 +22,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: python -m pip install --disable-pip-version-check numpy pytest
+        run: >-
+          python -m pip install --disable-pip-version-check numpy pytest fastapi httpx
+          "supertonic @ git+https://github.com/supertone-oss-archive/supertonic-py.git@df0f9686dac7fbbde391b759e2ee5286a3737622"
 
       - name: Compile Python sources
         run: |
