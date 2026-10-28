@@ -27,7 +27,6 @@ jobs:
       - name: Compile Python sources
         run: |
           python -m compileall -q service frontend benchmarks tests
-          python -m py_compile integrations/ollama/ollama-voice
 
       - name: Run regression and documentation tests
         run: python -m pytest -q

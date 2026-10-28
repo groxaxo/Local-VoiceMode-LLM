@@ -16,7 +16,6 @@ This directory contains the operational and technical reference for Local VoiceM
 | [Shared AI provider bridge](ai-provider-bridge.md) | Reusing AI Sentence Tagger / AI Voice Studio for verified xAI and Gemini voices |
 | [Architecture](architecture.md) | Reviewing runtime design, data flow, boundaries, ports, and platform differences |
 | [Agent skill contract](../skill/SKILL.md) | Integrating the voice loop into Claude Code, OpenCode, OpenClaw, Hermes, or Codex |
-| [Ollama integration](../integrations/ollama/README.md) | Talking directly to an Ollama model |
 | [AI Sentence Tagger integration](../integrations/ai-sentence-tagger/README.md) | Installing and operating the xAI/Google companion bridge |
 | [Supertonic 2 integration](../integrations/supertonic2/README.md) | Installing the optional Supertonic 2 service |
 | [Benchmarks](../benchmarks/README.md) | Reproducing latency and realtime-factor measurements |
@@ -68,7 +67,6 @@ Default local services:
 | Parakeet STT | `http://127.0.0.1:5093` | ONNX CPU by default |
 | Supertonic 3 TTS | `http://127.0.0.1:8766` | Apple Silicon: MLX first with ONNX fallback; other hosts: ONNX |
 | Dashboard | `http://127.0.0.1:7862` | CPU; native or Docker dashboard target |
-| Ollama, when used | `http://127.0.0.1:11434` | user-selected |
 | AI Sentence Tagger / Voice Studio, when used | `http://127.0.0.1:8000` | user-selected companion |
 
 ## Routing concepts

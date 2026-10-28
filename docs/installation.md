@@ -175,7 +175,6 @@ Agent-specific skill paths:
 | Supertonic 3 TTS | `8766` |
 | Optional Supertonic 2 TTS | `8880` |
 | Dashboard | `7862` |
-| Ollama | `11434` |
 
 The project deliberately uses `8766` for Supertonic 3 so it can coexist with software already using `8765`.
 

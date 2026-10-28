@@ -49,9 +49,7 @@ COPY --chown=voicemode:voicemode skill ./skill
 RUN chmod +x service/*.sh service/*.py \
     integrations/ai-sentence-tagger/*.sh \
     integrations/ai-sentence-tagger/*.py \
-    integrations/supertonic2/*.sh \
-    integrations/ollama/install.sh \
-    integrations/ollama/ollama-voice
+    integrations/supertonic2/*.sh
 
 USER voicemode
 ENTRYPOINT ["tini", "--"]

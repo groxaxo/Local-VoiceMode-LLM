@@ -37,8 +37,7 @@ The default deployment keeps VAD, STT, and TTS local. Optional remote providers 
 ┌──────────────────────────────┐
 │ Agent or local LLM           │
 │ Claude Code / OpenCode /     │
-│ OpenClaw / Hermes / Codex /  │
-│ Ollama integration           │
+│ OpenClaw / Hermes / Codex    │
 └──────────────┬───────────────┘
                │ reply text
                ▼
@@ -69,7 +68,6 @@ The default deployment keeps VAD, STT, and TTS local. Optional remote providers 
 | `service/inworld_steer.sh` | Optional expressive delivery-tag generation for Inworld |
 | `skill/SKILL.md` | Agent-facing protocol for entering and maintaining a voice conversation |
 | `frontend/server.py` | Local dashboard proxy, configuration persistence, status checks, Linux service controls |
-| `integrations/ollama/ollama-voice` | Ollama HTTP chat loop with streamed text and sentence-level TTS scheduling |
 
 ## VAD recorder
 
@@ -362,7 +360,6 @@ Default managed ports:
 | Supertonic 3 TTS | `8766` |
 | Supertonic 2 optional service | `8880` |
 | Dashboard | `7862` |
-| Ollama integration target | `11434` |
 
 ## Configuration ownership
 

@@ -16,7 +16,7 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-2563eb">
 </p>
 
-Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, OpenClaw, Hermes Agent, Codex, Ollama, and other local agents. Its default path keeps endpointing, transcription, and synthesis on the host.
+Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, OpenClaw, Hermes Agent, Codex, and other local agents. Its default path keeps endpointing, transcription, and synthesis on the host.
 
 | Stage | Default backend | Port | Compute |
 |---|---|---:|---|
@@ -25,7 +25,7 @@ Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, 
 | Text-to-speech | Supertonic 3, public ONNX | `8766` | CPU or Apple Silicon |
 | Dashboard | FastAPI + static HTML | `7862` | CPU |
 
-Your accelerator remains available for Ollama, vLLM, SGLang, MLX, or another model server.
+Your accelerator remains available for vLLM, SGLang, MLX, or another model server.
 
 ## xAI never receives an untagged sentence
 
@@ -64,7 +64,7 @@ See [Mandatory xAI sentence tagging](docs/xai-sentence-tagging.md).
 - Local Supertonic speech by default, with optional Qwen3-TTS, NeuTTS, Inflect, Inworld, OpenAI-compatible, xAI, and IndexTTS paths.
 - Automatic listen-after-speak, stop phrases, idle termination, device selection, and optional barge-in.
 - Shared agent skill for Claude Code, OpenCode, OpenClaw, Hermes, and Codex.
-- Optional Ollama conversation loop and browser dashboard.
+- Optional browser dashboard.
 - Optional AI Sentence Tagger / AI Voice Studio bridge for the verified 26-voice xAI and 30-voice Gemini catalogs.
 - Public native installation, authenticated private-fork installation, fully local operation, hosted hybrid operation, and hardened Docker deployment.
 - Deterministic local validation; GitHub Actions are not required as a release gate.
