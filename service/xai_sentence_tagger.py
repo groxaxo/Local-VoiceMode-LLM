@@ -19,6 +19,9 @@ from typing import Any
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
+# Checked via Context7 on 2026-10-28 against the official TTS guide and REST API:
+# https://docs.x.ai/developers/model-capabilities/audio/text-to-speech#speech-tags
+# https://docs.x.ai/developers/rest-api-reference/inference/voice
 XAI_INLINE_TAGS: tuple[str, ...] = (
     "pause",
     "long-pause",
@@ -47,7 +50,6 @@ XAI_WRAPPING_TAGS: tuple[str, ...] = (
     "fast",
     "sing-song",
     "singing",
-    "laugh-speak",
     "emphasis",
 )
 _INLINE_SET = frozenset(XAI_INLINE_TAGS)
@@ -194,7 +196,7 @@ def inserted_tags(original: str, tagged: str) -> tuple[list[str], bool]:
 
 
 def _wrapper_errors(tagged: str) -> list[str]:
-    stack: list[str] = []
+    stack: list[tuple[str, int]] = []
     errors: list[str] = []
     for match in re.finditer(r"<(\/)?([a-z][a-z-]*)>", tagged, re.IGNORECASE):
         closing, raw = match.groups()
@@ -202,14 +204,17 @@ def _wrapper_errors(tagged: str) -> list[str]:
         if tag not in _WRAPPER_SET:
             continue
         if not closing:
-            stack.append(tag)
+            stack.append((tag, match.end()))
         elif not stack:
             errors.append(f"closing </{tag}> has no opener")
         else:
-            expected = stack.pop()
+            expected, content_start = stack.pop()
             if expected != tag:
                 errors.append(f"expected </{expected}> but found </{tag}>")
-    errors.extend(f"unclosed <{tag}>" for tag in reversed(stack))
+            content = _TAG_AT_RE.sub("", tagged[content_start:match.start()])
+            if not any(character.isalnum() for character in content):
+                errors.append(f"<{expected}> must wrap spoken text")
+    errors.extend(f"unclosed <{tag}>" for tag, _ in reversed(stack))
     return errors
 
 
@@ -228,67 +233,25 @@ def deterministic_tag(sentence: str, index: int) -> TaggedSentence:
     leading, core, trailing = _split_outer_whitespace(sentence)
     if not core:
         raise TaggingError(f"Sentence {index} is blank")
-    kind = "wrapper"
+    # Full coverage is this project's policy, not a requirement of xAI's API.
+    # Use one complete-phrase style rather than inventing breaths, laughs or
+    # changing delivery according to the sentence's position in the reply.
     tag = "emphasis"
-
-    rules: tuple[tuple[re.Pattern[str], str, str], ...] = (
-        (
-            re.compile(r"\b(secret|secreto|susurr|whisper|quiet|silencio)\b", re.I),
-            "wrapper",
-            "whisper",
-        ),
-        (
-            re.compile(
-                r"\b(miedo|terror|panic|pánico|danger|peligro|sad|triste|dolor)\b",
-                re.I,
-            ),
-            "wrapper",
-            "lower-pitch",
-        ),
-        (
-            re.compile(r"\b(laugh|laughed|funny|risa|reí|gracioso|absurdo)\b", re.I),
-            "inline",
-            "chuckle",
-        ),
-        (
-            re.compile(r"\b(calm|calma|slow|lento|despacio|suave)\b", re.I),
-            "wrapper",
-            "slow",
-        ),
-        (
-            re.compile(
-                r"\b(fast|quick|urgent|urgencia|rápido|suddenly|de pronto)\b",
-                re.I,
-            ),
-            "wrapper",
-            "fast",
-        ),
+    prefix = r"^(?:(?:please|por favor)[,\s]+)?"
+    rules = (
+        (r"(?:whisper|speak quietly|susurr[aá]|habl[aá] en voz baja)\b", "whisper"),
+        (r"(?:speak softly|habl[aá] suavemente)\b", "soft"),
+        (r"(?:speak slowly|read slowly|habl[aá] despacio|le[eé] despacio)\b", "slow"),
+        (r"(?:speak quickly|read quickly|habl[aá] rápido|le[eé] rápido)\b", "fast"),
+        (r"(?:speak loudly|shout|grit[aá])\b", "loud"),
+        (r"(?:sing|cant[aá])\b", "singing"),
     )
-    for pattern, rule_kind, rule_tag in rules:
-        if pattern.search(core):
-            kind, tag = rule_kind, rule_tag
+    for pattern, rule_tag in rules:
+        if re.search(prefix + pattern, core, re.I):
+            tag = rule_tag
             break
-    else:
-        if "!" in core:
-            kind, tag = "wrapper", "loud"
-        elif "?" in core:
-            kind, tag = "wrapper", "higher-pitch"
-        else:
-            cycle = (
-                ("wrapper", "emphasis"),
-                ("inline", "breath"),
-                ("wrapper", "soft"),
-                ("inline", "pause"),
-                ("wrapper", "build-intensity"),
-                ("inline", "sigh"),
-            )
-            kind, tag = cycle[index % len(cycle)]
 
-    if kind == "inline":
-        directed = f"[{tag}]{core}"
-    else:
-        directed = f"<{tag}>{core}</{tag}>"
-    tagged = leading + directed + trailing
+    tagged = leading + f"<{tag}>{core}</{tag}>" + trailing
     errors, tags = validate_tagged_sentence(sentence, tagged)
     if errors:
         raise TaggingError(f"Deterministic tag failed for sentence {index}: {'; '.join(errors)}")
@@ -309,7 +272,8 @@ def _llm_system_prompt(language: str) -> str:
     wrapping = " ".join(f"<{tag}>...</{tag}>" for tag in XAI_WRAPPING_TAGS)
     return f"""You are a strict xAI speech-direction editor.
 Add at least one valid xAI speech tag to EVERY supplied sentence while preserving every
-original character exactly. Return JSON only:
+original character exactly. Full coverage is this project's policy. Choose natural,
+context-appropriate delivery. Return JSON only:
 {{"sentences":[{{"index":0,"tagged_text":"..."}}]}}
 
 Allowed inline tags:
@@ -320,11 +284,18 @@ Allowed wrapping tags:
 
 Rules:
 1. One output row per input index; no missing or duplicate indexes.
-2. Every sentence must contain at least one newly inserted valid tag.
+2. Every sentence must contain at least one newly inserted valid tag. For neutral text,
+   use one <emphasis> wrapper around a complete phrase; do not invent vocal sounds to fill a quota.
 3. Do not rewrite, translate, delete, reorder, correct, or normalize source characters.
-4. Usually use one contextually appropriate tag; avoid noisy over-tagging.
-5. Return no Markdown or commentary.
-6. Language hint: {language!r}. Preserve the language and dialect.
+4. Wrap complete phrases, not isolated words or empty spans. Balanced nested styles are
+   allowed when intentional; otherwise prefer one style over stacked directions.
+5. Place inline tags at the point where a pause or vocal expression naturally occurs,
+   using punctuation for timing. Do not prepend breaths, sighs or laughs by sentence index.
+6. Mentioning an emotion or a laugh is not an instruction to perform it. Do not insert
+   sound effects merely because of a keyword, or infer loudness from ! alone.
+7. Use only the exact tag forms above, not arbitrary bracketed emotion descriptions.
+8. Return no Markdown or commentary.
+9. Language hint: {language!r}. Preserve the language and dialect.
 """
 
 

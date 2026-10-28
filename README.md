@@ -39,6 +39,11 @@ Every xAI request made by the Unix runtime must prove that every segmented sente
 }
 ```
 
+Per-sentence coverage is this project's user-selected policy. xAI treats tags as
+optional expressive controls. The allowlist was checked through Context7 against
+the official docs on 2026-10-28: 14 inline and 12 wrapping tags. The fallback uses
+one complete-phrase style instead of cycling through breaths, sighs, or pauses.
+
 This is a hard pre-provider gate:
 
 1. Segment every sentence.
@@ -52,7 +57,7 @@ The same rule protects direct `TTS_ENGINE=xai`, xAI reached after another backen
 
 ```text
 Input:  Hello. Are you there?
-Output: <emphasis>Hello.</emphasis> <higher-pitch>Are you there?</higher-pitch>
+Output: <emphasis>Hello.</emphasis> <emphasis>Are you there?</emphasis>
 ```
 
 See [Mandatory xAI sentence tagging](docs/xai-sentence-tagging.md).
@@ -285,7 +290,7 @@ The optional companion bridge reuses AI Sentence Tagger or AI Voice Studio inste
 
 | Provider | Built-in voices | Default | Direction semantics | VoiceMode output |
 |---|---:|---|---|---|
-| xAI | 26 | `eve` | fixed 14 inline + 13 wrapping tags | WAV 48 kHz |
+| xAI | 26 | `eve` | fixed 14 inline + 12 wrapping tags | WAV 48 kHz |
 | Google Gemini | 30 | `Kore` | 16 common examples plus creative English direction | WAV 24 kHz |
 
 Install the bridge natively:

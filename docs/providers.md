@@ -152,7 +152,12 @@ All direct and fallback xAI requests pass through `service/xai_sentence_tagger.p
 5. reports `tagged_sentence_count == sentence_count`; and
 6. fails before the provider request if any sentence remains untagged.
 
-The fixed xAI grammar is 14 inline tags plus 13 wrapping tags.
+The current documented xAI grammar is 14 inline tags plus 12 wrapping tags,
+checked through Context7 on 2026-10-28. `<laugh-speak>` and arbitrary bracketed
+emotion instructions are rejected. Full per-sentence coverage is this project's
+policy; it is not required by xAI. Neutral offline output uses one whole-phrase
+`<emphasis>` style. It does not cycle through vocal noises or infer delivery
+from sentence position. See the [reviewed tag contract](xai-sentence-tagging.md#official-reference-and-review).
 
 ### Tag modes
 
@@ -188,7 +193,7 @@ The optional bridge reuses a local companion service as the source of truth for 
 
 | Provider | Built-in voices | Default voice | Direction semantics | VoiceMode output |
 |---|---:|---|---|---|
-| xAI | 26 | `eve` | fixed 14 inline + 13 wrapping tags | WAV 48 kHz |
+| xAI | 26 | `eve` | fixed 14 inline + 12 wrapping tags | WAV 48 kHz |
 | Google Gemini | 30 | `Kore` | 16 common examples plus creative English direction | WAV 24 kHz |
 
 The bridge requests `include_annotations=true` and refuses audio unless the companion proves:

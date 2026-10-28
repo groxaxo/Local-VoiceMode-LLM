@@ -198,6 +198,14 @@ class TTSWrapperTests(unittest.TestCase):
         report = TAGGER_MODULE.tag_text("One. Two!", "en", "deterministic")
         report["sentences"][0]["original"] = "Changed."
         invalid_reports.append(report)
+        for candidate, tags in (
+            ("<laugh-speak>One.</laugh-speak>", ["laugh-speak"]),
+            ("<soft></soft>One.", ["soft"]),
+        ):
+            report = TAGGER_MODULE.tag_text("One. Two!", "en", "deterministic")
+            report["sentences"][0].update(tagged_text=candidate, tags=tags)
+            report["tagged_text"] = "".join(row["tagged_text"] for row in report["sentences"])
+            invalid_reports.append(report)
 
         for report in invalid_reports:
             with self.subTest(report=report):

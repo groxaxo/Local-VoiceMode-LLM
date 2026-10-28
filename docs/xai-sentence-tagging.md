@@ -2,7 +2,50 @@
 
 Every xAI synthesis request made by the Unix Local VoiceMode runtime now carries at least one valid xAI speech tag for every segmented sentence.
 
-This is a hard pre-audio invariant, not a prompt preference.
+Full coverage is this project's user-selected policy. xAI documents tags as optional
+expressive controls; it does not require a tag on each sentence. The local wrapper
+still enforces complete coverage before contacting xAI.
+
+## Official reference and review
+
+Checked on **2026-10-28** using the configured private Context7 MCP against the
+[xAI TTS guide](https://docs.x.ai/developers/model-capabilities/audio/text-to-speech#speech-tags)
+and [REST voice reference](https://docs.x.ai/developers/rest-api-reference/inference/voice).
+Both currently list **14 inline tags and 12 wrapping tags**. `<laugh-speak>` is
+not in that reference and is rejected, along with invented directions such as
+`[cheerfully]`.
+
+| Type | Supported names |
+|---|---|
+| Inline `[tag]` | `pause`, `long-pause`, `hum-tune`, `laugh`, `chuckle`, `giggle`, `cry`, `tsk`, `tongue-click`, `lip-smack`, `breath`, `inhale`, `exhale`, `sigh` |
+| Wrapping `<tag>phrase</tag>` | `soft`, `whisper`, `loud`, `build-intensity`, `decrease-intensity`, `higher-pitch`, `lower-pitch`, `slow`, `fast`, `sing-song`, `singing`, `emphasis` |
+
+The allowlist in `service/xai_sentence_tagger.py` is shared by the formatter and
+the independent pre-request validator. API changes require updating the allowlist,
+the contract regression test, and this review date together.
+
+## Delivery policy
+
+Following xAI's placement guidance, the formatter is instructed to put inline
+expressions at their intended point, use punctuation for timing, and wrap complete
+phrases. Balanced nested styles such as `<slow><soft>...</soft></slow>` are valid.
+Empty styles do not direct any spoken words and are rejected.
+
+The offline fallback keeps every sentence tagged with one complete-phrase
+`<emphasis>` wrapper unless the sentence contains an explicit delivery request
+such as “Please whisper this part.” It preserves all source characters and
+whitespace. Mentioning a laugh or an urgent event does not inject a chuckle or
+change the speed. Sentence position does not add breaths, pauses, sighs, or
+intensity changes, and punctuation alone does not force loudness or pitch.
+
+```text
+Source:   The build passed. The report is ready!
+Fallback: <emphasis>The build passed.</emphasis> <emphasis>The report is ready!</emphasis>
+```
+
+The LLM may choose other supported directions when context warrants them. The
+phrase-emphasis fallback is our conservative implementation choice for full
+coverage, not an xAI prescription or a guarantee of subjective audio quality.
 
 ## Request path
 
@@ -81,7 +124,7 @@ Attempts the configured model first and still applies deterministic sentence rep
 export TTS_TAG_MODE=deterministic
 ```
 
-Makes no tagging-model request. Contextual punctuation and keyword rules choose from the fixed xAI grammar, with a deterministic cycle for neutral sentences.
+Makes no tagging-model request. Uses explicit delivery requests where present and the complete-phrase emphasis fallback elsewhere. It never selects a sound effect from the sentence index.
 
 ## Local LLM configuration
 
@@ -98,7 +141,7 @@ export TTS_TAGGER_TIMEOUT_SECONDS=30
 The model receives the exact fixed xAI grammar:
 
 - 14 inline tags
-- 13 wrapping tags
+- 12 wrapping tags
 - one output row per indexed source sentence
 - no source rewriting
 

@@ -18,7 +18,7 @@ The companion owns the local tagging model and cloud credentials. The Local Voic
 
 | Provider | Voices | Default voice | Direction model | Bridge WAV |
 |---|---:|---|---|---:|
-| xAI | 26 | `eve` | fixed 14 inline + 13 wrapping tags | 48 kHz |
+| xAI | 26 | `eve` | fixed 14 inline + 12 wrapping tags | 48 kHz |
 | Google Gemini | 30 | `Kore` | 16 common examples plus creative English direction | 24 kHz |
 
 `gemini` is accepted as an alias for `google`.
