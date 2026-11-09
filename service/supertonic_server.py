@@ -50,6 +50,8 @@ def load_engine():
                  "cuda": ["CUDAExecutionProvider", "CPUExecutionProvider"]}
     if backend not in providers:
         raise RuntimeError("Public runtime supports cpu or cuda; MLX/CoreML are unavailable")
+    if backend == "cuda":
+        ort.preload_dlls(cuda=True, cudnn=True, msvc=False, directory="")
     requested = providers[backend]
     if requested[0] not in ort.get_available_providers():
         raise RuntimeError(f"Requested {requested[0]} is unavailable; refusing silent fallback")
@@ -81,6 +83,9 @@ def create_app(engine_factory=load_engine):
     async def lifespan(app):
         app.state.engine = engine_factory()
         app.state.health = runtime_health(app.state.engine)
+        expected = os.environ.get("SUPERTONIC_ORT_BACKEND", "cpu")
+        if app.state.health["backend"] != expected:
+            raise RuntimeError(f"Requested {expected}, actual backend: {app.state.health['backend']}")
         app.state.ready = True
         try:
             yield

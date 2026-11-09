@@ -125,6 +125,8 @@ fi
 # macOS system sound — on Linux/Windows the file won't exist and we fall back to \a beep
 : "${TALK_READY_SOUND:=/System/Library/Sounds/Tink.aiff}"
 : "${TALK_READY_DELAY_MS:=700}"
+# Do not cue or signal a recorder until its input stream is actually running.
+: "${TALK_READY_TIMEOUT_S:=60}"
 # Beep cue: a short synthesized tone played the instant TTS playback ends, so
 # the user hears "your turn" and recording begins immediately. Generated once
 # and cached (cross-platform, consistent). Set TALK_BEEP=0 to fall back to the
@@ -352,6 +354,21 @@ is_stop_phrase() {
     return 1
 }
 
+wait_recorder_ready() {
+    local vad_pid="$1" vad_out="$2"
+    local deadline=$((SECONDS + TALK_READY_TIMEOUT_S))
+    until grep -qE '"event"[[:space:]]*:[[:space:]]*"listening"' "$vad_out"; do
+        if ! kill -0 "$vad_pid" 2>/dev/null || (( SECONDS >= deadline )); then
+            echo "[talk] Recorder failed to become ready" >&2
+            kill "$vad_pid" 2>/dev/null || true
+            wait "$vad_pid" 2>/dev/null || true
+            rm -f "$vad_out"
+            return 1
+        fi
+        sleep 0.05
+    done
+}
+
 cmd_listen() {
     if _mic_off; then
         _bus_wait
@@ -377,7 +394,8 @@ cmd_listen() {
         2>/dev/null >"$vad_out" &
     local vad_pid=$!
 
-    # Play the ready cue NOW — vad_recorder is already capturing
+    # Model loading may take seconds; a spawned process is not a ready mic.
+    wait_recorder_ready "$vad_pid" "$vad_out" || return 1
     cmd_ready_cue >&2
 
     # Wait for VAD to finish (speech_end, idle_timeout, or error)
@@ -635,7 +653,7 @@ cmd_speak() {
                 2>/dev/null >"$vad_out" &
             vad_pid=$!
 
-            sleep 0.05  # let sounddevice open the mic + register SIGUSR1
+            wait_recorder_ready "$vad_pid" "$vad_out" || return 1
 
             play_wav "$tts_wav"        # speak the reply (blocking)
             rm -f "$tts_wav"

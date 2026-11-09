@@ -32,6 +32,7 @@ def talk(tmp_path):
         "TTS_LANG_SH": str(tmp_path / "tts_lang.sh"),
         "EVENTS": str(log),
         "TEST_WAV": str(tmp_path / "reply.wav"),
+        "TALK_BEEP_FILE": str(tmp_path / "beep.wav"),
         "TALK_AUDIO_LOCK": str(tmp_path / "audio.lock"),
         "TALK_AUDIO_ARCHIVE": "0",
         "TALK_BUS_LOG": "0",
@@ -54,18 +55,22 @@ def talk(tmp_path):
     """)
     executable(tmp_path / "ffplay", """
         #!/usr/bin/env python3
-        import os, pathlib, time
+        import os, pathlib, sys
         log = pathlib.Path(os.environ['EVENTS'])
-        # The opt-in path starts the recorder concurrently; wait for its startup.
-        deadline = time.monotonic() + 2
-        while 'recorder-open' not in log.read_text() and time.monotonic() < deadline:
-            time.sleep(.01)
         with log.open('a') as stream:
-            stream.write('playback-start\\nplayback-end\\n')
+            if pathlib.Path(sys.argv[-1]).name == 'beep.wav':
+                stream.write('ready-cue\\n')
+            else:
+                stream.write('playback-start\\nplayback-end\\n')
     """)
+    # Darwin selects afplay; never invoke a real audio player in these tests.
+    shutil.copy(tmp_path / "ffplay", tmp_path / "afplay")
     executable(tmp_path / "vad_recorder.py", """
         import json, os, pathlib, signal, sys, time
         args = sys.argv[1:]
+        time.sleep(float(os.getenv('RECORDER_STARTUP_DELAY', '0')))
+        if os.getenv('RECORDER_FAIL') == '1':
+            sys.exit(1)
         activated = False
         def activate(*_args):
             global activated
@@ -73,6 +78,7 @@ def talk(tmp_path):
         signal.signal(signal.SIGUSR1, activate)
         with open(os.environ['EVENTS'], 'a') as stream:
             stream.write('recorder-open\\n')
+        print(json.dumps({'event': 'listening'}), flush=True)
         if args[args.index('--ready-delay-ms') + 1] == '600000':
             deadline = time.monotonic() + 3
             while not activated and time.monotonic() < deadline:
@@ -92,13 +98,13 @@ def talk(tmp_path):
         print('200', end='')
     """)
 
-    def run(**overrides):
+    def run(expect_success=True, **overrides):
         completed = subprocess.run(
             ["bash", str(tmp_path / "talk.sh"), "speak", "Hello", "en"],
             env={**env, **overrides}, cwd=tmp_path, capture_output=True,
             text=True, timeout=10,
         )
-        assert completed.returncode == 0, completed.stderr
+        assert (completed.returncode == 0) == expect_success, completed.stderr
         return completed, log.read_text().splitlines()
 
     return run
@@ -135,6 +141,19 @@ def test_failed_tts_keeps_listening(talk):
 def test_explicit_engine_selection_is_preserved(talk):
     _, events = talk(TTS_ENGINE="xai", TALK_AUTO_LISTEN="0")
     assert events[0] == "tts:xai:F4:20"
+
+
+def test_ready_cue_waits_for_delayed_microphone_startup(talk):
+    result, events = talk(TALK_READY_CUE="1", TALK_BEEP="1", RECORDER_STARTUP_DELAY="0.2")
+    assert events == ["tts:supertonic:F4:20", "playback-start", "playback-end",
+                      "recorder-open", "ready-cue", "transcribe"]
+    assert result.stdout.strip() == "Next turn"
+
+
+def test_failed_recorder_never_plays_a_ready_cue(talk):
+    result, events = talk(expect_success=False, TALK_READY_CUE="1", TALK_BEEP="1", RECORDER_FAIL="1")
+    assert events == ["tts:supertonic:F4:20", "playback-start", "playback-end"]
+    assert "Recorder failed to become ready" in result.stderr
 
 
 def test_standalone_tts_defaults_to_local_supertonic(tmp_path):

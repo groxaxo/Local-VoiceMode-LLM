@@ -35,7 +35,7 @@ FORCE=false
 UNINSTALL=false
 DOCTOR_ONLY=false
 CHECK_INSTALL=false
-ACCEL_CHOICE=auto
+ACCEL_CHOICE=cpu
 SUPERTONIC_BACKEND_CHOICE=auto
 INTEGRATE_CLAUDECODE=true
 INTEGRATE_OPENCODE=true
@@ -66,6 +66,7 @@ Installs or repairs the local voice stack and verifies it end to end.
   --no-integrations      Do not install agent skills
   -h, --help             Show this help
 
+CPU is the default on every host. NVIDIA CUDA requires --gpu on Linux.
 Apple Silicon uses public Supertonic ONNX CPU. MLX is unavailable.
 USAGE
 }

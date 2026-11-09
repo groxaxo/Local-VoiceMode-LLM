@@ -27,6 +27,11 @@ Local VoiceMode LLM is a cross-platform speech layer for Claude Code, OpenCode, 
 
 Your accelerator remains available for Ollama, vLLM, SGLang, MLX, or another model server.
 
+CPU is the default even on NVIDIA hosts. Native CUDA requires `./setup.sh --gpu`.
+For container inference, use [`Dockerfile.cpu`](Dockerfile.cpu) or explicitly select
+[`Dockerfile.gpu`](Dockerfile.gpu). Both provide `supertonic` and `parakeet` targets;
+see the [CPU/GPU Docker commands](docs/DOCKER.md#cpu-and-optional-gpu-inference).
+
 ## xAI never receives an untagged sentence
 
 Every xAI request made by the Unix runtime must prove that every segmented sentence has at least one valid xAI speech tag:

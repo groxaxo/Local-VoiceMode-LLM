@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1.7
+# Explicit NVIDIA CUDA variant. Run with --gpus all or the GPU Compose overlay.
+FROM python:3.12-slim AS speech-common
+
+ARG APP_UID=10001
+ARG APP_GID=10001
+ARG SUPERTONIC_REVISION=df0f9686dac7fbbde391b759e2ee5286a3737622
+ARG PARAKEET_REVISION=06464cd06a0f75426ce46e94c2d04ee7e26f48c0
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HOME=/home/voicemode \
+    HF_HOME=/home/voicemode/.cache/huggingface \
+    TORCH_HOME=/home/voicemode/.cache/torch \
+    PARAKEET_MODELS_DIR=/home/voicemode/.cache/parakeet \
+    SUPERTONIC_MODEL_DIR=/home/voicemode/.cache/supertonic \
+    ORT_DISABLE_TELEMETRY=1 \
+    SUPERTONIC_ORT_BACKEND=cuda \
+    PARAKEET_USE_GPU=true \
+    PARAKEET_GPU_BACKEND=cuda \
+    PARAKEET_BATCHED=0 \
+    PARAKEET_PORT=5093 \
+    PARAKEET_DEFAULT_MODEL=istupakov/parakeet-tdt-0.6b-v3-onnx \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git ffmpeg libsndfile1 libgomp1 tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid "${APP_GID}" voicemode \
+    && useradd --uid "${APP_UID}" --gid voicemode --create-home voicemode \
+    && mkdir -p /home/voicemode/.cache \
+    && chown -R voicemode:voicemode /home/voicemode
+
+WORKDIR /app
+COPY containers/install-speech.sh /usr/local/bin/install-speech
+ENTRYPOINT ["tini", "--"]
+
+FROM speech-common AS parakeet
+RUN bash /usr/local/bin/install-speech parakeet cuda
+USER voicemode
+EXPOSE 5093
+HEALTHCHECK --interval=30s --timeout=5s --start-period=600s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5093/health', timeout=3)"
+CMD ["python", "/opt/parakeet/server.py"]
+
+FROM speech-common AS supertonic
+RUN bash /usr/local/bin/install-speech supertonic cuda
+COPY service/supertonic_server.py /app/service/supertonic_server.py
+USER voicemode
+EXPOSE 8766
+HEALTHCHECK --interval=30s --timeout=5s --start-period=600s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8766/health', timeout=3)"
+CMD ["python", "-m", "uvicorn", "service.supertonic_server:create_app", "--factory", "--host", "0.0.0.0", "--port", "8766"]

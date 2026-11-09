@@ -7,6 +7,64 @@ Local VoiceMode LLM provides two intentionally separate container targets:
 
 Native installation remains recommended for macOS and Windows microphone use because Docker Desktop does not expose CoreAudio or Windows audio with native-process semantics.
 
+## CPU and optional GPU inference
+
+`Dockerfile.cpu` runs the speech services on CPU. `Dockerfile.gpu` is a separate,
+explicit NVIDIA CUDA option. Each has a `supertonic` target (the default build
+target) and a `parakeet` target. The existing `Dockerfile` still provides the
+dashboard and CPU audio client; that audio client calls the inference services.
+
+Run dashboard, Parakeet and Supertonic on CPU:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d --build
+```
+
+GPU opt-in on a Linux NVIDIA host with Docker GPU support configured:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml \
+  -f docker-compose.gpu.yml up -d --build
+```
+
+The GPU override selects `Dockerfile.gpu`, enables CUDA for both speech services,
+and explicitly reserves an NVIDIA GPU. The CPU files never request GPU devices.
+The dashboard and VAD remain on CPU in both modes. See the official
+[Docker GPU prerequisites](https://docs.docker.com/compose/how-tos/gpu-support/).
+
+Build individual images from the repository root:
+
+```bash
+docker build -f Dockerfile.cpu --target supertonic -t voicemode-tts:cpu .
+docker build -f Dockerfile.cpu --target parakeet -t voicemode-stt:cpu .
+docker build -f Dockerfile.gpu --target supertonic -t voicemode-tts:gpu .
+docker build -f Dockerfile.gpu --target parakeet -t voicemode-stt:gpu .
+```
+
+For standalone GPU runs, pass `--gpus all`. For example:
+
+```bash
+docker run --rm --gpus all -p 127.0.0.1:8766:8766 \
+  -v voicemode-models:/home/voicemode/.cache voicemode-tts:gpu
+```
+
+Sources are pinned in the Dockerfiles. Weights download on first startup into
+the persistent cache, so first readiness can take several minutes and requires
+network access. CPU images install CPU ONNX Runtime; GPU images replace it with
+the matching CUDA/cuDNN wheel extras and preload those libraries before inference.
+See [ONNX Runtime CUDA support](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html).
+Requested CUDA execution fails startup if the actual backend is CPU or mixed.
+
+Compose publishes ports `5093`, `8766` and `7862` on loopback by default. Stop
+native services first or select unused `PARAKEET_PORT`, `SUPERTONIC_PORT` and
+`DASHBOARD_PORT` host ports. Container-to-container URLs retain the service ports.
+Do not run the CPU and GPU Compose variants simultaneously on the same ports.
+
+Check `/health` on each speech service after startup. Supertonic reports its
+actual `backend` and all four ONNX session providers; Parakeet reports the loaded
+default model under `runtime`. Merely seeing a GPU in the host is not evidence
+that inference uses CUDA. These files do not change native service settings.
+
 ## Mandatory sentence tagging
 
 Every xAI request made by the Unix runtime must prove:

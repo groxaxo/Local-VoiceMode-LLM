@@ -45,8 +45,8 @@ install_supertonic() {
   pip_install "$SUPERTONIC_VENV/bin/python" --upgrade pip setuptools wheel
   pip_install "$SUPERTONIC_VENV/bin/python" "${SUPERTONIC_DIR}[serve]" socksio
   if [[ "$SUPERTONIC_BACKEND" == cuda ]]; then
-    "$SUPERTONIC_VENV/bin/python" -m pip uninstall -y onnxruntime
-    pip_install "$SUPERTONIC_VENV/bin/python" onnxruntime-gpu
+    "$SUPERTONIC_VENV/bin/python" -m pip uninstall -y onnxruntime onnxruntime-gpu
+    pip_install "$SUPERTONIC_VENV/bin/python" 'onnxruntime-gpu[cuda,cudnn]==1.23.2'
   fi
   validate_imports "$SUPERTONIC_VENV/bin/python" Supertonic fastapi uvicorn onnxruntime huggingface_hub
   cp "$REPO_DIR/service/supertonic_server.py" "$SUPERTONIC_DIR/local_voicemode_server.py"

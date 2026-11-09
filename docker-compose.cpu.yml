@@ -1,0 +1,47 @@
+# Add to docker-compose.yml to run inference locally. CPU is always explicit.
+services:
+  dashboard:
+    environment:
+      SUPERTONIC_URL: http://supertonic:8766
+      PARAKEET_URL: http://parakeet:5093
+  supertonic:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+      target: supertonic
+      args:
+        APP_UID: ${APP_UID:-10001}
+        APP_GID: ${APP_GID:-10001}
+    environment:
+      SUPERTONIC_ORT_BACKEND: cpu
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${SUPERTONIC_PORT:-8766}:8766"
+    volumes:
+      - voicemode_cache:/home/voicemode/.cache
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+  parakeet:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+      target: parakeet
+      args:
+        APP_UID: ${APP_UID:-10001}
+        APP_GID: ${APP_GID:-10001}
+    environment:
+      PARAKEET_USE_GPU: "false"
+      PARAKEET_DEFAULT_MODEL: parakeet-tdt-0.6b-v3
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PARAKEET_PORT:-5093}:5093"
+    volumes:
+      - voicemode_cache:/home/voicemode/.cache
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=1g
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
