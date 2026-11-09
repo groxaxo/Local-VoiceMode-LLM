@@ -77,11 +77,9 @@ export QWEN_TTS_QUALITY QWEN_TTS_URL QWEN_TTS_URL_FAST QWEN_TTS_URL_HQ QWEN_TTS_
 : "${VIBEVOICE_CFG_SCALE:=2.0}"
 : "${VIBEVOICE_DDPM_STEPS:=15}"
 export TTS_ENGINE XAI_TTS_VOICE
-# STT: local Parakeet on :5093 — ONNX, CPU, on EVERY platform. setup.sh installs
-# the same ONNX server (groxaxo/parakeet-tdt-0.6b-v3-fastapi-openai) with the
-# CPU onnxruntime wheel on macOS/Linux/Windows, so the default model is the CPU
-# ONNX one everywhere. (Apple Silicon CoreML is opt-in: set STT_MODEL to a CoreML
-# model name only if you run a CoreML-backed server.)
+# Local STT on :5093. setup.sh defaults to ONNX CPU; Apple Silicon can select
+# --stt-backend=parakeet-mlx or --stt-backend=bark-mlx. Both MLX services accept
+# the legacy Parakeet model name below as an alias for their selected model.
 : "${STT_MODEL:=parakeet-tdt-0.6b-v3}"
 # local | remote | xai. Default is local CoreML Parakeet (launchd com.opencode.parakeet-stt,
 # restored 2026-08-23 with the FluidAudio CoreML speech-server on 127.0.0.1:5093).

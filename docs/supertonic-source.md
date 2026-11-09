@@ -47,8 +47,9 @@ and [SDK license](https://github.com/supertone-oss-archive/supertonic-py/blob/df
 
 Apple Silicon defaults to public ONNX CPU. `--onnx`/`--cpu` select CPU; `--mlx`
 fails explicitly before installation. Neither candidate supplies the private
-MLX implementation. Native macOS, launchd, CoreML, MLX, and CUDA speech are not
-validated by Linux contract tests. CUDA is opt-in and fails if its provider is
+MLX implementation. Native macOS and launchd CPU speech were subsequently verified on an M5; see
+[the native Mac report](macos-issue14-verification.md). CoreML, MLX and CUDA
+speech remain outside that validation. CUDA is opt-in and fails if its provider is
 unavailable; hardware performance must be tested separately.
 
 Existing checkout remotes are preserved. A different runtime or non-Git
@@ -113,3 +114,12 @@ git diff --check
 
 The full pytest command reports the existing xAI-wrapper failures. No GitHub
 Actions are used.
+
+## Native Mac verification on 10 November 2026
+
+The public install, real English/Spanish CPU synthesis, exact round-trip
+transcription and launchd restart pass on Apple M5. The follow-up also prevents
+health-only STT success, rejects occupied temporary ports and validates the
+Python version before creating environments. See [the report and Bark versus
+Parakeet comparison](macos-issue14-verification.md). Subjective listening and
+reporter confirmation remain outstanding; keep #14 open for those checks.

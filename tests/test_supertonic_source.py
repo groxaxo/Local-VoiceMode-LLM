@@ -42,7 +42,7 @@ exit "${FAKE_GIT_EXIT:-0}"
         VENV_DIR=str(tmp_path / "core-venv"),
         SKIP_SUPERTONIC="false", VENV_ONLY="false", FORCE="false",
         DOCTOR_ONLY="false", UNINSTALL="false", PLATFORM="macos",
-        OS="Darwin", ARCH="arm64", ACCEL="cpu", SUPERTONIC_BACKEND="auto",
+        OS="Darwin", ARCH="arm64", ACCEL="cpu", STT_BACKEND="onnx", SUPERTONIC_BACKEND="auto",
         SUPERTONIC_INSTALL_MLX="true",
     )
     return result
@@ -55,6 +55,7 @@ info() { :; }
 err() { printf '%s\\n' "$*" >&2; }
 die() { err "$*"; exit 1; }
 require_cmd() { :; }
+preflight_check_ports() { :; }
 show_doctor() { return 0; }
 uninstall_stack() { return 0; }
 retry() { shift 2; "$@"; }

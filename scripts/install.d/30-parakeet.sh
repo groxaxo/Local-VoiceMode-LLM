@@ -2,6 +2,7 @@
 PARAKEET_EXTERNAL=false
 install_parakeet() {
   [[ "$SKIP_PARAKEET" == true ]] && return 0
+  if [[ "$STT_BACKEND" != onnx ]]; then install_mlx_stt; return 0; fi
   info "── Installing Parakeet STT ──"
   if [[ -d "$PARAKEET_DIR/.git" ]]; then retry 3 2 git -C "$PARAKEET_DIR" pull --ff-only
   elif [[ -e "$PARAKEET_DIR" ]]; then

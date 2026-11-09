@@ -1,0 +1,167 @@
+{
+  "stt_health": {
+    "status": "healthy",
+    "ready": true,
+    "models": [
+      "parakeet-tdt-0.6b-v3",
+      "istupakov/parakeet-tdt-0.6b-v3-onnx",
+      "grikdotnet/parakeet-tdt-0.6b-fp16"
+    ],
+    "loaded": [
+      "parakeet-tdt-0.6b-v3"
+    ],
+    "default_model": "parakeet-tdt-0.6b-v3",
+    "runtime": {
+      "parakeet-tdt-0.6b-v3": {
+        "backend": "cpu",
+        "encoder_precision": "int8",
+        "sessions": {
+          "asr._encoder": [
+            "CPUExecutionProvider"
+          ],
+          "asr._decoder_joint": [
+            "CPUExecutionProvider"
+          ]
+        },
+        "fallback_reason": null
+      }
+    },
+    "cpu": {
+      "physical": 10,
+      "logical": 10,
+      "ort_intra": 10,
+      "ort_inter": 1,
+      "audio_workers": 8
+    }
+  },
+  "tts_health": {
+    "status": "ok",
+    "ready": true,
+    "model": "supertonic-3",
+    "backend": "cpu",
+    "session_providers": {
+      "dp_ort": [
+        "CPUExecutionProvider"
+      ],
+      "text_enc_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vector_est_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vocoder_ort": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "sample_rate": 44100,
+    "voices_loaded": 10
+  },
+  "speech": [
+    {
+      "name": "english",
+      "text": "Hello, this is a local voice test. The meeting starts tomorrow morning.",
+      "language": "en",
+      "options": {
+        "total_steps": 8,
+        "speed": 1.0
+      },
+      "frames": 236544,
+      "sample_rate": 44100,
+      "seconds": 5.363809523809524,
+      "peak_pcm": 12308,
+      "sha256": "5d354462d2dbb7d5820ef50242f760b3d451e0aa7b8d5b301825b58912895f9a"
+    },
+    {
+      "name": "spanish",
+      "text": "Hola, esta es una prueba de voz local. La reunión empieza mañana por la mañana.",
+      "language": "es",
+      "options": {
+        "total_steps": 12,
+        "speed": 1.0
+      },
+      "frames": 301056,
+      "sample_rate": 44100,
+      "seconds": 6.826666666666667,
+      "peak_pcm": 15760,
+      "sha256": "ebd0d4833002743191133ee969f441e8f6c8713ba6d39eef0c82f52de2672d7d"
+    },
+    {
+      "name": "slow",
+      "text": "Hello, this is a local voice test. The meeting starts tomorrow morning.",
+      "language": "en",
+      "options": {
+        "total_steps": 8,
+        "speed": 0.8
+      },
+      "frames": 297984,
+      "sample_rate": 44100,
+      "seconds": 6.757006802721088,
+      "peak_pcm": 11402,
+      "sha256": "333c82ed62aab900b81626b926bef3ebed4e3b0c8a1d48d95d3208080e92649d"
+    },
+    {
+      "name": "fast",
+      "text": "Hello, this is a local voice test. The meeting starts tomorrow morning.",
+      "language": "en",
+      "options": {
+        "total_steps": 8,
+        "speed": 1.25
+      },
+      "frames": 190464,
+      "sample_rate": 44100,
+      "seconds": 4.31891156462585,
+      "peak_pcm": 8948,
+      "sha256": "d6054b3fe09b982cb5efdfe4341e244b929e32bf238a16aae7ba37562926cf9a"
+    }
+  ],
+  "transcriptions": {
+    "english": {
+      "text": "Hello, this is a local voice test. The meeting starts tomorrow morning."
+    },
+    "spanish": {
+      "text": "Hola, esta es una prueba de voz local. La reunión empieza mañana por la mañana."
+    }
+  },
+  "invalid_request_statuses": [
+    400,
+    422,
+    400
+  ],
+  "restart_health": {
+    "status": "ok",
+    "ready": true,
+    "model": "supertonic-3",
+    "backend": "cpu",
+    "session_providers": {
+      "dp_ort": [
+        "CPUExecutionProvider"
+      ],
+      "text_enc_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vector_est_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vocoder_ort": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "sample_rate": 44100,
+    "voices_loaded": 10
+  },
+  "after_restart": {
+    "name": "restart",
+    "text": "Hello, this is a local voice test. The meeting starts tomorrow morning.",
+    "language": "en",
+    "options": {
+      "total_steps": 8,
+      "speed": 1.0
+    },
+    "frames": 236544,
+    "sample_rate": 44100,
+    "seconds": 5.363809523809524,
+    "peak_pcm": 13048,
+    "sha256": "9e6e83f77034c0d351c7a0ff5c04c061cef459d887577ab8292a767fba3f93b3"
+  },
+  "complete": true
+}

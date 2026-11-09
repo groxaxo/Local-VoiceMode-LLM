@@ -1,0 +1,26 @@
+[
+  {
+    "backend": "parakeet-mlx",
+    "tts": "skipped",
+    "completed": true,
+    "stt_port": 35093,
+    "tts_port": null,
+    "installer_log_sha256": "88b1e5535f23097a75bc7dc6820a6ee863fbaa017270ca74dfcaa07affc57079"
+  },
+  {
+    "backend": "bark-mlx",
+    "tts": "skipped",
+    "completed": true,
+    "stt_port": 35093,
+    "tts_port": null,
+    "installer_log_sha256": "7401941c4bdc7e07cb005353825835fd91414a82991c00883812436fd2bf8862"
+  },
+  {
+    "backend": "bark-mlx",
+    "tts": "cpu",
+    "completed": true,
+    "stt_port": 35093,
+    "tts_port": 38766,
+    "installer_log_sha256": "9ac25017b8c6c0ae8ea221bcff02433a8d61d226116b2fe7685b1e3f002c589a"
+  }
+]

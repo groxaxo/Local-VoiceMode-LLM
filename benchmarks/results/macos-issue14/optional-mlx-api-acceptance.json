@@ -1,0 +1,162 @@
+{
+  "parakeet-mlx": {
+    "health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "parakeet-mlx",
+      "model": "parakeet-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "formats": {
+      "json": {
+        "text": "¿Me podés mandar fotos de la pileta?"
+      },
+      "text": "¿Me podés mandar fotos de la pileta?",
+      "verbose_json": {
+        "text": "¿Me podés mandar fotos de la pileta?",
+        "duration": 4.0106875,
+        "segments": [
+          {
+            "id": 0,
+            "start": 0.07,
+            "end": 3.11,
+            "text": "¿Me podés mandar fotos de la pileta?"
+          }
+        ],
+        "words": [
+          {
+            "word": "¿Me",
+            "start": 0.07,
+            "end": 0.55
+          },
+          {
+            "word": "podés",
+            "start": 0.71,
+            "end": 1.19
+          },
+          {
+            "word": "mandar",
+            "start": 1.19,
+            "end": 1.51
+          },
+          {
+            "word": "fotos",
+            "start": 1.5099999999999998,
+            "end": 1.83
+          },
+          {
+            "word": "de",
+            "start": 1.83,
+            "end": 1.9100000000000001
+          },
+          {
+            "word": "la",
+            "start": 1.9100000000000001,
+            "end": 2.1500000000000004
+          },
+          {
+            "word": "pileta?",
+            "start": 2.15,
+            "end": 3.11
+          }
+        ],
+        "model": "parakeet-mlx8",
+        "backend": "parakeet-mlx",
+        "peak_mlx_active_bytes": 963578974,
+        "active_mlx_bytes": 785974056,
+        "cache_mlx_bytes": 231331083
+      }
+    },
+    "invalid": {
+      "unknown_model": 400,
+      "unsupported_format": 400,
+      "empty": 400,
+      "bad_audio": 415,
+      "upload_limit": 413
+    },
+    "after_errors": {
+      "text": "¿Me podés mandar fotos de la pileta?"
+    },
+    "complete": true
+  },
+  "bark-mlx": {
+    "health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "bark-mlx",
+      "model": "bark-pro-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "formats": {
+      "json": {
+        "text": "me podés mandar fotos de la pileta"
+      },
+      "text": "me podés mandar fotos de la pileta",
+      "verbose_json": {
+        "text": "me podés mandar fotos de la pileta",
+        "duration": 4.0106875,
+        "segments": [
+          {
+            "id": 0,
+            "start": 0.31000000000000005,
+            "end": 2.79,
+            "text": "me podés mandar fotos de la pileta"
+          }
+        ],
+        "words": [
+          {
+            "word": "me",
+            "start": 0.31000000000000005,
+            "end": 0.4700000000000001
+          },
+          {
+            "word": "podés",
+            "start": 0.79,
+            "end": 1.1099999999999999
+          },
+          {
+            "word": "mandar",
+            "start": 1.19,
+            "end": 1.51
+          },
+          {
+            "word": "fotos",
+            "start": 1.5099999999999998,
+            "end": 1.83
+          },
+          {
+            "word": "de",
+            "start": 1.83,
+            "end": 1.9100000000000001
+          },
+          {
+            "word": "la",
+            "start": 1.9100000000000001,
+            "end": 2.0700000000000003
+          },
+          {
+            "word": "pileta",
+            "start": 2.0700000000000003,
+            "end": 2.79
+          }
+        ],
+        "model": "bark-pro-mlx8",
+        "backend": "bark-mlx",
+        "peak_mlx_active_bytes": 963578974,
+        "active_mlx_bytes": 785974056,
+        "cache_mlx_bytes": 231331083
+      }
+    },
+    "invalid": {
+      "unknown_model": 400,
+      "unsupported_format": 400,
+      "empty": 400,
+      "bad_audio": 415,
+      "upload_limit": 413
+    },
+    "after_errors": {
+      "text": "me podés mandar fotos de la pileta"
+    },
+    "complete": true
+  }
+}

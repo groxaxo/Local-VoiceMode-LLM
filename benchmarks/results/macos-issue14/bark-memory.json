@@ -1,0 +1,57 @@
+{
+  "complete": true,
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "device": "Apple M5 GPU / unified memory",
+  "versions": {
+    "mlx": "0.32.4",
+    "mlx-audio": "0.6.2"
+  },
+  "model": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/models/Underdog-Bark-3.0-Pro-MLX-8bit",
+  "config_sha256": "7a6ec2a3ce5598bf5c1157b88b4cb3553551de3e5703e06c121c9d4d61a16b2f",
+  "weight_sha256": {
+    "model.safetensors": "b7d005f04532c1c23ed04010a3e7f442d7eac2fd44457823a4c055f30f785366"
+  },
+  "audio_sha256": "9bd4a3e7f9381bfc9755c61edf008b251a9950b73a4df9e4c6de2eb4195d3039",
+  "load_peak_active_bytes": 785546456,
+  "loaded_active_bytes": 785546456,
+  "phases": [
+    {
+      "audio_seconds": 4,
+      "repeats": 2,
+      "peak_active_bytes": 963578974,
+      "active_after_bytes": 785974056,
+      "cache_after_bytes": 233051403
+    },
+    {
+      "audio_seconds": 30,
+      "repeats": 2,
+      "peak_active_bytes": 1220649524,
+      "active_after_bytes": 787645224,
+      "cache_after_bytes": 1048576
+    },
+    {
+      "audio_seconds": 60,
+      "repeats": 2,
+      "peak_active_bytes": 1224515636,
+      "active_after_bytes": 789562152,
+      "cache_after_bytes": 2064384
+    },
+    {
+      "audio_seconds": 300,
+      "repeats": 2,
+      "peak_active_bytes": 1246552116,
+      "active_after_bytes": 804913960,
+      "cache_after_bytes": 10141696
+    }
+  ],
+  "peak_active_bytes": 1246552116,
+  "sampled_active_plus_cache_bytes": 1667591479,
+  "peak_process_rss_bytes": 1105641472,
+  "settings": {
+    "chunk_seconds": 30,
+    "overlap_seconds": 2,
+    "padding_seconds": 0.25,
+    "activations": "bfloat16"
+  },
+  "note": "Peak active GPU memory is exact for these workloads; allocator active+cache is sampled every 2 ms. Neither is whole-system VRAM. RSS is process memory."
+}

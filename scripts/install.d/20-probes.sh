@@ -11,19 +11,23 @@ stt_probe_once() {
   local base="http://127.0.0.1:${PARAKEET_PORT}" tmp wav code rc=1
   tmp="$(mktemp "${TMPDIR:-/tmp}/lvml-stt.XXXXXX")"
   wav="$(mktemp "${TMPDIR:-/tmp}/lvml-stt-wav.XXXXXX")"
-  code="$(curl -sS --max-time 4 -o "$tmp" -w '%{http_code}' "$base/healthz" || true)"
-  if [[ "$code" == 200 ]]; then rc=0
-  else
-    code="$(curl -sS --max-time 4 -o "$tmp" -w '%{http_code}' "$base/health" || true)"
-    if [[ "$code" == 200 ]] && grep -Eq '"ready"[[:space:]]*:[[:space:]]*true|"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"' "$tmp"; then rc=0
-    else
-      make_silence_wav "$wav"
-      code="$(curl -sS --max-time 30 -o "$tmp" -w '%{http_code}' \
-        -F "file=@${wav};type=audio/wav" -F response_format=json \
-        "$base/v1/audio/transcriptions" || true)"
-      [[ "$code" == 200 ]] && grep -q '"text"' "$tmp" && rc=0
-    fi
-  fi
+  # A health response does not exercise upload decoding or transcription.
+  # Silence may validly produce empty text; require a real JSON string field.
+  make_silence_wav "$wav"
+  code="$(curl -sS --max-time 30 -o "$tmp" -w '%{http_code}' \
+    -F "file=@${wav};filename=probe.wav;type=audio/wav" -F response_format=json \
+    "$base/v1/audio/transcriptions" || true)"
+  if [[ "$code" == 200 ]] && python3 - "$tmp" <<'STTPY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as stream:
+        payload = json.load(stream)
+    valid = isinstance(payload, dict) and isinstance(payload.get("text"), str)
+except (ValueError, OSError):
+    valid = False
+raise SystemExit(0 if valid else 1)
+STTPY
+  then rc=0; fi
   rm -f "$tmp" "$wav"; return "$rc"
 }
 tts_probe_once() {
