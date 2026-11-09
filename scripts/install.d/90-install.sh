@@ -10,7 +10,7 @@ if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
 preflight_check_ports
 preflight_supertonic_source
-info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
+info "STT backend: ${STT_BACKEND} (${OS} ${ARCH}; ONNX accelerator=${ACCEL})"
 info "Supertonic backend policy: ${SUPERTONIC_BACKEND}"
 
 create_venv "$VENV_DIR" "Voice core"

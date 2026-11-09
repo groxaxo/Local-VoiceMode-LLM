@@ -11,6 +11,7 @@ for module in \
   10-common.sh \
   20-probes.sh \
   30-parakeet.sh \
+  35-mlx-stt.sh \
   40-supertonic.sh \
   90-install.sh \
   91-services.sh \

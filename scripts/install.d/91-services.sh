@@ -24,6 +24,7 @@ if [[ "$CHECK_INSTALL" == true ]]; then
   }
   trap cleanup_install_check EXIT
   if [[ "$SKIP_PARAKEET" == false ]]; then
+    VOICE_STT_MODEL="${VOICE_STT_MODEL:-}" VOICE_STT_BACKEND="$STT_BACKEND" \
     PARAKEET_HOST=127.0.0.1 PARAKEET_PORT="$PARAKEET_PORT" PARAKEET_USE_GPU="$USE_GPU" \
       "$PARAKEET_VENV/bin/python" "$PARAKEET_DIR/server.py" > "$CONFIG_DIR/parakeet-stt.log" 2>&1 &
     PROBE_PIDS+=("$!")

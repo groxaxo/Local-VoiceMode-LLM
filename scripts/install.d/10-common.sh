@@ -102,6 +102,18 @@ case "$SUPERTONIC_BACKEND_CHOICE" in
   *) die "Unknown Supertonic backend policy: $SUPERTONIC_BACKEND_CHOICE" ;;
 esac
 
+case "$STT_BACKEND" in
+  onnx) : ;;
+  parakeet-mlx|bark-mlx)
+    [[ "$IS_APPLE_SILICON" == true ]] || die "MLX STT requires native Apple Silicon macOS; use --stt-backend=onnx"
+    [[ "$ACCEL_CHOICE" != cpu ]] || die "MLX STT uses the Apple GPU; omit --cpu or select --stt-backend=onnx"
+    PARAKEET_DIR="$CONFIG_DIR/mlx-stt"
+    PARAKEET_VENV="$PARAKEET_DIR/.venv"
+    VOICE_STT_MODEL="$PARAKEET_DIR/models/$STT_BACKEND"
+    ;;
+  *) die "Unknown STT backend: $STT_BACKEND" ;;
+esac
+
 mkdir -p "$CONFIG_DIR"
 [[ "$PLATFORM" == macos ]] && mkdir -p "$LAUNCHD_DIR"
 

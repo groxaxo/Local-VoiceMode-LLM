@@ -1,0 +1,54 @@
+{
+  "parakeet-mlx": {
+    "health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "parakeet-mlx",
+      "model": "parakeet-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "transcription": {
+      "text": "¿Me podés mandar fotos de la pileta?"
+    },
+    "restart_health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "parakeet-mlx",
+      "model": "parakeet-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "restart_transcription": {
+      "text": "¿Me podés mandar fotos de la pileta?"
+    },
+    "pid_before": 76771,
+    "pid_after": 76798,
+    "complete": true,
+    "bootout_exit": 0
+  },
+  "bark-mlx": {
+    "health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "bark-mlx",
+      "model": "bark-pro-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "transcription": {
+      "text": "me podés mandar fotos de la pileta"
+    },
+    "restart_health": {
+      "ready": true,
+      "status": "ok",
+      "backend": "bark-mlx",
+      "model": "bark-pro-mlx8",
+      "peak_mlx_active_bytes": 785546456
+    },
+    "restart_transcription": {
+      "text": "me podés mandar fotos de la pileta"
+    },
+    "pid_before": 76822,
+    "pid_after": 76845,
+    "complete": true,
+    "bootout_exit": 0
+  }
+}

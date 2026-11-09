@@ -35,6 +35,7 @@ FORCE=false
 UNINSTALL=false
 DOCTOR_ONLY=false
 CHECK_INSTALL=false
+STT_BACKEND=onnx
 ACCEL_CHOICE=auto
 SUPERTONIC_BACKEND_CHOICE=auto
 INTEGRATE_CLAUDECODE=true
@@ -50,7 +51,8 @@ Usage: ./setup.sh [options]
 
 Installs or repairs the local voice stack and verifies it end to end.
 
-  --skip-parakeet       Do not install or verify Parakeet STT
+  --skip-parakeet       Do not install or verify local STT
+  --stt-backend=NAME   onnx (default), parakeet-mlx, bark-mlx (Apple Silicon)
   --skip-supertonic     Do not install or verify Supertonic TTS
   --skip-voices         Skip optional macOS reference voice generation
   --venv-only           Install only the shared voice Python environment
@@ -66,12 +68,14 @@ Installs or repairs the local voice stack and verifies it end to end.
   --no-integrations      Do not install agent skills
   -h, --help             Show this help
 
-Apple Silicon uses public Supertonic ONNX CPU. MLX is unavailable.
+Apple Silicon uses public Supertonic ONNX CPU; MLX TTS is unavailable.
+Optional MLX speech recognition: --stt-backend=parakeet-mlx or bark-mlx.
 USAGE
 }
 
 for arg in "$@"; do
   case "$arg" in
+    --stt-backend=*) STT_BACKEND="${arg#--stt-backend=}" ;;
     --skip-parakeet) SKIP_PARAKEET=true ;;
     --skip-supertonic) SKIP_SUPERTONIC=true ;;
     --skip-voices) SKIP_VOICES=true ;;
@@ -115,7 +119,15 @@ ask_yn() {
 
 if [[ $# -eq 0 && -t 0 && -t 1 ]]; then
   printf '\n\033[1;36m  Local VoiceMode LLM — verified setup\033[0m\n\n'
-  ask_yn "Parakeet STT on :${PARAKEET_PORT}" y || SKIP_PARAKEET=true
+  ask_yn "Local STT on :${PARAKEET_PORT}" y || SKIP_PARAKEET=true
+  if [[ "$SKIP_PARAKEET" == false && "$PLATFORM" == macos && "$ARCH" == arm64 ]]; then
+    printf '  STT: 1) ONNX CPU  2) Parakeet MLX 8-bit  3) Bark Pro MLX 8-bit [1]: '
+    read -r stt_choice
+    case "${stt_choice:-1}" in
+      1) STT_BACKEND=onnx ;; 2) STT_BACKEND=parakeet-mlx ;; 3) STT_BACKEND=bark-mlx ;;
+      *) die "Invalid STT selection" ;;
+    esac
+  fi
   if [[ "$PLATFORM" == macos && "$ARCH" == arm64 ]]; then
     ask_yn "Supertonic TTS on :${SUPERTONIC_PORT} (public ONNX CPU)" y || SKIP_SUPERTONIC=true
   else

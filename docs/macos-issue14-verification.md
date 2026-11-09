@@ -155,3 +155,9 @@ and git diff --check pass. The five xAI wrapper tests fail identically in a
 separate untouched worktree at 4b3f6ef; none of those files changed here.
 The Mac system python3 is 3.9, so tests were run with the installed Python 3.12
 environment. No cloud API synthesis requests were used for those tests.
+
+## Follow-up: optional MLX installation and peak GPU memory
+
+Both working MLX backends are now installer options. See [the native optional
+backend and memory report](macos-mlx-stt.md) for commands, peak GPU allocations,
+allocator-cache measurements, fresh provisioning and launchd acceptance.

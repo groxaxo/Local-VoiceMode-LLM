@@ -406,3 +406,19 @@ Physical microphone, speaker, model downloads, service managers, and paid-provid
 ## License
 
 MIT
+
+## Optional Apple Silicon MLX STT
+
+ONNX CPU remains the default. Tested optional 8-bit GPU speech recognition:
+
+```bash
+./setup.sh --stt-backend=parakeet-mlx
+# Or choose Bark Pro:
+./setup.sh --stt-backend=bark-mlx
+```
+
+Both use the existing transcription API and accept the legacy Parakeet model
+alias. They measured 1.16 GiB peak active GPU allocations and about 1.55 GiB
+including sampled allocator cache on the M5 in the 4–300 second tests. See
+[installation, measured memory and native acceptance](docs/macos-mlx-stt.md).
+These are STT options; Supertonic continues to use public ONNX TTS.

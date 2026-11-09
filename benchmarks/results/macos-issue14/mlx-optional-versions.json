@@ -1,0 +1,16 @@
+{
+  "python": "3.12.13",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "packages": {
+    "mlx": "0.32.4",
+    "mlx-audio": "0.6.2",
+    "numpy": "2.5.4",
+    "fastapi": "0.162.2",
+    "uvicorn": "0.54.0",
+    "soundfile": "0.14.0",
+    "soxr": "1.1.0",
+    "huggingface-hub": "2.4.0",
+    "transformers": "5.22.2",
+    "safetensors": "0.8.0"
+  }
+}
