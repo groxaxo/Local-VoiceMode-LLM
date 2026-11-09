@@ -1,0 +1,2440 @@
+{
+  "complete": true,
+  "model_path": "/Users/op/models/huggingface-hub/models--transcriber-app--parakeet-tdt-0.6b-v3-mlx-8bit/snapshots/b56210e2fad422736810524963c24b5e2a1985ab",
+  "manifest_sha256": "28c0038717d91ffd30226dacc0099e73b707c34199ada6053bc2d7b97446aa97",
+  "config_sha256": "b6ff3627914218db0408f64cc96cbc2fd052003d105879d6a724e383661ed09d",
+  "weight_sha256": {
+    "model.safetensors": "41abe1e55db0aefcc9788b5e9afb8b51333b6744415f672d3f6b7cb4a08b1dfe"
+  },
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "python": "3.12.13",
+  "versions": {
+    "mlx": "0.32.4",
+    "mlx-audio": "0.6.2",
+    "jiwer": "4.0.0",
+    "num2words": "0.5.14",
+    "soundfile": "0.14.0"
+  },
+  "load_seconds": 1.377549208002165,
+  "first_inference_seconds": 0.07351100002415478,
+  "peak_process_rss_bytes": 1163329536,
+  "peak_mlx_memory_bytes": 1020939564,
+  "settings": {
+    "padding_seconds": 0.25,
+    "activations": "bfloat16",
+    "chunk_duration": null,
+    "language_hint": null,
+    "repeats": 2
+  },
+  "normalization": "NFC lowercase, punctuation removed, integer tokens verbalized; accents retained.",
+  "summary": {
+    "real_es_ar": {
+      "clips": 100,
+      "reference_words": 901,
+      "word_errors": 36,
+      "wer": 0.03995560488346282,
+      "accent_folded_wer": 0.0244173140954495,
+      "audio_seconds": 488.704125,
+      "warm_inference_seconds": 4.864434042523499,
+      "times_realtime": 100.46474486608052
+    },
+    "synthetic_en": {
+      "clips": 16,
+      "reference_words": 400,
+      "word_errors": 6,
+      "wer": 0.015,
+      "accent_folded_wer": 0.015,
+      "audio_seconds": 157.728,
+      "warm_inference_seconds": 1.3022730825323379,
+      "times_realtime": 121.11745387018958
+    },
+    "synthetic_es": {
+      "clips": 16,
+      "reference_words": 426,
+      "word_errors": 12,
+      "wer": 0.028169014084507043,
+      "accent_folded_wer": 0.002347417840375587,
+      "audio_seconds": 183.6009375,
+      "warm_inference_seconds": 1.4248553975339746,
+      "times_realtime": 128.85583885758635
+    }
+  },
+  "rows": [
+    {
+      "id": "female_0000",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Para la caída del cabello, tengo un nuevo champú",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0000_16k.wav",
+      "audio_sha256": "09ef25947057d2c8f530e50f6b69a864d6fd619ff1040a71ca2cdaf747584322",
+      "hypothesis": "Para la caída del cabello tenga un nuevo shampoo.",
+      "audio_seconds": 5.9733125,
+      "reference_words": 9,
+      "word_errors": 2,
+      "accent_folded_errors": 2,
+      "seconds": [
+        0.05381479099742137,
+        0.05346412499784492
+      ],
+      "median_seconds": 0.053639457997633144
+    },
+    {
+      "id": "female_0001",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Los hámsters comen zanahorias",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0001_16k.wav",
+      "audio_sha256": "0d47ebb940d9d5fec748354c59f7d94c077676a7043cd5745c050a77046abfe9",
+      "hypothesis": "Los hamsters comen zanahorias.",
+      "audio_seconds": 3.84,
+      "reference_words": 4,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04288666698266752,
+        0.04219162501976825
+      ],
+      "median_seconds": 0.04253914600121789
+    },
+    {
+      "id": "female_0002",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Me podés mandar fotos de la pileta?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0002_16k.wav",
+      "audio_sha256": "9bd4a3e7f9381bfc9755c61edf008b251a9950b73a4df9e4c6de2eb4195d3039",
+      "hypothesis": "¿Me podés mandar fotos de la pileta?",
+      "audio_seconds": 4.0106875,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04388337500859052,
+        0.042845957999816164
+      ],
+      "median_seconds": 0.04336466650420334
+    },
+    {
+      "id": "female_0003",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Hola Cristina que bueno que pueda hablar con vos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0003_16k.wav",
+      "audio_sha256": "53bb29dc7a16e87781dbeeca1373900757b415b9ab123d03a7e155374f6b5b78",
+      "hypothesis": "Hola, Cristina, qué bueno que puedo hablar con vos.",
+      "audio_seconds": 3.1573125,
+      "reference_words": 9,
+      "word_errors": 2,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.04338908300269395,
+        0.04338541702600196
+      ],
+      "median_seconds": 0.043387250014347956
+    },
+    {
+      "id": "female_0004",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tranquilo va a estar todo bien",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0004_16k.wav",
+      "audio_sha256": "80bbec60b6bf2217376a759817594f4019415c2484e347980430481a06d1a981",
+      "hypothesis": "Tranquilo. Va a estar todo bien.",
+      "audio_seconds": 4.6933125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04401262497412972,
+        0.04334683300112374
+      ],
+      "median_seconds": 0.04367972898762673
+    },
+    {
+      "id": "female_0005",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "No sé hablar tamil",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0005_16k.wav",
+      "audio_sha256": "f39424dfa7259fa53e655590f01c4527b83e3043805632c53d55d9df9b58c925",
+      "hypothesis": "no sé hablar tamil.",
+      "audio_seconds": 2.4746875,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.038240833004238084,
+        0.0382464999856893
+      ],
+      "median_seconds": 0.03824366649496369
+    },
+    {
+      "id": "female_0006",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El procesador es más lento en una computadora Dell que con una Mac.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0006_16k.wav",
+      "audio_sha256": "cadfe0cb09e248ff0dea0d0123d0ae51bcc631b9d42fc8af715de7ae4226f0e4",
+      "hypothesis": "El procesador es más lento en una computadora de él que con una Mac.",
+      "audio_seconds": 4.4373125,
+      "reference_words": 13,
+      "word_errors": 2,
+      "accent_folded_errors": 2,
+      "seconds": [
+        0.04589774998021312,
+        0.04530995900859125
+      ],
+      "median_seconds": 0.045603854494402185
+    },
+    {
+      "id": "female_0007",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Adidas sacó una versión especial de zapatillas a las que no les entra el agua",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0007_16k.wav",
+      "audio_sha256": "3297a1aef85aa83a1f8d9129c6f6a8aed41c249290aa3fd00b51e8ba28a607a9",
+      "hypothesis": "Adida sacó una versión especial de zapatillas a las que no les centra el agua.",
+      "audio_seconds": 6.656,
+      "reference_words": 15,
+      "word_errors": 2,
+      "accent_folded_errors": 2,
+      "seconds": [
+        0.05769337501260452,
+        0.056841208977857605
+      ],
+      "median_seconds": 0.05726729199523106
+    },
+    {
+      "id": "female_0008",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La panadería es un arte",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0008_16k.wav",
+      "audio_sha256": "31afdf188a84a8109215aad8da5bfb9420b0370048869443787b6706ea86f9cf",
+      "hypothesis": "La panadería es un arte.",
+      "audio_seconds": 3.4133125,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.040348000009544194,
+        0.039557125011924654
+      ],
+      "median_seconds": 0.039952562510734424
+    },
+    {
+      "id": "female_0009",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuántas medallas ha ganado?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0009_16k.wav",
+      "audio_sha256": "de38a0c1b7af32cf130ec3013053a060b0ef826926677f93f6e8208138df77ad",
+      "hypothesis": "¿Cuántas medallas ha ganado?",
+      "audio_seconds": 2.9866875,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.039532416994916275,
+        0.03965437499573454
+      ],
+      "median_seconds": 0.03959339599532541
+    },
+    {
+      "id": "female_0010",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Acabo de comprar este control remoto universal, te doy el numero de serie y me ayudás a configurarlo",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0010_16k.wav",
+      "audio_sha256": "8d36ca541452166f307b75942663b86d7d54007fc4bd57aa8dd2c43154e89426",
+      "hypothesis": "Acabo de comprar este control remoto universal. Te doy el número de serie y me ayudas a configurarlo.",
+      "audio_seconds": 8.0213125,
+      "reference_words": 18,
+      "word_errors": 2,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.06951233302243054,
+        0.06887612500577234
+      ],
+      "median_seconds": 0.06919422901410144
+    },
+    {
+      "id": "female_0011",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quisiera reservar dos pasajes por favor pero en primera clase",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0011_16k.wav",
+      "audio_sha256": "a7698e6ecf20e02ee72669eca8efe23857da431fb91a2895ae33072dc64c4aa0",
+      "hypothesis": "Quisiera reservar dos pasajes, por favor, pero en primera clase.",
+      "audio_seconds": 6.144,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05282949999673292,
+        0.05227758298860863
+      ],
+      "median_seconds": 0.052553541492670774
+    },
+    {
+      "id": "female_0012",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La pronunciación del francés es difícil",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0012_16k.wav",
+      "audio_sha256": "02d987fd37085c4f33299be60fa2cfddb9d08a25225e65328e6f3ba6adbf2540",
+      "hypothesis": "La pronunciación del francés es difícil.",
+      "audio_seconds": 5.2053125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0490146670199465,
+        0.049075374990934506
+      ],
+      "median_seconds": 0.0490450210054405
+    },
+    {
+      "id": "female_0013",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Ya no aguanto más este frío.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0013_16k.wav",
+      "audio_sha256": "02ee6724cf6e016059c92943e53e7c3df0fbc8dafcb34d1de85625e2190e0949",
+      "hypothesis": "Ya no aguanto más este frío.",
+      "audio_seconds": 4.096,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04353833297500387,
+        0.04340533399954438
+      ],
+      "median_seconds": 0.043471833487274125
+    },
+    {
+      "id": "female_0014",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Necesito prácticamente un curso express",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0014_16k.wav",
+      "audio_sha256": "afb13e62f236bdaf1486fcd8b6648ed8387828dad6233efb719050cc3d9f0096",
+      "hypothesis": "Necesito prácticamente un curso expres.",
+      "audio_seconds": 4.9493125,
+      "reference_words": 5,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.04824554201331921,
+        0.0475534170109313
+      ],
+      "median_seconds": 0.047899479512125254
+    },
+    {
+      "id": "female_0015",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Siqueiros pintó murales en todo el mundo.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0015_16k.wav",
+      "audio_sha256": "dcb52792de2c00ea6e95486404debbdc7ffca28ffa345bea2727d287679806e7",
+      "hypothesis": "Siqueiros pintó murales en todo el mundo.",
+      "audio_seconds": 5.5466875,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05070929101202637,
+        0.05030337499920279
+      ],
+      "median_seconds": 0.05050633300561458
+    },
+    {
+      "id": "female_0016",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El pijama de rayas es azul",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0016_16k.wav",
+      "audio_sha256": "cf6d3756eda847e86ee0307f49b0f778875d5025a545960451c57f4016adcd56",
+      "hypothesis": "El pijama de rayas es azul.",
+      "audio_seconds": 3.9253125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.043127458018716425,
+        0.04226266601472162
+      ],
+      "median_seconds": 0.04269506201671902
+    },
+    {
+      "id": "female_0017",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quiero la cartera para un regalo de cumpleaños para Andrea.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0017_16k.wav",
+      "audio_sha256": "ef0988163b6212d7fe84e60b89d7ca9420f99cd19b1eaadf0666cb9b4c822265",
+      "hypothesis": "Quiero la cartera para un regalo de cumpleaños para Andrea.",
+      "audio_seconds": 5.12,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.051332625007489696,
+        0.05140900000697002
+      ],
+      "median_seconds": 0.05137081250722986
+    },
+    {
+      "id": "female_0018",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Conocés los hornos marroquíes para hacer pan?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0018_16k.wav",
+      "audio_sha256": "b7c54e45a225a452ff1385e1db8f581c6997f6966574ead14983d8dc68a3e402",
+      "hypothesis": "¿Conocés los hornos marroquíes para hacer pan?",
+      "audio_seconds": 5.4613125,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05129887501243502,
+        0.050457750010536984
+      ],
+      "median_seconds": 0.050878312511486
+    },
+    {
+      "id": "female_0019",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tiene una película muy famosa que se llama Dos Mil Uno una Odisea del Espacio",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0019_16k.wav",
+      "audio_sha256": "6fea405d89227a96e01cde2fceed84096a85ec2671024ca0d7ad0e9f27ed7adc",
+      "hypothesis": "Tiene una película muy famosa que se llama 2001 Una Odisea del Espacio.",
+      "audio_seconds": 7.0826875,
+      "reference_words": 15,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.058721000008517876,
+        0.0581758749904111
+      ],
+      "median_seconds": 0.05844843749946449
+    },
+    {
+      "id": "female_0020",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuántos deportes se practican en las Olimpíadas y cuántos países participan?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0020_16k.wav",
+      "audio_sha256": "c7dade94b82a379385a92e8d25ae87bfb3c2479a919982507a1f1305becfc132",
+      "hypothesis": "¿Cuántos deportes se practican en las Olimpiadas y cuántos países participan?",
+      "audio_seconds": 4.864,
+      "reference_words": 11,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04933541698846966,
+        0.04940329201053828
+      ],
+      "median_seconds": 0.04936935449950397
+    },
+    {
+      "id": "female_0021",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Ya llegó el taxi, está acá afuera",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0021_16k.wav",
+      "audio_sha256": "3194e1f3a5730f69170aa8585a08fafbeea7228ed236bc9bb21aff80e479db30",
+      "hypothesis": "Ya llegó el taxi, está acá afuera.",
+      "audio_seconds": 4.608,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.045646333979675546,
+        0.0452177079860121
+      ],
+      "median_seconds": 0.045432020982843824
+    },
+    {
+      "id": "female_0022",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Quién subió el mejor video?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0022_16k.wav",
+      "audio_sha256": "e3ef35edc2b4297dc571f73d8859b0dad11db48d089048993f3c245ab30366c8",
+      "hypothesis": "¿Quién subió el mejor video?",
+      "audio_seconds": 2.7306875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.03955591600970365,
+        0.039586625003721565
+      ],
+      "median_seconds": 0.03957127050671261
+    },
+    {
+      "id": "female_0023",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿En qué calle está la casa?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0023_16k.wav",
+      "audio_sha256": "be2375014fa57b2dea19b435b25e611fdc120a1eaf9830bfead1ce63e678db68",
+      "hypothesis": "¿En qué calle está la casa?",
+      "audio_seconds": 3.584,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04087125000660308,
+        0.040304249996552244
+      ],
+      "median_seconds": 0.04058775000157766
+    },
+    {
+      "id": "female_0024",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Fuiste a la Casa de Frida Kahlo?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0024_16k.wav",
+      "audio_sha256": "aead3b1b10a4c0589f0f2d72846b94e4435054e9610291c8baa1f9f3998dbfd1",
+      "hypothesis": "¿Fuiste a la casa de Frida Caló?",
+      "audio_seconds": 4.7786875,
+      "reference_words": 7,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.04666145800729282,
+        0.0464435419999063
+      ],
+      "median_seconds": 0.04655250000359956
+    },
+    {
+      "id": "female_0025",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tengo muchos discos de vinilo",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0025_16k.wav",
+      "audio_sha256": "a2b5979ab2258bfa37cf9849984b6099daef25970f2bc9f062b638db7f6e218e",
+      "hypothesis": "Tengo muchos discos de vinilo.",
+      "audio_seconds": 3.2426875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.03924391701002605,
+        0.039303625002503395
+      ],
+      "median_seconds": 0.039273771006264724
+    },
+    {
+      "id": "female_0026",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Le recomiendo los fiordos noruegos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0026_16k.wav",
+      "audio_sha256": "e5a08a10ccf923dc427059f07abc75783b2154fc1a0c386c53e16392b5af12dd",
+      "hypothesis": "Les recomiendo los fiordos noruegos",
+      "audio_seconds": 5.7173125,
+      "reference_words": 5,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.051866167021216825,
+        0.05111179099185392
+      ],
+      "median_seconds": 0.051488979006535374
+    },
+    {
+      "id": "female_0027",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "No me gusta comer en un lugar con mucha gente.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0027_16k.wav",
+      "audio_sha256": "31cefa8aac1f73cd106d4194a01d0fdf2aaa47b153e310e318ee66793436d8d0",
+      "hypothesis": "No me gusta comer en un lugar con mucha gente.",
+      "audio_seconds": 5.5466875,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.049817082996014506,
+        0.04957462497986853
+      ],
+      "median_seconds": 0.04969585398794152
+    },
+    {
+      "id": "female_0028",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "En Alaska hay muchos animales salvajes.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0028_16k.wav",
+      "audio_sha256": "eaf8eb77baa32de1a757c009f501de914a6b8900ee9fe4aba8e7d8a197665a70",
+      "hypothesis": "En Alaska hay muchos animales salvajes.",
+      "audio_seconds": 5.2053125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.049152040999615565,
+        0.04883325000992045
+      ],
+      "median_seconds": 0.048992645504768007
+    },
+    {
+      "id": "female_0029",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Dónde encuentro una farmacia abierta a estas horas?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0029_16k.wav",
+      "audio_sha256": "527d3c73be753fbad79c56aee4ffb1383e0bbbf8201ea3dbd17a3494739266e1",
+      "hypothesis": "¿Dónde encuentro una farmacia abierta a estas horas?",
+      "audio_seconds": 6.144,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.054205749998800457,
+        0.0537361669994425
+      ],
+      "median_seconds": 0.05397095849912148
+    },
+    {
+      "id": "female_0030",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La parte de las cataratas del Niágara que está del lado estadounidense es bastante aburrida",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0030_16k.wav",
+      "audio_sha256": "41290863a4f573e154f8af2e446c66d91c1f3f24f05996706c63a5545b78823f",
+      "hypothesis": "La parte de las cataratas del Niágara que está del lado estadounidense es bastante aburrida.",
+      "audio_seconds": 8.0213125,
+      "reference_words": 15,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0672171670012176,
+        0.06989870901452377
+      ],
+      "median_seconds": 0.06855793800787069
+    },
+    {
+      "id": "female_0031",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿La casa esta amueblada o no?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0031_16k.wav",
+      "audio_sha256": "f637738a283231c651a6e2bb4de38053459e75b1cb82fee1cb2f577b9447afbf",
+      "hypothesis": "¿La casa está amueblada o no?",
+      "audio_seconds": 4.352,
+      "reference_words": 6,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.044670791015960276,
+        0.044178875017678365
+      ],
+      "median_seconds": 0.04442483301681932
+    },
+    {
+      "id": "female_0032",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "No tengo ni idea de cómo cambiar una rueda, no sé si pueda pedir asistencia si me puedes ayudar vos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0032_16k.wav",
+      "audio_sha256": "c3dd389392c1733e544e3511a04edc77f96be3f74de38efd2ee850f6ba7a5db9",
+      "hypothesis": "No tengo ni idea de cómo cambiar una rueda, no sé si pueda pedir asistencia si me podés ayudar vos.",
+      "audio_seconds": 6.4853125,
+      "reference_words": 20,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05916974999126978,
+        0.0589771670056507
+      ],
+      "median_seconds": 0.05907345849846024
+    },
+    {
+      "id": "female_0033",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Estacione el auto en una zona segura y encienda las luces intermitentes",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0033_16k.wav",
+      "audio_sha256": "f6efe16efebc0e63b0268253aecce33ab0493c04a8224caf5f50ee38b397fafd",
+      "hypothesis": "Estacione el auto en una zona segura y encienda las luces intermitentes.",
+      "audio_seconds": 6.656,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05547245798516087,
+        0.05550070898607373
+      ],
+      "median_seconds": 0.0554865834856173
+    },
+    {
+      "id": "female_0034",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuántas medallas ha ganado?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0034_16k.wav",
+      "audio_sha256": "2e4106cc2249764e8224108d6dc28ae6b308c929a85a3ebbeaeaf21ff9af1dde",
+      "hypothesis": "¿Cuántas medallas ha ganado?",
+      "audio_seconds": 4.864,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.045244624983752146,
+        0.04476566700031981
+      ],
+      "median_seconds": 0.04500514599203598
+    },
+    {
+      "id": "female_0035",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Ve usted la pestaña en la parte superior izquierda que dice buscar?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0035_16k.wav",
+      "audio_sha256": "da4e424ab69f9b0fc832de7882f904038eb746ce53d5636a168150f650aba572",
+      "hypothesis": "¿Ve usted la pestaña en la parte superior izquierda que dice buscar?",
+      "audio_seconds": 6.5706875,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05659316701348871,
+        0.055307333008386195
+      ],
+      "median_seconds": 0.05595025001093745
+    },
+    {
+      "id": "female_0036",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿En cuántos juegos olímpicos ha participado?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0036_16k.wav",
+      "audio_sha256": "8e921fbc879997447ac9b98437f0653a0d8255e5069e7dca4807fe930b420d3c",
+      "hypothesis": "¿En cuántos Juegos Olímpicos ha participado?",
+      "audio_seconds": 5.7173125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05191666699829511,
+        0.05235874999198131
+      ],
+      "median_seconds": 0.05213770849513821
+    },
+    {
+      "id": "female_0037",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cómo va el partido de rugby?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0037_16k.wav",
+      "audio_sha256": "9754c3ee78eaf3c65ac6d9b7f69a1d0f7675466219f3663ee88e7da852a9690c",
+      "hypothesis": "¿Cómo va el partido de rugby?",
+      "audio_seconds": 3.7546875,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04173687502043322,
+        0.041442207992076874
+      ],
+      "median_seconds": 0.041589541506255046
+    },
+    {
+      "id": "female_0038",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Quiero saber el origen de la palabra astronauta?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0038_16k.wav",
+      "audio_sha256": "cc0f024bdab7d5fd7b843b6613ed18d8581251970eb6e94f4c179ad971902410",
+      "hypothesis": "Quiero saber el origen de la palabra astronauta.",
+      "audio_seconds": 5.888,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05212854198180139,
+        0.051835874997777864
+      ],
+      "median_seconds": 0.05198220848978963
+    },
+    {
+      "id": "female_0039",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuáles son las principales diferencias?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0039_16k.wav",
+      "audio_sha256": "eb4514718c40cfef08931cfc5aee3582a8dbc1e8d5815bcc3fcff5447d6732b9",
+      "hypothesis": "¿Cuáles son las principales diferencias?",
+      "audio_seconds": 3.4986875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.039926083001773804,
+        0.03988487500464544
+      ],
+      "median_seconds": 0.03990547900320962
+    },
+    {
+      "id": "female_0040",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Pensaste darles un yogurt con frutas? ¡A los chicos les encanta!",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0040_16k.wav",
+      "audio_sha256": "a4b7fdca18e7baa9c38113a9a2ffedd672a69d3b988ab114b1b8cfe803859aac",
+      "hypothesis": "¿Pensaste darles un yogur con frutas? A los chicos les encanta.",
+      "audio_seconds": 5.7173125,
+      "reference_words": 11,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05419462500140071,
+        0.05403629198553972
+      ],
+      "median_seconds": 0.054115458493470214
+    },
+    {
+      "id": "female_0041",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La mermelada de zarzamora es muy fácil de hacer",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0041_16k.wav",
+      "audio_sha256": "e4d406e2824b5c3514332d19c309b01076b1e97922491d294e25e64464977f79",
+      "hypothesis": "La mermelada de zarzamora es muy fácil de hacer.",
+      "audio_seconds": 4.1813125,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04378995898878202,
+        0.043370583007344976
+      ],
+      "median_seconds": 0.0435802709980635
+    },
+    {
+      "id": "female_0042",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Es muy importante el apoyo nasal en la pronunciación",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0042_16k.wav",
+      "audio_sha256": "229f844318df025ca5b3dbd78278b84ba2cd58f157ef70c600a108b5c204f2b4",
+      "hypothesis": "Es muy importante el apoyo nasal en la pronunciación.",
+      "audio_seconds": 5.0346875,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05003891701926477,
+        0.049562917003640905
+      ],
+      "median_seconds": 0.04980091701145284
+    },
+    {
+      "id": "female_0043",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tiene que esperar alrededor de treinta segundos para que la aplicación se instale en su celular",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0043_16k.wav",
+      "audio_sha256": "5740963484856de45332dd7009ae01e5dbf11f3f8ba1c6496c43538a50f2b3f4",
+      "hypothesis": "Tiene que esperar alrededor de 30 segundos para que la aplicación se instale en su celular.",
+      "audio_seconds": 8.5333125,
+      "reference_words": 16,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.06924166702083312,
+        0.06903829201473854
+      ],
+      "median_seconds": 0.06913997951778583
+    },
+    {
+      "id": "female_0044",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Las tejas rojas del tejado no son de México, son de Texas",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0044_16k.wav",
+      "audio_sha256": "b0ae66faa456e4beb24d86ffac99b32ce94aed8b285f2b2462101b8c8cfdd834",
+      "hypothesis": "Las tejas rojas del tejado no son de México, son de Texas.",
+      "audio_seconds": 4.2666875,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.046563000010792166,
+        0.04591279200394638
+      ],
+      "median_seconds": 0.04623789600736927
+    },
+    {
+      "id": "female_0045",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Está muy cansado",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0045_16k.wav",
+      "audio_sha256": "4a884d5d6d3678687744923e254f061c6425c7781c581c3f3142f3696a298822",
+      "hypothesis": "Está muy cansado.",
+      "audio_seconds": 4.2666875,
+      "reference_words": 3,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04199349999544211,
+        0.042402959021274
+      ],
+      "median_seconds": 0.042198229508358054
+    },
+    {
+      "id": "female_0046",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Estoy acá con un amigo discutiendo sobre el encuentro de boxeo",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0046_16k.wav",
+      "audio_sha256": "8c01197fc148b77608484990b6bf29aeba5fa378e1da57aeadc78bf49d22bd08",
+      "hypothesis": "Estoy acá con un amigo discutiendo sobre el encuentro de boxeo.",
+      "audio_seconds": 6.5706875,
+      "reference_words": 11,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05589066699030809,
+        0.056073667015880346
+      ],
+      "median_seconds": 0.05598216700309422
+    },
+    {
+      "id": "female_0047",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Por las tardes se escucha música en la Plaza.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0047_16k.wav",
+      "audio_sha256": "460a7362ba00c5d4fbc52d9bee0cc158a9eeaad6604cdb56589aa7284b9ae202",
+      "hypothesis": "Por las tardes, se escucha música en la plaza.",
+      "audio_seconds": 5.632,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05223987498902716,
+        0.051384582999162376
+      ],
+      "median_seconds": 0.05181222899409477
+    },
+    {
+      "id": "female_0048",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Has visto alguna vez un erizo de mar?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0048_16k.wav",
+      "audio_sha256": "07675b77d7efc9be46471c3d95836ab8c10a3f2688a639364ca218f977838763",
+      "hypothesis": "¿Has visto alguna vez un erizo de mar?",
+      "audio_seconds": 4.7786875,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.045977417001267895,
+        0.04584562499076128
+      ],
+      "median_seconds": 0.04591152099601459
+    },
+    {
+      "id": "female_0049",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Qué dicen las noticias de esta mañana?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0049_16k.wav",
+      "audio_sha256": "29e55fc2eb350d2658a4861824cfcc199798a1e9fee1e340ba09b78500e740f4",
+      "hypothesis": "¿Qué dicen las noticias de esta mañana?",
+      "audio_seconds": 4.608,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.045194083999376744,
+        0.04550912498962134
+      ],
+      "median_seconds": 0.04535160449449904
+    },
+    {
+      "id": "male_0000",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Para la caída del cabello, tengo un nuevo jabón",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0000_16k.wav",
+      "audio_sha256": "adfd5a9caa8046395299cf365ba93d68a431ba3e5ea57552a520e689fab6b622",
+      "hypothesis": "Para la caída del cabello tengo un nuevo jabón.",
+      "audio_seconds": 3.584,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04267470899503678,
+        0.04282775000319816
+      ],
+      "median_seconds": 0.04275122949911747
+    },
+    {
+      "id": "male_0001",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Qué color favorito es el más popular?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0001_16k.wav",
+      "audio_sha256": "67fa364804b8ec5a4e2df2aa5ccb79980e0aecf0595e8146e19189751d14a64d",
+      "hypothesis": "Qué color favorito es el más popular.",
+      "audio_seconds": 3.328,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04006533298525028,
+        0.0402900830085855
+      ],
+      "median_seconds": 0.04017770799691789
+    },
+    {
+      "id": "male_0002",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El pijama de rayas es azul",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0002_16k.wav",
+      "audio_sha256": "dd3e87f20f285a44ced0bf3639d01d0d13c9e02e7ed9bfd3334c211a482717fe",
+      "hypothesis": "El pijama de rayas es azul.",
+      "audio_seconds": 4.6933125,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.043987416982417926,
+        0.043692708015441895
+      ],
+      "median_seconds": 0.04384006249892991
+    },
+    {
+      "id": "male_0003",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Las máquinas de escribir antiguas pueden ser muy caras.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0003_16k.wav",
+      "audio_sha256": "9099d09ade8b4d82547270cd6ad072609ed8f9a1a4799c97dbbc4a31490cb7de",
+      "hypothesis": "Las máquinas de escribir antiguas pueden ser muy caras.",
+      "audio_seconds": 5.8026875,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05189320899080485,
+        0.051224666996859014
+      ],
+      "median_seconds": 0.05155893799383193
+    },
+    {
+      "id": "male_0004",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Al circular menos automóviles en la ciudad se logra una mejor calidad del aire",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0004_16k.wav",
+      "audio_sha256": "d8e8473c6440f782072c5d434782c4f525e404c2ac24d07fafaf39a773ef31fb",
+      "hypothesis": "Al circular menos automóviles en la ciudad, se logra una mejor calidad de aire.",
+      "audio_seconds": 5.5466875,
+      "reference_words": 14,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05242454199469648,
+        0.052045084012206644
+      ],
+      "median_seconds": 0.05223481300345156
+    },
+    {
+      "id": "male_0005",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿A qué hora querés ir al cine?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0005_16k.wav",
+      "audio_sha256": "53d2d96d573da8c8df1e20bb788b37cc9f4e0c8c9704eb66c61586ace1f9dd39",
+      "hypothesis": "¿A qué hora querés ir al cine?",
+      "audio_seconds": 3.84,
+      "reference_words": 7,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04283575000590645,
+        0.04262695900979452
+      ],
+      "median_seconds": 0.04273135450785048
+    },
+    {
+      "id": "male_0006",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Estoy destinada a triunfar",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0006_16k.wav",
+      "audio_sha256": "a9a5cf994ef1a2439f3684b58165aa9ce3fecfd2922b2794de3e2ad666d25ee7",
+      "hypothesis": "Estoy destinada a triunfar.",
+      "audio_seconds": 2.6453125,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.03893045900622383,
+        0.03866854100488126
+      ],
+      "median_seconds": 0.038799500005552545
+    },
+    {
+      "id": "male_0007",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tengo una junta de negocios con la firma de abogados, ¿se acuerda?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0007_16k.wav",
+      "audio_sha256": "70bac5bc29c3cbb834744f13f4063e485a673d7d537484b384f1cc92923e1a45",
+      "hypothesis": "Tengo una junta de negocios con la firma de abogados, ¿se acuerda?",
+      "audio_seconds": 5.2906875,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05196345801232383,
+        0.05214304098626599
+      ],
+      "median_seconds": 0.05205324949929491
+    },
+    {
+      "id": "male_0008",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Para abrir los poros de la piel lo mejor es ir a un sauna, o tomar un baño de vapor",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0008_16k.wav",
+      "audio_sha256": "7b7be683149061657f4e2309a109076d808b1c6975e1f064e208ad343b3377eb",
+      "hypothesis": "Para abrir los poros de la piel, lo mejor es ir a un sauna o tomar un baño de vapor.",
+      "audio_seconds": 9.216,
+      "reference_words": 20,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.07091874998877756,
+        0.06988087500212714
+      ],
+      "median_seconds": 0.07039981249545235
+    },
+    {
+      "id": "male_0009",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Para hacer esa receta necesitás fruta y alcohol",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0009_16k.wav",
+      "audio_sha256": "cd341374f3aa260e500c38cf64eab1adf558327182368535f8ed692d67e4529f",
+      "hypothesis": "Para hacer esa receta, necesitas fruta y alcohol.",
+      "audio_seconds": 3.584,
+      "reference_words": 8,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04241158298100345,
+        0.042270916019333526
+      ],
+      "median_seconds": 0.04234124950016849
+    },
+    {
+      "id": "male_0010",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quiero que me ayudes a elegir un regalo.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0010_16k.wav",
+      "audio_sha256": "9d2a3395b802b88e4b935d3c261a4ef13a95fd374afc7726d6402f05c106d86b",
+      "hypothesis": "Quiero que me ayudes a elegir un regalo.",
+      "audio_seconds": 3.4986875,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04269520798698068,
+        0.042266457981895655
+      ],
+      "median_seconds": 0.042480832984438166
+    },
+    {
+      "id": "male_0011",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La yoga además de relajarte y de equilibrar tu organismo también te permitirá tonificar los brazos y las piernas",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0011_16k.wav",
+      "audio_sha256": "02b4ba69a4b0303f4643c3d97265450217a175e3c2c1bc46ad2d664e8cc4920c",
+      "hypothesis": "La yoga, además de relajarte y de equilibrar tu organismo, también te permitirá tonificar los brazos y las piernas.",
+      "audio_seconds": 7.5093125,
+      "reference_words": 19,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0693340830039233,
+        0.06876245798775926
+      ],
+      "median_seconds": 0.06904827049584128
+    },
+    {
+      "id": "male_0012",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La obscuridad del pozo era obscena por naturaleza",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0012_16k.wav",
+      "audio_sha256": "933abeec1d15aee326d406b2b8657fdd6423cc6c2c240ddecb948319937b0d06",
+      "hypothesis": "La obscuridad del pozo era obscena por naturaleza.",
+      "audio_seconds": 6.4,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.055604749999474734,
+        0.05463891598628834
+      ],
+      "median_seconds": 0.055121832992881536
+    },
+    {
+      "id": "male_0013",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Aquí doblamos a la derecha",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0013_16k.wav",
+      "audio_sha256": "3b52392210100b799f6651ca16aeb57cb098caf0c8e1b2ed78e6cc1d8982f1bf",
+      "hypothesis": "Aquí doblamos a la derecha.",
+      "audio_seconds": 2.816,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04027137497905642,
+        0.038984957995126024
+      ],
+      "median_seconds": 0.03962816648709122
+    },
+    {
+      "id": "male_0014",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Las tejas rojas del tejado no son de México, son de Texas",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0014_16k.wav",
+      "audio_sha256": "21166b6894cb25ab2bd09d6bc6f8d0d06cdb0d18a6ddb0bc4f7e7bebaf30249d",
+      "hypothesis": "Las tejas rojas del tejado no son de México, son de Texas.",
+      "audio_seconds": 4.5226875,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.046545083983801305,
+        0.046260166011052206
+      ],
+      "median_seconds": 0.046402624997426756
+    },
+    {
+      "id": "male_0015",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Estaba pensando en ir a acampar.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0015_16k.wav",
+      "audio_sha256": "4253b1f575e8b1f7c73fea1044be0079885f93a536fefd54b64d45779698ee21",
+      "hypothesis": "Estaba pensando en ir a acampar.",
+      "audio_seconds": 5.5466875,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04903799999738112,
+        0.04892937501426786
+      ],
+      "median_seconds": 0.04898368750582449
+    },
+    {
+      "id": "male_0016",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Lo podés pagar con la tarjeta verde de Visa",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0016_16k.wav",
+      "audio_sha256": "73e2179ca12afda3cc81a73e5d9e6cdf82087fd2f754943cb6358c89c9786f57",
+      "hypothesis": "lo podés pagar con la tarjeta verde de Visa.",
+      "audio_seconds": 3.9253125,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.045288459019502625,
+        0.04438287499942817
+      ],
+      "median_seconds": 0.044835667009465396
+    },
+    {
+      "id": "male_0017",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuáles son las principales diferencias?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0017_16k.wav",
+      "audio_sha256": "924daa7e9ead48c2b7e8027bb8bc67e2e37e46e61fc8d78e3d363433b8ee2333",
+      "hypothesis": "¿Cuáles son las principales diferencias?",
+      "audio_seconds": 3.84,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04169712500879541,
+        0.04204808300710283
+      ],
+      "median_seconds": 0.04187260400794912
+    },
+    {
+      "id": "male_0018",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuál es la estación de metro más cercana?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0018_16k.wav",
+      "audio_sha256": "39b1af594db58ebb66042cd4ac95a9928876b90f880fce28d0aec2f07cd242f4",
+      "hypothesis": "¿Cuál es la estación de metro más cercana?",
+      "audio_seconds": 3.584,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04116991598857567,
+        0.04124541700002737
+      ],
+      "median_seconds": 0.04120766649430152
+    },
+    {
+      "id": "male_0019",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Si el cuerpo pide descanso hay que dárselo dicen los médicos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0019_16k.wav",
+      "audio_sha256": "6612717b3698628146a58e486520ec28c92ee7a557d55019260f2c386b5f7b52",
+      "hypothesis": "Si el cuerpo pide descanso, hay que dárselo, dicen los médicos.",
+      "audio_seconds": 4.096,
+      "reference_words": 11,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04663770899060182,
+        0.04712174998712726
+      ],
+      "median_seconds": 0.04687972948886454
+    },
+    {
+      "id": "male_0020",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Mañana vaya abrigada, un gorro de lana y guantes es lo más recomendable",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0020_16k.wav",
+      "audio_sha256": "1fbd430bd853c977221429604f9347037db31d0d38264dbfedef7ac1a14559dd",
+      "hypothesis": "Mañana vaya brigada, un gorro de lana y guantes es lo más recomendable.",
+      "audio_seconds": 5.376,
+      "reference_words": 13,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05372195801464841,
+        0.05261816599522717
+      ],
+      "median_seconds": 0.05317006200493779
+    },
+    {
+      "id": "male_0021",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El viaje en avión es más rápido que en barco.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0021_16k.wav",
+      "audio_sha256": "e83733a6f7502be9dfa68a483f8687d156fb863e57d1946ad58c897d85335494",
+      "hypothesis": "El viaje en avión es más rápido que en barco.",
+      "audio_seconds": 4.9493125,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04992429100093432,
+        0.04932612500851974
+      ],
+      "median_seconds": 0.04962520800472703
+    },
+    {
+      "id": "male_0022",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Quién subió el mejor video?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0022_16k.wav",
+      "audio_sha256": "dfa20418feea1b99893d799ac3619404f1c3113a7b19f97e94c8524d9593e35d",
+      "hypothesis": "¿Quién subió el mejor video?",
+      "audio_seconds": 3.7546875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04233695799484849,
+        0.04222908298834227
+      ],
+      "median_seconds": 0.04228302049159538
+    },
+    {
+      "id": "male_0023",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La pronunciación del francés es difícil",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0023_16k.wav",
+      "audio_sha256": "506b50f6a929d9301e936941db30651fe570f65ec41951a6518196eeeb54b548",
+      "hypothesis": "La pronunciación del francés es difícil.",
+      "audio_seconds": 2.816,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0400164169841446,
+        0.040035791986156255
+      ],
+      "median_seconds": 0.04002610448515043
+    },
+    {
+      "id": "male_0024",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Me ayudas a plantar los naranjos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0024_16k.wav",
+      "audio_sha256": "d248ac9dcb1cf53cad3ea2d444f1e79fbe2ad12c13e3de3a34ec264b38f976d5",
+      "hypothesis": "¿Me ayudas a plantar los naranjos?",
+      "audio_seconds": 5.2906875,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05211145899374969,
+        0.050472666014684364
+      ],
+      "median_seconds": 0.05129206250421703
+    },
+    {
+      "id": "male_0025",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El Llano en Llamas es un clásico de Juan Rulfo",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0025_16k.wav",
+      "audio_sha256": "3d38ad9cd67bfa3df3466d8af5e2c2ed7d41d1606b4dd3849b23d8582f9a38b3",
+      "hypothesis": "El llano en llamas es un clásico de Juan Rulfo.",
+      "audio_seconds": 5.376,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05172033398412168,
+        0.051174916996387765
+      ],
+      "median_seconds": 0.05144762549025472
+    },
+    {
+      "id": "male_0026",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quiero averiguar como se llama un director de cine",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0026_16k.wav",
+      "audio_sha256": "90d023d21a51f4528bd46444a39a737426dc1a24e79ce27f63504e9c04384125",
+      "hypothesis": "Quiero averiguar cómo se llama un director de cine.",
+      "audio_seconds": 2.9866875,
+      "reference_words": 9,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.043880708020878956,
+        0.0433916249894537
+      ],
+      "median_seconds": 0.04363616650516633
+    },
+    {
+      "id": "male_0027",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Cuándo sucedió la Primera Guerra Mundial?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0027_16k.wav",
+      "audio_sha256": "7bea0b72e7338cebeb5af5bf975c03228fd1f616ee0931f442f55e256ebe91c7",
+      "hypothesis": "Cuando sucedió la Primera Guerra Mundial.",
+      "audio_seconds": 5.632,
+      "reference_words": 6,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05174095800612122,
+        0.05175054198480211
+      ],
+      "median_seconds": 0.051745749995461665
+    },
+    {
+      "id": "male_0028",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Por ahí se dice que este personaje malverso una cantidad extraordinaria de fondos públicos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0028_16k.wav",
+      "audio_sha256": "6d29267c29967385bc99b43aff384ac6e3587b70ffd733597f3980d8dcd0d65e",
+      "hypothesis": "Por ahí, se dice que ese personaje malversó una cantidad extraordinaria de fondos públicos.",
+      "audio_seconds": 6.0586875,
+      "reference_words": 14,
+      "word_errors": 2,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05634487498900853,
+        0.05525500001385808
+      ],
+      "median_seconds": 0.055799937501433305
+    },
+    {
+      "id": "male_0029",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "En las noticias de anoche, no vi que el presidente de Estados Unidos estuviera en problemas con el senado.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0029_16k.wav",
+      "audio_sha256": "c4cdbea01bb0c7ccda64515d401fee979ab2f223823328ca2f9e2986be46c2da",
+      "hypothesis": "En las noticias de anoche, no vi que el presidente de Estados Unidos estuviera en problemas con el Senado.",
+      "audio_seconds": 7.424,
+      "reference_words": 19,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0590396250190679,
+        0.05843050000839867
+      ],
+      "median_seconds": 0.05873506251373328
+    },
+    {
+      "id": "male_0030",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Las bocinas estas que te dije son enormes, ¿sabés que se puede hacer con ellas?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0030_16k.wav",
+      "audio_sha256": "4152d3e3d101261e58d68d697bcd292b5d9248d8284a9242f45c9aa40448695a",
+      "hypothesis": "Las bocinas estas que te dije son enormes. ¿Sabés qué se puede hacer con ellas?",
+      "audio_seconds": 6.144,
+      "reference_words": 15,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0535797500051558,
+        0.05356908298563212
+      ],
+      "median_seconds": 0.05357441649539396
+    },
+    {
+      "id": "male_0031",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Es muy fácil usar las bicis de la ciudad, con tu tarjeta de crédito alquilas tu bici.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0031_16k.wav",
+      "audio_sha256": "c15e102350c482862acf14dca08229e99db8202ffeffa23f58908cacf10f87ed",
+      "hypothesis": "Es muy fácil usar las bicis de la ciudad. Con tu tarjeta de crédito, alquilás tu bici.",
+      "audio_seconds": 7.68,
+      "reference_words": 17,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.06803170801140368,
+        0.06726495901239105
+      ],
+      "median_seconds": 0.06764833351189736
+    },
+    {
+      "id": "male_0032",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Mañana va a hacer mucho viento y habrá tormentas",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0032_16k.wav",
+      "audio_sha256": "e4c8093abf65d000360d96766f13cd1a1abd43e29a9ad4700db85f13f7d60931",
+      "hypothesis": "Mañana va a ser mucho viento y habrá tormentas.",
+      "audio_seconds": 4.352,
+      "reference_words": 9,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.04394016700098291,
+        0.04400816699489951
+      ],
+      "median_seconds": 0.04397416699794121
+    },
+    {
+      "id": "male_0033",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "El dictador Franco estuvo cuarenta años en el poder.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0033_16k.wav",
+      "audio_sha256": "c7436ba6059159dcde524e9d3f86bfae86f4c277407c64e1ff155d165380775b",
+      "hypothesis": "El dictador Franco estuvo cuarenta años en el poder.",
+      "audio_seconds": 5.4613125,
+      "reference_words": 9,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.05049841699656099,
+        0.0505745830014348
+      ],
+      "median_seconds": 0.0505364999989979
+    },
+    {
+      "id": "male_0034",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Quién subió el mejor video?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0034_16k.wav",
+      "audio_sha256": "d8d6df2b585520516eadd3f31af9a55bc762265ac280e92b58a4fa154ea5c823",
+      "hypothesis": "¿Quién subió el mejor video?",
+      "audio_seconds": 2.4746875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.03837145899888128,
+        0.03811491699889302
+      ],
+      "median_seconds": 0.03824318799888715
+    },
+    {
+      "id": "male_0035",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Te voy a mandar por whatsapp las especificaciones de los invitados",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0035_16k.wav",
+      "audio_sha256": "e2a051452e93d2a348504bcec2c261e07932df036b0fc59188b2fd6aef865088",
+      "hypothesis": "Te voy a mandar por WhatsApp las especificaciones de los invitados.",
+      "audio_seconds": 4.608,
+      "reference_words": 11,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04658404100337066,
+        0.04658516601193696
+      ],
+      "median_seconds": 0.04658460350765381
+    },
+    {
+      "id": "male_0036",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La calle está llena de hoyos",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0036_16k.wav",
+      "audio_sha256": "ce0ad5fe3cd51e7e5c9d748fb7e778591fae5db753831ea89acf34be89ae7f33",
+      "hypothesis": "La calle está llena de hoyos.",
+      "audio_seconds": 4.0106875,
+      "reference_words": 6,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04312324998318218,
+        0.04387762499391101
+      ],
+      "median_seconds": 0.043500437488546595
+    },
+    {
+      "id": "male_0037",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Tenés que denunciar inmediatamente el accidente para que lo cubra el seguro",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0037_16k.wav",
+      "audio_sha256": "8469b60a396ae3df9a86f065734f3f4d059e46d2aaf2b9c4c8e68c08c81808dd",
+      "hypothesis": "Tenés que denunciar inmediatamente el accidente para que lo cubra el seguro.",
+      "audio_seconds": 4.7786875,
+      "reference_words": 12,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04816220799693838,
+        0.04807287498260848
+      ],
+      "median_seconds": 0.04811754148977343
+    },
+    {
+      "id": "male_0038",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quiero un jabón para relajarme.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0038_16k.wav",
+      "audio_sha256": "45b1dee93538cf8f0dddedb58f04c44b5da784d14c1a2730182f367852c4f4a1",
+      "hypothesis": "Quiero un jabón para relajarme.",
+      "audio_seconds": 4.0106875,
+      "reference_words": 5,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04338212500442751,
+        0.04376316600246355
+      ],
+      "median_seconds": 0.04357264550344553
+    },
+    {
+      "id": "male_0039",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Necesito tu ayuda urgente.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0039_16k.wav",
+      "audio_sha256": "230a3ef3808b989cf84a8f6bd75b0a2211adf0df506e37632138bd48f452f133",
+      "hypothesis": "Necesito tu ayuda urgente.",
+      "audio_seconds": 3.9253125,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04321474998141639,
+        0.04337966599268839
+      ],
+      "median_seconds": 0.04329720798705239
+    },
+    {
+      "id": "male_0040",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "¿Qué tan destruida quedó la ciudad de Nueva Orleans después del huracán Katrina?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0040_16k.wav",
+      "audio_sha256": "1e77b590d2ff95b78cfe6415a880495a05a0ac22e4d6d41f3c0cd0eea09846b0",
+      "hypothesis": "Kiran de estudia quedó la ciudad de Nueva Orleans después del huracán Katrina.",
+      "audio_seconds": 4.5226875,
+      "reference_words": 13,
+      "word_errors": 3,
+      "accent_folded_errors": 3,
+      "seconds": [
+        0.054112749989144504,
+        0.054904333024751395
+      ],
+      "median_seconds": 0.05450854150694795
+    },
+    {
+      "id": "male_0041",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Los hamsters comen zanahorias",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0041_16k.wav",
+      "audio_sha256": "8702a0928d6661860c330f7a9fd2e6e53bc8245a4a6423933848814349630467",
+      "hypothesis": "Los hamsters comen zanahorias.",
+      "audio_seconds": 3.6693125,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04347020899876952,
+        0.043441666988655925
+      ],
+      "median_seconds": 0.04345593799371272
+    },
+    {
+      "id": "male_0042",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "En el salón de fiestas entran alrededor de mil quinientas personas",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0042_16k.wav",
+      "audio_sha256": "387bc570959e16e9dd22ae39426111e30b9ff9f8c7f15baca83558ad95f37d87",
+      "hypothesis": "En el Salón de Fiestas entran alrededor de 1500 personas.",
+      "audio_seconds": 6.4853125,
+      "reference_words": 11,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05664841699763201,
+        0.05753083300078288
+      ],
+      "median_seconds": 0.057089624999207444
+    },
+    {
+      "id": "male_0043",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Hoy a la tarde saqué mi tarjeta para la bicicleta urbana",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0043_16k.wav",
+      "audio_sha256": "9cbf847b1e8b855d390103984f369e7ae984637378d519789ab5a4bacd78f4b1",
+      "hypothesis": "Hoy en la tarde saqué mi tarjeta para la bicicleta urbana.",
+      "audio_seconds": 4.608,
+      "reference_words": 11,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.049854167009470984,
+        0.05027345800772309
+      ],
+      "median_seconds": 0.05006381250859704
+    },
+    {
+      "id": "male_0044",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Ayudáme a encontrar un buen gimnasio pero que esté cerca de mi casa",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0044_16k.wav",
+      "audio_sha256": "10e1a53a347ba5478e6a54be082ecd877775b16df9be6d21378b651cfcf787bd",
+      "hypothesis": "Ayúdame a encontrar un buen gimnasio, pero que esté cerca de mi casa.",
+      "audio_seconds": 5.12,
+      "reference_words": 13,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.055134833994088694,
+        0.05331083299824968
+      ],
+      "median_seconds": 0.05422283349616919
+    },
+    {
+      "id": "male_0045",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "No te entiendo nada",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0045_16k.wav",
+      "audio_sha256": "fb25ca46b76655d67b852341029bf642a8ee9021e7edf0c271256675d54cead8",
+      "hypothesis": "no te entiendo nada.",
+      "audio_seconds": 2.56,
+      "reference_words": 4,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0374277500086464,
+        0.037446165981236845
+      ],
+      "median_seconds": 0.03743695799494162
+    },
+    {
+      "id": "male_0046",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "La granizada destruyó toda la plantación de lechuga",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0046_16k.wav",
+      "audio_sha256": "c9412d685168ee69886a385eb0506e5659b19f44b5cc97910624ed044e010922",
+      "hypothesis": "La granizada destruyó toda la plantación de lechuga.",
+      "audio_seconds": 3.584,
+      "reference_words": 8,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04320737501257099,
+        0.04312845898675732
+      ],
+      "median_seconds": 0.04316791699966416
+    },
+    {
+      "id": "male_0047",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Quiero irme de vacaciones a Hawái pero no sé si el volcán esté activo.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0047_16k.wav",
+      "audio_sha256": "155dd9f7601fb725528b2b896a8efcfcfb48ad019639ff678331c0dcb6241574",
+      "hypothesis": "Quiero irme de vacaciones a Hawái, pero no sé si el volcán está activo.",
+      "audio_seconds": 5.888,
+      "reference_words": 14,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.05656858300790191,
+        0.05728437501238659
+      ],
+      "median_seconds": 0.05692647901014425
+    },
+    {
+      "id": "male_0048",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Se hicieron versiones en todos los idiomas de esa canción",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0048_16k.wav",
+      "audio_sha256": "98518bfe5cbc0204a53f1819c6ba45a3eff534141b72afdb06fa0fd6cb4f40fe",
+      "hypothesis": "Se hicieron versiones en todos los idiomas de esa canción.",
+      "audio_seconds": 4.5226875,
+      "reference_words": 10,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.046326000010594726,
+        0.045961083000293
+      ],
+      "median_seconds": 0.046143541505443864
+    },
+    {
+      "id": "male_0049",
+      "group": "real_es_ar",
+      "language": "es",
+      "reference": "Voy a necesitar que lo pagués con la tarjeta roja",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0049_16k.wav",
+      "audio_sha256": "ccf1a506a0d799deb91cbb838c962cb4a65a3d45ca4ed4dbae4f6987837db9e8",
+      "hypothesis": "Voy a necesitar que lo pagues con la tarjeta roja.",
+      "audio_seconds": 4.352,
+      "reference_words": 10,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.04476541597978212,
+        0.04472808400169015
+      ],
+      "median_seconds": 0.044746749990736134
+    },
+    {
+      "id": "en_01_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "The small bakery opens early in the morning. Fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_01_F1_16k.wav",
+      "audio_sha256": "57c877e1a97c4079f65aca522b7f36df1dab836b6c81b0b1e4646d0834e05aa8",
+      "hypothesis": "The small bakery opens early in the morning, fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+      "audio_seconds": 10.1545625,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08971620799275115,
+        0.08510579200810753
+      ],
+      "median_seconds": 0.08741100000042934
+    },
+    {
+      "id": "en_01_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "The small bakery opens early in the morning. Fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_01_M1_16k.wav",
+      "audio_sha256": "33462ae213e0a5ed73acbc7791faed0a2af53b304279a5c2be8c3837bba8d02a",
+      "hypothesis": "The small bakery opens early in the morning. Fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+      "audio_seconds": 10.165,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08357600000454113,
+        0.08388233298319392
+      ],
+      "median_seconds": 0.08372916649386752
+    },
+    {
+      "id": "en_02_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Could you tell me where the nearest train station is? I need to get to the city centre before the rain starts this afternoon.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_02_F1_16k.wav",
+      "audio_sha256": "30f7274b3060cb0a38c855a93a490c02aad51510b6c0aadf9ba6a13ab11d4f08",
+      "hypothesis": "Could you tell me where the nearest train station is? I need to get to the city center before the rain starts this afternoon.",
+      "audio_seconds": 8.4035,
+      "reference_words": 24,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.07184837499517016,
+        0.07009250001283363
+      ],
+      "median_seconds": 0.0709704375040019
+    },
+    {
+      "id": "en_02_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Could you tell me where the nearest train station is? I need to get to the city centre before the rain starts this afternoon.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_02_M1_16k.wav",
+      "audio_sha256": "3f144b7223d4d9dc25597b4ece7f25a6324ec3c3cde9584060cf83437a86abc5",
+      "hypothesis": "Could you tell me where the nearest train station is? I need to get to the city center before the rain starts this afternoon.",
+      "audio_seconds": 8.4096875,
+      "reference_words": 24,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.06995633299811743,
+        0.07036816698382609
+      ],
+      "median_seconds": 0.07016224999097176
+    },
+    {
+      "id": "en_03_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_03_F1_16k.wav",
+      "audio_sha256": "d426a0a3cfee997d63050d1ceb4cba2ce58ced5c15f1acb529213e487ef93ba0",
+      "hypothesis": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+      "audio_seconds": 9.17425,
+      "reference_words": 23,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.07825491699622944,
+        0.07583512499695644
+      ],
+      "median_seconds": 0.07704502099659294
+    },
+    {
+      "id": "en_03_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_03_M1_16k.wav",
+      "audio_sha256": "e2e02f53359dee0a78e17973f7d6edfc789bf8402e20ba4e5866777d42533dd9",
+      "hypothesis": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+      "audio_seconds": 9.181,
+      "reference_words": 23,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.07366554200416431,
+        0.07382208300987259
+      ],
+      "median_seconds": 0.07374381250701845
+    },
+    {
+      "id": "en_04_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_04_F1_16k.wav",
+      "audio_sha256": "7261683ca16635938e593884b656b009d424d288024defcd5418dccae6410935",
+      "hypothesis": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+      "audio_seconds": 9.2714375,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0742749159981031,
+        0.07710095899528824
+      ],
+      "median_seconds": 0.07568793749669567
+    },
+    {
+      "id": "en_04_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_04_M1_16k.wav",
+      "audio_sha256": "3c4e42254b90c4c56fa164b6c5f1c98ef27582b929cd1a06d0fc6a7c65a45c26",
+      "hypothesis": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+      "audio_seconds": 9.27825,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.07572024999535643,
+        0.07546379099949263
+      ],
+      "median_seconds": 0.07559202049742453
+    },
+    {
+      "id": "en_05_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_05_F1_16k.wav",
+      "audio_sha256": "4334e71a788da9a72750f99b7388b497cb34b37beba5d9b621af45851b5c93a1",
+      "hypothesis": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+      "audio_seconds": 10.559125,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.09008708401233889,
+        0.0876611249987036
+      ],
+      "median_seconds": 0.08887410450552125
+    },
+    {
+      "id": "en_05_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_05_M1_16k.wav",
+      "audio_sha256": "4299cfdd1c85b09c4a4893451e870addabf261af5c9a221704c573bc7e189474",
+      "hypothesis": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+      "audio_seconds": 10.5699375,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08516258301096968,
+        0.08452179102459922
+      ],
+      "median_seconds": 0.08484218701778445
+    },
+    {
+      "id": "en_06_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_06_F1_16k.wav",
+      "audio_sha256": "d87724913ddc67b4c3b5df26f36fac6adbb9a5dabdfc78d106054fbf83d40638",
+      "hypothesis": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+      "audio_seconds": 10.1745,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08480779200908728,
+        0.08342137502040714
+      ],
+      "median_seconds": 0.08411458351474721
+    },
+    {
+      "id": "en_06_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_06_M1_16k.wav",
+      "audio_sha256": "1d7270cf4ca8b34a192f3365fc4a30e639c1e8a80d57525a4f01abc55c282c9c",
+      "hypothesis": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+      "audio_seconds": 10.184875,
+      "reference_words": 25,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08349087499664165,
+        0.08548787501058541
+      ],
+      "median_seconds": 0.08448937500361353
+    },
+    {
+      "id": "en_07_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Maria and Daniel are travelling from Auckland to Wellington. They plan to visit the museum, walk beside the harbour, and return home on Sunday evening.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_07_F1_16k.wav",
+      "audio_sha256": "a9b14fe9fa0ba63c0367d449b686099b0ef779892098240421d2b2664205747d",
+      "hypothesis": "Maria and Daniel are traveling from Auckland to Wellington. They plan to visit the museum, walk beside the harbor, and return home on Sunday evening.",
+      "audio_seconds": 10.60625,
+      "reference_words": 25,
+      "word_errors": 2,
+      "accent_folded_errors": 2,
+      "seconds": [
+        0.08976904200972058,
+        0.08536229201126844
+      ],
+      "median_seconds": 0.08756566701049451
+    },
+    {
+      "id": "en_07_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Maria and Daniel are travelling from Auckland to Wellington. They plan to visit the museum, walk beside the harbour, and return home on Sunday evening.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_07_M1_16k.wav",
+      "audio_sha256": "3379244640f07fd0772371a34ae70163f5e653c2b8c3cc46070ec089a50dd639",
+      "hypothesis": "Maria and Daniel are traveling from Auckland to Wellington. They plan to visit the museum, walk beside the harbor, and return home on Sunday evening.",
+      "audio_seconds": 10.617125,
+      "reference_words": 25,
+      "word_errors": 2,
+      "accent_folded_errors": 2,
+      "seconds": [
+        0.08392999999341555,
+        0.08401162500376813
+      ],
+      "median_seconds": 0.08397081249859184
+    },
+    {
+      "id": "en_08_F1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_08_F1_16k.wav",
+      "audio_sha256": "10f3ce376e1efac33af2db0e3365d674da1119203744d4ffafd7696b28ac5382",
+      "hypothesis": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+      "audio_seconds": 10.483875,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08723733300575987,
+        0.08560383299482055
+      ],
+      "median_seconds": 0.08642058300029021
+    },
+    {
+      "id": "en_08_M1",
+      "group": "synthetic_en",
+      "language": "en",
+      "reference": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_08_M1_16k.wav",
+      "audio_sha256": "7a9d3bc388c748dfae789bdfe6ed8969a9800bd80435ac330bbc768a93c36c1f",
+      "hypothesis": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+      "audio_seconds": 10.494625,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08627008300391026,
+        0.08903816598467529
+      ],
+      "median_seconds": 0.08765412449429277
+    },
+    {
+      "id": "es_01_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_01_F1_16k.wav",
+      "audio_sha256": "648142136c6942eef8cc7b2c34a2f56bef652404349b07b3c0a84a2b8a8ee5d5",
+      "hypothesis": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+      "audio_seconds": 11.378625,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0884489590243902,
+        0.08559095801319927
+      ],
+      "median_seconds": 0.08701995851879474
+    },
+    {
+      "id": "es_01_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_01_M1_16k.wav",
+      "audio_sha256": "5431b27c4a5c6459bdad7a8993d2364869c315eb411776840159982e693e0aed",
+      "hypothesis": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+      "audio_seconds": 11.39025,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08643754097283818,
+        0.08681541698751971
+      ],
+      "median_seconds": 0.08662647898017894
+    },
+    {
+      "id": "es_02_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_02_F1_16k.wav",
+      "audio_sha256": "eda0a21b8739474f97982c51ec4fb3705ddd0f9b4f7ddf24eeeec5391ddf7f5d",
+      "hypothesis": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+      "audio_seconds": 10.2615,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08464579100837,
+        0.08450633400934748
+      ],
+      "median_seconds": 0.08457606250885874
+    },
+    {
+      "id": "es_02_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_02_M1_16k.wav",
+      "audio_sha256": "7d545416e83eb417168c42db2b5a02f47d96291ea09b12db75863112e7e80c50",
+      "hypothesis": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+      "audio_seconds": 10.272,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08680820799781941,
+        0.08600854201358743
+      ],
+      "median_seconds": 0.08640837500570342
+    },
+    {
+      "id": "es_03_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llamame antes de cambiar la configuración.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_03_F1_16k.wav",
+      "audio_sha256": "e5ba9f31309e9ee63d72c420b69cde5e685180403c7f976eb16008e724c3cd3b",
+      "hypothesis": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llame antes de cambiar la configuración.",
+      "audio_seconds": 11.677375,
+      "reference_words": 26,
+      "word_errors": 1,
+      "accent_folded_errors": 1,
+      "seconds": [
+        0.08794554197811522,
+        0.08703095800592564
+      ],
+      "median_seconds": 0.08748824999202043
+    },
+    {
+      "id": "es_03_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llamame antes de cambiar la configuración.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_03_M1_16k.wav",
+      "audio_sha256": "3e569cdc348cd2b91440b6de092d577289203821155a143f8219ed37fa0a6d24",
+      "hypothesis": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llámame antes de cambiar la configuración.",
+      "audio_seconds": 11.689375,
+      "reference_words": 26,
+      "word_errors": 1,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08821533399168402,
+        0.08812062500510365
+      ],
+      "median_seconds": 0.08816797949839383
+    },
+    {
+      "id": "es_04_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guardá dos carpetas en cada bolsa y dejá la carpeta restante al lado de la impresora.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_04_F1_16k.wav",
+      "audio_sha256": "f956b6f5a47cd82fecb2c3edaaeef02aed4fa6e132185ecc7c467027ab7e07fd",
+      "hypothesis": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guarda dos carpetas en cada bolsa y deja la carpeta restante al lado de la impresora.",
+      "audio_seconds": 11.73525,
+      "reference_words": 27,
+      "word_errors": 2,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08860675001051277,
+        0.08715229202061892
+      ],
+      "median_seconds": 0.08787952101556584
+    },
+    {
+      "id": "es_04_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guardá dos carpetas en cada bolsa y dejá la carpeta restante al lado de la impresora.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_04_M1_16k.wav",
+      "audio_sha256": "acb7f90f53382914c9c9fcea9a03e50a64f83695a80a68ed6d28cb3c2885bb20",
+      "hypothesis": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guarda dos carpetas en cada bolsa y deja la carpeta restante al lado de la impresora.",
+      "audio_seconds": 11.74725,
+      "reference_words": 27,
+      "word_errors": 2,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08973279199562967,
+        0.0881383329979144
+      ],
+      "median_seconds": 0.08893556249677204
+    },
+    {
+      "id": "es_05_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a internet.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_05_F1_16k.wav",
+      "audio_sha256": "168236f86912fdf5a696372f425139dfaea1a3b4ab6ec4ee8f2c085d74a39cfd",
+      "hypothesis": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a Internet.",
+      "audio_seconds": 13.0601875,
+      "reference_words": 28,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.09942512499401346,
+        0.09977591701317579
+      ],
+      "median_seconds": 0.09960052100359462
+    },
+    {
+      "id": "es_05_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a internet.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_05_M1_16k.wav",
+      "audio_sha256": "c1ba67ea1079447d028da10c0971c61996c320428651a35ca866a22f41470b40",
+      "hypothesis": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a Internet.",
+      "audio_seconds": 13.0735,
+      "reference_words": 28,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.1046611670171842,
+        0.10056179200182669
+      ],
+      "median_seconds": 0.10261147950950544
+    },
+    {
+      "id": "es_06_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Tu consulta se pasó al jueves por la mañana. Por favor, traé la carta de derivación y avisá en recepción si necesitás un intérprete cuando llegues.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_06_F1_16k.wav",
+      "audio_sha256": "6b9de3d663e39252f894dc1a2f58c5bdf1f141a317946d27f58f77691d7d9777",
+      "hypothesis": "Tu consulta se pasó al jueves por la mañana. Por favor, trae la carta de derivación y avisa en recepción si necesitas un intérprete cuando llegues.",
+      "audio_seconds": 11.33275,
+      "reference_words": 26,
+      "word_errors": 3,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08645658398745582,
+        0.08614958400721662
+      ],
+      "median_seconds": 0.08630308399733622
+    },
+    {
+      "id": "es_06_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Tu consulta se pasó al jueves por la mañana. Por favor, traé la carta de derivación y avisá en recepción si necesitás un intérprete cuando llegues.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_06_M1_16k.wav",
+      "audio_sha256": "2b71c5800091bdcc4cdabc650cee8ed0de6f08b281c01321f939f0cc8edf129a",
+      "hypothesis": "Tu consulta se pasó al jueves por la mañana. Por favor, trae la carta de derivación y avisa en recepción si necesitas un intérprete cuando llegues.",
+      "audio_seconds": 11.3443125,
+      "reference_words": 26,
+      "word_errors": 3,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08562808300484903,
+        0.08736562498961575
+      ],
+      "median_seconds": 0.08649685399723239
+    },
+    {
+      "id": "es_07_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_07_F1_16k.wav",
+      "audio_sha256": "f1de4a14eafd1d02ca3e4e56677054b9e806fb0b14940f0be86f32c2e6366cf2",
+      "hypothesis": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+      "audio_seconds": 10.1035,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.0878353750158567,
+        0.08634020801400766
+      ],
+      "median_seconds": 0.08708779151493218
+    },
+    {
+      "id": "es_07_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_07_M1_16k.wav",
+      "audio_sha256": "f74a066c5466f981c92fc5366db87c26cbb357b6d76b56b084f2d996ebb00240",
+      "hypothesis": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+      "audio_seconds": 10.113875,
+      "reference_words": 26,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08625508300610818,
+        0.08552391699049622
+      ],
+      "median_seconds": 0.0858894999983022
+    },
+    {
+      "id": "es_08_F1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. ¿Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_08_F1_16k.wav",
+      "audio_sha256": "7f22191bf317803d347cd371c6ab98afb83740285d6df14322d3c5eacc2dfa7e",
+      "hypothesis": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias.",
+      "audio_seconds": 12.2043125,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.08958550001261756,
+        0.08751841698540375
+      ],
+      "median_seconds": 0.08855195849901065
+    },
+    {
+      "id": "es_08_M1",
+      "group": "synthetic_es",
+      "language": "es",
+      "reference": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. ¿Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias?",
+      "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_08_M1_16k.wav",
+      "audio_sha256": "fe26475803e1bd0ec9286524df36b9266b3438d134fcb2f6767cba3a6fd1f1a9",
+      "hypothesis": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias.",
+      "audio_seconds": 12.216875,
+      "reference_words": 27,
+      "word_errors": 0,
+      "accent_folded_errors": 0,
+      "seconds": [
+        0.09071358299115673,
+        0.09171045900438912
+      ],
+      "median_seconds": 0.09121202099777292
+    }
+  ]
+}

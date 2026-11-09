@@ -12,9 +12,37 @@ retry() {
   done
 }
 python_for_venv() {
-  if command -v python3.12 >/dev/null 2>&1; then printf '%s\n' python3.12
-  elif command -v python3 >/dev/null 2>&1; then printf '%s\n' python3
-  else return 1; fi
+  local py
+  # macOS /usr/bin/python3 can still be 3.9; validate before creating any venv.
+  for py in python3.12 python3.11 python3.13 python3.14 python3; do
+    if command -v "$py" >/dev/null 2>&1 &&
+      "$py" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1; then
+      printf '%s\n' "$py"; return 0
+    fi
+  done
+  return 1
+}
+preflight_check_ports() {
+  [[ "$CHECK_INSTALL" == true && "$VENV_ONLY" == false ]] || return 0
+  local py
+  py="$(python_for_venv)" || die "Python 3.11+ is required"
+  "$py" - "$SKIP_PARAKEET" "$PARAKEET_PORT" "$SKIP_SUPERTONIC" "$SUPERTONIC_PORT" <<'PORTPY'
+import socket, sys
+ports = []
+for skip, raw in zip(sys.argv[1::2], sys.argv[2::2]):
+    if skip == "true":
+        continue
+    port = int(raw)
+    if not 1 <= port <= 65535 or port in ports:
+        raise SystemExit(f"Invalid or duplicate check-install port: {port}")
+    ports.append(port)
+    with socket.socket() as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError as exc:
+            raise SystemExit(f"Check-install port {port} is unavailable: {exc}. Select unused PARAKEET_PORT/SUPERTONIC_PORT values.")
+PORTPY
 }
 create_venv() {
   local target="$1" label="$2" py

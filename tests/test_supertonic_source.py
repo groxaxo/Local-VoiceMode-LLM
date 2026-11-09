@@ -55,6 +55,7 @@ info() { :; }
 err() { printf '%s\\n' "$*" >&2; }
 die() { err "$*"; exit 1; }
 require_cmd() { :; }
+preflight_check_ports() { :; }
 show_doctor() { return 0; }
 uninstall_stack() { return 0; }
 retry() { shift 2; "$@"; }

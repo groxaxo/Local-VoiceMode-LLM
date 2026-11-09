@@ -1,0 +1,50 @@
+{
+  "health": {
+    "status": "ok",
+    "ready": true,
+    "model": "supertonic-3",
+    "backend": "cpu",
+    "session_providers": {
+      "dp_ort": [
+        "CPUExecutionProvider"
+      ],
+      "text_enc_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vector_est_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vocoder_ort": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "sample_rate": 44100,
+    "voices_loaded": 10
+  },
+  "speech_bytes": 221228,
+  "restart_health": {
+    "status": "ok",
+    "ready": true,
+    "model": "supertonic-3",
+    "backend": "cpu",
+    "session_providers": {
+      "dp_ort": [
+        "CPUExecutionProvider"
+      ],
+      "text_enc_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vector_est_ort": [
+        "CPUExecutionProvider"
+      ],
+      "vocoder_ort": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "sample_rate": 44100,
+    "voices_loaded": 10
+  },
+  "restart_speech_bytes": 221228,
+  "complete": true,
+  "bootout_exit": 0
+}

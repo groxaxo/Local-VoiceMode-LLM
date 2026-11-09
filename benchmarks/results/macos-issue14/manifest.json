@@ -1,0 +1,1058 @@
+[
+  {
+    "id": "female_0000",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Para la caída del cabello, tengo un nuevo champú",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0000_16k.wav",
+    "audio_sha256": "09ef25947057d2c8f530e50f6b69a864d6fd619ff1040a71ca2cdaf747584322"
+  },
+  {
+    "id": "female_0001",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Los hámsters comen zanahorias",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0001_16k.wav",
+    "audio_sha256": "0d47ebb940d9d5fec748354c59f7d94c077676a7043cd5745c050a77046abfe9"
+  },
+  {
+    "id": "female_0002",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Me podés mandar fotos de la pileta?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0002_16k.wav",
+    "audio_sha256": "9bd4a3e7f9381bfc9755c61edf008b251a9950b73a4df9e4c6de2eb4195d3039"
+  },
+  {
+    "id": "female_0003",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Hola Cristina que bueno que pueda hablar con vos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0003_16k.wav",
+    "audio_sha256": "53bb29dc7a16e87781dbeeca1373900757b415b9ab123d03a7e155374f6b5b78"
+  },
+  {
+    "id": "female_0004",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tranquilo va a estar todo bien",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0004_16k.wav",
+    "audio_sha256": "80bbec60b6bf2217376a759817594f4019415c2484e347980430481a06d1a981"
+  },
+  {
+    "id": "female_0005",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "No sé hablar tamil",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0005_16k.wav",
+    "audio_sha256": "f39424dfa7259fa53e655590f01c4527b83e3043805632c53d55d9df9b58c925"
+  },
+  {
+    "id": "female_0006",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El procesador es más lento en una computadora Dell que con una Mac.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0006_16k.wav",
+    "audio_sha256": "cadfe0cb09e248ff0dea0d0123d0ae51bcc631b9d42fc8af715de7ae4226f0e4"
+  },
+  {
+    "id": "female_0007",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Adidas sacó una versión especial de zapatillas a las que no les entra el agua",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0007_16k.wav",
+    "audio_sha256": "3297a1aef85aa83a1f8d9129c6f6a8aed41c249290aa3fd00b51e8ba28a607a9"
+  },
+  {
+    "id": "female_0008",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La panadería es un arte",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0008_16k.wav",
+    "audio_sha256": "31afdf188a84a8109215aad8da5bfb9420b0370048869443787b6706ea86f9cf"
+  },
+  {
+    "id": "female_0009",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuántas medallas ha ganado?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0009_16k.wav",
+    "audio_sha256": "de38a0c1b7af32cf130ec3013053a060b0ef826926677f93f6e8208138df77ad"
+  },
+  {
+    "id": "female_0010",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Acabo de comprar este control remoto universal, te doy el numero de serie y me ayudás a configurarlo",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0010_16k.wav",
+    "audio_sha256": "8d36ca541452166f307b75942663b86d7d54007fc4bd57aa8dd2c43154e89426"
+  },
+  {
+    "id": "female_0011",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quisiera reservar dos pasajes por favor pero en primera clase",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0011_16k.wav",
+    "audio_sha256": "a7698e6ecf20e02ee72669eca8efe23857da431fb91a2895ae33072dc64c4aa0"
+  },
+  {
+    "id": "female_0012",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La pronunciación del francés es difícil",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0012_16k.wav",
+    "audio_sha256": "02d987fd37085c4f33299be60fa2cfddb9d08a25225e65328e6f3ba6adbf2540"
+  },
+  {
+    "id": "female_0013",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Ya no aguanto más este frío.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0013_16k.wav",
+    "audio_sha256": "02ee6724cf6e016059c92943e53e7c3df0fbc8dafcb34d1de85625e2190e0949"
+  },
+  {
+    "id": "female_0014",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Necesito prácticamente un curso express",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0014_16k.wav",
+    "audio_sha256": "afb13e62f236bdaf1486fcd8b6648ed8387828dad6233efb719050cc3d9f0096"
+  },
+  {
+    "id": "female_0015",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Siqueiros pintó murales en todo el mundo.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0015_16k.wav",
+    "audio_sha256": "dcb52792de2c00ea6e95486404debbdc7ffca28ffa345bea2727d287679806e7"
+  },
+  {
+    "id": "female_0016",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El pijama de rayas es azul",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0016_16k.wav",
+    "audio_sha256": "cf6d3756eda847e86ee0307f49b0f778875d5025a545960451c57f4016adcd56"
+  },
+  {
+    "id": "female_0017",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quiero la cartera para un regalo de cumpleaños para Andrea.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0017_16k.wav",
+    "audio_sha256": "ef0988163b6212d7fe84e60b89d7ca9420f99cd19b1eaadf0666cb9b4c822265"
+  },
+  {
+    "id": "female_0018",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Conocés los hornos marroquíes para hacer pan?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0018_16k.wav",
+    "audio_sha256": "b7c54e45a225a452ff1385e1db8f581c6997f6966574ead14983d8dc68a3e402"
+  },
+  {
+    "id": "female_0019",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tiene una película muy famosa que se llama Dos Mil Uno una Odisea del Espacio",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0019_16k.wav",
+    "audio_sha256": "6fea405d89227a96e01cde2fceed84096a85ec2671024ca0d7ad0e9f27ed7adc"
+  },
+  {
+    "id": "female_0020",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuántos deportes se practican en las Olimpíadas y cuántos países participan?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0020_16k.wav",
+    "audio_sha256": "c7dade94b82a379385a92e8d25ae87bfb3c2479a919982507a1f1305becfc132"
+  },
+  {
+    "id": "female_0021",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Ya llegó el taxi, está acá afuera",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0021_16k.wav",
+    "audio_sha256": "3194e1f3a5730f69170aa8585a08fafbeea7228ed236bc9bb21aff80e479db30"
+  },
+  {
+    "id": "female_0022",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Quién subió el mejor video?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0022_16k.wav",
+    "audio_sha256": "e3ef35edc2b4297dc571f73d8859b0dad11db48d089048993f3c245ab30366c8"
+  },
+  {
+    "id": "female_0023",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿En qué calle está la casa?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0023_16k.wav",
+    "audio_sha256": "be2375014fa57b2dea19b435b25e611fdc120a1eaf9830bfead1ce63e678db68"
+  },
+  {
+    "id": "female_0024",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Fuiste a la Casa de Frida Kahlo?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0024_16k.wav",
+    "audio_sha256": "aead3b1b10a4c0589f0f2d72846b94e4435054e9610291c8baa1f9f3998dbfd1"
+  },
+  {
+    "id": "female_0025",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tengo muchos discos de vinilo",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0025_16k.wav",
+    "audio_sha256": "a2b5979ab2258bfa37cf9849984b6099daef25970f2bc9f062b638db7f6e218e"
+  },
+  {
+    "id": "female_0026",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Le recomiendo los fiordos noruegos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0026_16k.wav",
+    "audio_sha256": "e5a08a10ccf923dc427059f07abc75783b2154fc1a0c386c53e16392b5af12dd"
+  },
+  {
+    "id": "female_0027",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "No me gusta comer en un lugar con mucha gente.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0027_16k.wav",
+    "audio_sha256": "31cefa8aac1f73cd106d4194a01d0fdf2aaa47b153e310e318ee66793436d8d0"
+  },
+  {
+    "id": "female_0028",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "En Alaska hay muchos animales salvajes.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0028_16k.wav",
+    "audio_sha256": "eaf8eb77baa32de1a757c009f501de914a6b8900ee9fe4aba8e7d8a197665a70"
+  },
+  {
+    "id": "female_0029",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Dónde encuentro una farmacia abierta a estas horas?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0029_16k.wav",
+    "audio_sha256": "527d3c73be753fbad79c56aee4ffb1383e0bbbf8201ea3dbd17a3494739266e1"
+  },
+  {
+    "id": "female_0030",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La parte de las cataratas del Niágara que está del lado estadounidense es bastante aburrida",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0030_16k.wav",
+    "audio_sha256": "41290863a4f573e154f8af2e446c66d91c1f3f24f05996706c63a5545b78823f"
+  },
+  {
+    "id": "female_0031",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿La casa esta amueblada o no?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0031_16k.wav",
+    "audio_sha256": "f637738a283231c651a6e2bb4de38053459e75b1cb82fee1cb2f577b9447afbf"
+  },
+  {
+    "id": "female_0032",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "No tengo ni idea de cómo cambiar una rueda, no sé si pueda pedir asistencia si me puedes ayudar vos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0032_16k.wav",
+    "audio_sha256": "c3dd389392c1733e544e3511a04edc77f96be3f74de38efd2ee850f6ba7a5db9"
+  },
+  {
+    "id": "female_0033",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Estacione el auto en una zona segura y encienda las luces intermitentes",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0033_16k.wav",
+    "audio_sha256": "f6efe16efebc0e63b0268253aecce33ab0493c04a8224caf5f50ee38b397fafd"
+  },
+  {
+    "id": "female_0034",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuántas medallas ha ganado?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0034_16k.wav",
+    "audio_sha256": "2e4106cc2249764e8224108d6dc28ae6b308c929a85a3ebbeaeaf21ff9af1dde"
+  },
+  {
+    "id": "female_0035",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Ve usted la pestaña en la parte superior izquierda que dice buscar?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0035_16k.wav",
+    "audio_sha256": "da4e424ab69f9b0fc832de7882f904038eb746ce53d5636a168150f650aba572"
+  },
+  {
+    "id": "female_0036",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿En cuántos juegos olímpicos ha participado?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0036_16k.wav",
+    "audio_sha256": "8e921fbc879997447ac9b98437f0653a0d8255e5069e7dca4807fe930b420d3c"
+  },
+  {
+    "id": "female_0037",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cómo va el partido de rugby?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0037_16k.wav",
+    "audio_sha256": "9754c3ee78eaf3c65ac6d9b7f69a1d0f7675466219f3663ee88e7da852a9690c"
+  },
+  {
+    "id": "female_0038",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Quiero saber el origen de la palabra astronauta?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0038_16k.wav",
+    "audio_sha256": "cc0f024bdab7d5fd7b843b6613ed18d8581251970eb6e94f4c179ad971902410"
+  },
+  {
+    "id": "female_0039",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuáles son las principales diferencias?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0039_16k.wav",
+    "audio_sha256": "eb4514718c40cfef08931cfc5aee3582a8dbc1e8d5815bcc3fcff5447d6732b9"
+  },
+  {
+    "id": "female_0040",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Pensaste darles un yogurt con frutas? ¡A los chicos les encanta!",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0040_16k.wav",
+    "audio_sha256": "a4b7fdca18e7baa9c38113a9a2ffedd672a69d3b988ab114b1b8cfe803859aac"
+  },
+  {
+    "id": "female_0041",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La mermelada de zarzamora es muy fácil de hacer",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0041_16k.wav",
+    "audio_sha256": "e4d406e2824b5c3514332d19c309b01076b1e97922491d294e25e64464977f79"
+  },
+  {
+    "id": "female_0042",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Es muy importante el apoyo nasal en la pronunciación",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0042_16k.wav",
+    "audio_sha256": "229f844318df025ca5b3dbd78278b84ba2cd58f157ef70c600a108b5c204f2b4"
+  },
+  {
+    "id": "female_0043",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tiene que esperar alrededor de treinta segundos para que la aplicación se instale en su celular",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0043_16k.wav",
+    "audio_sha256": "5740963484856de45332dd7009ae01e5dbf11f3f8ba1c6496c43538a50f2b3f4"
+  },
+  {
+    "id": "female_0044",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Las tejas rojas del tejado no son de México, son de Texas",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0044_16k.wav",
+    "audio_sha256": "b0ae66faa456e4beb24d86ffac99b32ce94aed8b285f2b2462101b8c8cfdd834"
+  },
+  {
+    "id": "female_0045",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Está muy cansado",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0045_16k.wav",
+    "audio_sha256": "4a884d5d6d3678687744923e254f061c6425c7781c581c3f3142f3696a298822"
+  },
+  {
+    "id": "female_0046",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Estoy acá con un amigo discutiendo sobre el encuentro de boxeo",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0046_16k.wav",
+    "audio_sha256": "8c01197fc148b77608484990b6bf29aeba5fa378e1da57aeadc78bf49d22bd08"
+  },
+  {
+    "id": "female_0047",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Por las tardes se escucha música en la Plaza.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0047_16k.wav",
+    "audio_sha256": "460a7362ba00c5d4fbc52d9bee0cc158a9eeaad6604cdb56589aa7284b9ae202"
+  },
+  {
+    "id": "female_0048",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Has visto alguna vez un erizo de mar?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0048_16k.wav",
+    "audio_sha256": "07675b77d7efc9be46471c3d95836ab8c10a3f2688a639364ca218f977838763"
+  },
+  {
+    "id": "female_0049",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Qué dicen las noticias de esta mañana?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/female_0049_16k.wav",
+    "audio_sha256": "29e55fc2eb350d2658a4861824cfcc199798a1e9fee1e340ba09b78500e740f4"
+  },
+  {
+    "id": "male_0000",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Para la caída del cabello, tengo un nuevo jabón",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0000_16k.wav",
+    "audio_sha256": "adfd5a9caa8046395299cf365ba93d68a431ba3e5ea57552a520e689fab6b622"
+  },
+  {
+    "id": "male_0001",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Qué color favorito es el más popular?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0001_16k.wav",
+    "audio_sha256": "67fa364804b8ec5a4e2df2aa5ccb79980e0aecf0595e8146e19189751d14a64d"
+  },
+  {
+    "id": "male_0002",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El pijama de rayas es azul",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0002_16k.wav",
+    "audio_sha256": "dd3e87f20f285a44ced0bf3639d01d0d13c9e02e7ed9bfd3334c211a482717fe"
+  },
+  {
+    "id": "male_0003",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Las máquinas de escribir antiguas pueden ser muy caras.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0003_16k.wav",
+    "audio_sha256": "9099d09ade8b4d82547270cd6ad072609ed8f9a1a4799c97dbbc4a31490cb7de"
+  },
+  {
+    "id": "male_0004",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Al circular menos automóviles en la ciudad se logra una mejor calidad del aire",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0004_16k.wav",
+    "audio_sha256": "d8e8473c6440f782072c5d434782c4f525e404c2ac24d07fafaf39a773ef31fb"
+  },
+  {
+    "id": "male_0005",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿A qué hora querés ir al cine?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0005_16k.wav",
+    "audio_sha256": "53d2d96d573da8c8df1e20bb788b37cc9f4e0c8c9704eb66c61586ace1f9dd39"
+  },
+  {
+    "id": "male_0006",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Estoy destinada a triunfar",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0006_16k.wav",
+    "audio_sha256": "a9a5cf994ef1a2439f3684b58165aa9ce3fecfd2922b2794de3e2ad666d25ee7"
+  },
+  {
+    "id": "male_0007",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tengo una junta de negocios con la firma de abogados, ¿se acuerda?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0007_16k.wav",
+    "audio_sha256": "70bac5bc29c3cbb834744f13f4063e485a673d7d537484b384f1cc92923e1a45"
+  },
+  {
+    "id": "male_0008",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Para abrir los poros de la piel lo mejor es ir a un sauna, o tomar un baño de vapor",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0008_16k.wav",
+    "audio_sha256": "7b7be683149061657f4e2309a109076d808b1c6975e1f064e208ad343b3377eb"
+  },
+  {
+    "id": "male_0009",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Para hacer esa receta necesitás fruta y alcohol",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0009_16k.wav",
+    "audio_sha256": "cd341374f3aa260e500c38cf64eab1adf558327182368535f8ed692d67e4529f"
+  },
+  {
+    "id": "male_0010",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quiero que me ayudes a elegir un regalo.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0010_16k.wav",
+    "audio_sha256": "9d2a3395b802b88e4b935d3c261a4ef13a95fd374afc7726d6402f05c106d86b"
+  },
+  {
+    "id": "male_0011",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La yoga además de relajarte y de equilibrar tu organismo también te permitirá tonificar los brazos y las piernas",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0011_16k.wav",
+    "audio_sha256": "02b4ba69a4b0303f4643c3d97265450217a175e3c2c1bc46ad2d664e8cc4920c"
+  },
+  {
+    "id": "male_0012",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La obscuridad del pozo era obscena por naturaleza",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0012_16k.wav",
+    "audio_sha256": "933abeec1d15aee326d406b2b8657fdd6423cc6c2c240ddecb948319937b0d06"
+  },
+  {
+    "id": "male_0013",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Aquí doblamos a la derecha",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0013_16k.wav",
+    "audio_sha256": "3b52392210100b799f6651ca16aeb57cb098caf0c8e1b2ed78e6cc1d8982f1bf"
+  },
+  {
+    "id": "male_0014",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Las tejas rojas del tejado no son de México, son de Texas",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0014_16k.wav",
+    "audio_sha256": "21166b6894cb25ab2bd09d6bc6f8d0d06cdb0d18a6ddb0bc4f7e7bebaf30249d"
+  },
+  {
+    "id": "male_0015",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Estaba pensando en ir a acampar.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0015_16k.wav",
+    "audio_sha256": "4253b1f575e8b1f7c73fea1044be0079885f93a536fefd54b64d45779698ee21"
+  },
+  {
+    "id": "male_0016",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Lo podés pagar con la tarjeta verde de Visa",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0016_16k.wav",
+    "audio_sha256": "73e2179ca12afda3cc81a73e5d9e6cdf82087fd2f754943cb6358c89c9786f57"
+  },
+  {
+    "id": "male_0017",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuáles son las principales diferencias?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0017_16k.wav",
+    "audio_sha256": "924daa7e9ead48c2b7e8027bb8bc67e2e37e46e61fc8d78e3d363433b8ee2333"
+  },
+  {
+    "id": "male_0018",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuál es la estación de metro más cercana?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0018_16k.wav",
+    "audio_sha256": "39b1af594db58ebb66042cd4ac95a9928876b90f880fce28d0aec2f07cd242f4"
+  },
+  {
+    "id": "male_0019",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Si el cuerpo pide descanso hay que dárselo dicen los médicos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0019_16k.wav",
+    "audio_sha256": "6612717b3698628146a58e486520ec28c92ee7a557d55019260f2c386b5f7b52"
+  },
+  {
+    "id": "male_0020",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Mañana vaya abrigada, un gorro de lana y guantes es lo más recomendable",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0020_16k.wav",
+    "audio_sha256": "1fbd430bd853c977221429604f9347037db31d0d38264dbfedef7ac1a14559dd"
+  },
+  {
+    "id": "male_0021",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El viaje en avión es más rápido que en barco.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0021_16k.wav",
+    "audio_sha256": "e83733a6f7502be9dfa68a483f8687d156fb863e57d1946ad58c897d85335494"
+  },
+  {
+    "id": "male_0022",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Quién subió el mejor video?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0022_16k.wav",
+    "audio_sha256": "dfa20418feea1b99893d799ac3619404f1c3113a7b19f97e94c8524d9593e35d"
+  },
+  {
+    "id": "male_0023",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La pronunciación del francés es difícil",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0023_16k.wav",
+    "audio_sha256": "506b50f6a929d9301e936941db30651fe570f65ec41951a6518196eeeb54b548"
+  },
+  {
+    "id": "male_0024",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Me ayudas a plantar los naranjos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0024_16k.wav",
+    "audio_sha256": "d248ac9dcb1cf53cad3ea2d444f1e79fbe2ad12c13e3de3a34ec264b38f976d5"
+  },
+  {
+    "id": "male_0025",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El Llano en Llamas es un clásico de Juan Rulfo",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0025_16k.wav",
+    "audio_sha256": "3d38ad9cd67bfa3df3466d8af5e2c2ed7d41d1606b4dd3849b23d8582f9a38b3"
+  },
+  {
+    "id": "male_0026",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quiero averiguar como se llama un director de cine",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0026_16k.wav",
+    "audio_sha256": "90d023d21a51f4528bd46444a39a737426dc1a24e79ce27f63504e9c04384125"
+  },
+  {
+    "id": "male_0027",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Cuándo sucedió la Primera Guerra Mundial?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0027_16k.wav",
+    "audio_sha256": "7bea0b72e7338cebeb5af5bf975c03228fd1f616ee0931f442f55e256ebe91c7"
+  },
+  {
+    "id": "male_0028",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Por ahí se dice que este personaje malverso una cantidad extraordinaria de fondos públicos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0028_16k.wav",
+    "audio_sha256": "6d29267c29967385bc99b43aff384ac6e3587b70ffd733597f3980d8dcd0d65e"
+  },
+  {
+    "id": "male_0029",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "En las noticias de anoche, no vi que el presidente de Estados Unidos estuviera en problemas con el senado.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0029_16k.wav",
+    "audio_sha256": "c4cdbea01bb0c7ccda64515d401fee979ab2f223823328ca2f9e2986be46c2da"
+  },
+  {
+    "id": "male_0030",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Las bocinas estas que te dije son enormes, ¿sabés que se puede hacer con ellas?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0030_16k.wav",
+    "audio_sha256": "4152d3e3d101261e58d68d697bcd292b5d9248d8284a9242f45c9aa40448695a"
+  },
+  {
+    "id": "male_0031",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Es muy fácil usar las bicis de la ciudad, con tu tarjeta de crédito alquilas tu bici.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0031_16k.wav",
+    "audio_sha256": "c15e102350c482862acf14dca08229e99db8202ffeffa23f58908cacf10f87ed"
+  },
+  {
+    "id": "male_0032",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Mañana va a hacer mucho viento y habrá tormentas",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0032_16k.wav",
+    "audio_sha256": "e4c8093abf65d000360d96766f13cd1a1abd43e29a9ad4700db85f13f7d60931"
+  },
+  {
+    "id": "male_0033",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "El dictador Franco estuvo cuarenta años en el poder.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0033_16k.wav",
+    "audio_sha256": "c7436ba6059159dcde524e9d3f86bfae86f4c277407c64e1ff155d165380775b"
+  },
+  {
+    "id": "male_0034",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Quién subió el mejor video?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0034_16k.wav",
+    "audio_sha256": "d8d6df2b585520516eadd3f31af9a55bc762265ac280e92b58a4fa154ea5c823"
+  },
+  {
+    "id": "male_0035",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Te voy a mandar por whatsapp las especificaciones de los invitados",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0035_16k.wav",
+    "audio_sha256": "e2a051452e93d2a348504bcec2c261e07932df036b0fc59188b2fd6aef865088"
+  },
+  {
+    "id": "male_0036",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La calle está llena de hoyos",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0036_16k.wav",
+    "audio_sha256": "ce0ad5fe3cd51e7e5c9d748fb7e778591fae5db753831ea89acf34be89ae7f33"
+  },
+  {
+    "id": "male_0037",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Tenés que denunciar inmediatamente el accidente para que lo cubra el seguro",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0037_16k.wav",
+    "audio_sha256": "8469b60a396ae3df9a86f065734f3f4d059e46d2aaf2b9c4c8e68c08c81808dd"
+  },
+  {
+    "id": "male_0038",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quiero un jabón para relajarme.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0038_16k.wav",
+    "audio_sha256": "45b1dee93538cf8f0dddedb58f04c44b5da784d14c1a2730182f367852c4f4a1"
+  },
+  {
+    "id": "male_0039",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Necesito tu ayuda urgente.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0039_16k.wav",
+    "audio_sha256": "230a3ef3808b989cf84a8f6bd75b0a2211adf0df506e37632138bd48f452f133"
+  },
+  {
+    "id": "male_0040",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "¿Qué tan destruida quedó la ciudad de Nueva Orleans después del huracán Katrina?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0040_16k.wav",
+    "audio_sha256": "1e77b590d2ff95b78cfe6415a880495a05a0ac22e4d6d41f3c0cd0eea09846b0"
+  },
+  {
+    "id": "male_0041",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Los hamsters comen zanahorias",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0041_16k.wav",
+    "audio_sha256": "8702a0928d6661860c330f7a9fd2e6e53bc8245a4a6423933848814349630467"
+  },
+  {
+    "id": "male_0042",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "En el salón de fiestas entran alrededor de mil quinientas personas",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0042_16k.wav",
+    "audio_sha256": "387bc570959e16e9dd22ae39426111e30b9ff9f8c7f15baca83558ad95f37d87"
+  },
+  {
+    "id": "male_0043",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Hoy a la tarde saqué mi tarjeta para la bicicleta urbana",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0043_16k.wav",
+    "audio_sha256": "9cbf847b1e8b855d390103984f369e7ae984637378d519789ab5a4bacd78f4b1"
+  },
+  {
+    "id": "male_0044",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Ayudáme a encontrar un buen gimnasio pero que esté cerca de mi casa",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0044_16k.wav",
+    "audio_sha256": "10e1a53a347ba5478e6a54be082ecd877775b16df9be6d21378b651cfcf787bd"
+  },
+  {
+    "id": "male_0045",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "No te entiendo nada",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0045_16k.wav",
+    "audio_sha256": "fb25ca46b76655d67b852341029bf642a8ee9021e7edf0c271256675d54cead8"
+  },
+  {
+    "id": "male_0046",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "La granizada destruyó toda la plantación de lechuga",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0046_16k.wav",
+    "audio_sha256": "c9412d685168ee69886a385eb0506e5659b19f44b5cc97910624ed044e010922"
+  },
+  {
+    "id": "male_0047",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Quiero irme de vacaciones a Hawái pero no sé si el volcán esté activo.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0047_16k.wav",
+    "audio_sha256": "155dd9f7601fb725528b2b896a8efcfcfb48ad019639ff678331c0dcb6241574"
+  },
+  {
+    "id": "male_0048",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Se hicieron versiones en todos los idiomas de esa canción",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0048_16k.wav",
+    "audio_sha256": "98518bfe5cbc0204a53f1819c6ba45a3eff534141b72afdb06fa0fd6cb4f40fe"
+  },
+  {
+    "id": "male_0049",
+    "group": "real_es_ar",
+    "language": "es",
+    "reference": "Voy a necesitar que lo pagués con la tarjeta roja",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/argentinian-google-100/audio/male_0049_16k.wav",
+    "audio_sha256": "ccf1a506a0d799deb91cbb838c962cb4a65a3d45ca4ed4dbae4f6987837db9e8"
+  },
+  {
+    "id": "en_01_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "The small bakery opens early in the morning. Fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_01_F1_16k.wav",
+    "audio_sha256": "57c877e1a97c4079f65aca522b7f36df1dab836b6c81b0b1e4646d0834e05aa8"
+  },
+  {
+    "id": "en_01_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "The small bakery opens early in the morning. Fresh bread is ready before the first customers arrive, and the owner greets everyone with a smile.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_01_M1_16k.wav",
+    "audio_sha256": "33462ae213e0a5ed73acbc7791faed0a2af53b304279a5c2be8c3837bba8d02a"
+  },
+  {
+    "id": "en_02_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Could you tell me where the nearest train station is? I need to get to the city centre before the rain starts this afternoon.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_02_F1_16k.wav",
+    "audio_sha256": "30f7274b3060cb0a38c855a93a490c02aad51510b6c0aadf9ba6a13ab11d4f08"
+  },
+  {
+    "id": "en_02_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Could you tell me where the nearest train station is? I need to get to the city centre before the rain starts this afternoon.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_02_M1_16k.wav",
+    "audio_sha256": "3f144b7223d4d9dc25597b4ece7f25a6324ec3c3cde9584060cf83437a86abc5"
+  },
+  {
+    "id": "en_03_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_03_F1_16k.wav",
+    "audio_sha256": "d426a0a3cfee997d63050d1ceb4cba2ce58ced5c15f1acb529213e487ef93ba0"
+  },
+  {
+    "id": "en_03_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Please do not restart the computer until the backup has finished. If the green light stops flashing, call me before changing any settings.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_03_M1_16k.wav",
+    "audio_sha256": "e2e02f53359dee0a78e17973f7d6edfc789bf8402e20ba4e5866777d42533dd9"
+  },
+  {
+    "id": "en_04_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_04_F1_16k.wav",
+    "audio_sha256": "7261683ca16635938e593884b656b009d424d288024defcd5418dccae6410935"
+  },
+  {
+    "id": "en_04_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "There are seven red folders and three blue pens on the desk. Put two folders in each bag and leave the remaining folder beside the printer.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_04_M1_16k.wav",
+    "audio_sha256": "3c4e42254b90c4c56fa164b6c5f1c98ef27582b929cd1a06d0fc6a7c65a45c26"
+  },
+  {
+    "id": "en_05_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_05_F1_16k.wav",
+    "audio_sha256": "4334e71a788da9a72750f99b7388b497cb34b37beba5d9b621af45851b5c93a1"
+  },
+  {
+    "id": "en_05_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "The Python server runs locally on a Linux computer. We process the recording on the graphics card and save the transcript without uploading the audio.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_05_M1_16k.wav",
+    "audio_sha256": "4299cfdd1c85b09c4a4893451e870addabf261af5c9a221704c573bc7e189474"
+  },
+  {
+    "id": "en_06_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_06_F1_16k.wav",
+    "audio_sha256": "d87724913ddc67b4c3b5df26f36fac6adbb9a5dabdfc78d106054fbf83d40638"
+  },
+  {
+    "id": "en_06_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Your appointment has been moved to Thursday morning. Please bring your referral letter and let reception know if you need an interpreter when you arrive.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_06_M1_16k.wav",
+    "audio_sha256": "1d7270cf4ca8b34a192f3365fc4a30e639c1e8a80d57525a4f01abc55c282c9c"
+  },
+  {
+    "id": "en_07_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Maria and Daniel are travelling from Auckland to Wellington. They plan to visit the museum, walk beside the harbour, and return home on Sunday evening.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_07_F1_16k.wav",
+    "audio_sha256": "a9b14fe9fa0ba63c0367d449b686099b0ef779892098240421d2b2664205747d"
+  },
+  {
+    "id": "en_07_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Maria and Daniel are travelling from Auckland to Wellington. They plan to visit the museum, walk beside the harbour, and return home on Sunday evening.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_07_M1_16k.wav",
+    "audio_sha256": "3379244640f07fd0772371a34ae70163f5e653c2b8c3cc46070ec089a50dd639"
+  },
+  {
+    "id": "en_08_F1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_08_F1_16k.wav",
+    "audio_sha256": "10f3ce376e1efac33af2db0e3365d674da1119203744d4ffafd7696b28ac5382"
+  },
+  {
+    "id": "en_08_M1",
+    "group": "synthetic_en",
+    "language": "en",
+    "reference": "Well, I thought the package had already arrived, but apparently it is still on the way. Could you check the tracking information and send me an update?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/en_08_M1_16k.wav",
+    "audio_sha256": "7a9d3bc388c748dfae789bdfe6ed8969a9800bd80435ac330bbc768a93c36c1f"
+  },
+  {
+    "id": "es_01_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_01_F1_16k.wav",
+    "audio_sha256": "648142136c6942eef8cc7b2c34a2f56bef652404349b07b3c0a84a2b8a8ee5d5"
+  },
+  {
+    "id": "es_01_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "La pequeña panadería abre temprano por la mañana. El pan recién hecho está listo antes de que lleguen los primeros clientes, y la dueña saluda a todos.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_01_M1_16k.wav",
+    "audio_sha256": "5431b27c4a5c6459bdad7a8993d2364869c315eb411776840159982e693e0aed"
+  },
+  {
+    "id": "es_02_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_02_F1_16k.wav",
+    "audio_sha256": "eda0a21b8739474f97982c51ec4fb3705ddd0f9b4f7ddf24eeeec5391ddf7f5d"
+  },
+  {
+    "id": "es_02_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "¿Me podrías decir dónde está la estación de tren más cercana? Necesito llegar al centro de la ciudad antes de que empiece a llover esta tarde.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_02_M1_16k.wav",
+    "audio_sha256": "7d545416e83eb417168c42db2b5a02f47d96291ea09b12db75863112e7e80c50"
+  },
+  {
+    "id": "es_03_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llamame antes de cambiar la configuración.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_03_F1_16k.wav",
+    "audio_sha256": "e5ba9f31309e9ee63d72c420b69cde5e685180403c7f976eb16008e724c3cd3b"
+  },
+  {
+    "id": "es_03_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Por favor, no reinicies la computadora hasta que termine la copia de seguridad. Si la luz verde deja de parpadear, llamame antes de cambiar la configuración.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_03_M1_16k.wav",
+    "audio_sha256": "3e569cdc348cd2b91440b6de092d577289203821155a143f8219ed37fa0a6d24"
+  },
+  {
+    "id": "es_04_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guardá dos carpetas en cada bolsa y dejá la carpeta restante al lado de la impresora.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_04_F1_16k.wav",
+    "audio_sha256": "f956b6f5a47cd82fecb2c3edaaeef02aed4fa6e132185ecc7c467027ab7e07fd"
+  },
+  {
+    "id": "es_04_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Hay siete carpetas rojas y tres lapiceras azules sobre el escritorio. Guardá dos carpetas en cada bolsa y dejá la carpeta restante al lado de la impresora.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_04_M1_16k.wav",
+    "audio_sha256": "acb7f90f53382914c9c9fcea9a03e50a64f83695a80a68ed6d28cb3c2885bb20"
+  },
+  {
+    "id": "es_05_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a internet.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_05_F1_16k.wav",
+    "audio_sha256": "168236f86912fdf5a696372f425139dfaea1a3b4ab6ec4ee8f2c085d74a39cfd"
+  },
+  {
+    "id": "es_05_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "El servidor de Python funciona localmente en una computadora con Linux. Procesamos la grabación en la tarjeta gráfica y guardamos la transcripción sin subir el audio a internet.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_05_M1_16k.wav",
+    "audio_sha256": "c1ba67ea1079447d028da10c0971c61996c320428651a35ca866a22f41470b40"
+  },
+  {
+    "id": "es_06_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Tu consulta se pasó al jueves por la mañana. Por favor, traé la carta de derivación y avisá en recepción si necesitás un intérprete cuando llegues.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_06_F1_16k.wav",
+    "audio_sha256": "6b9de3d663e39252f894dc1a2f58c5bdf1f141a317946d27f58f77691d7d9777"
+  },
+  {
+    "id": "es_06_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Tu consulta se pasó al jueves por la mañana. Por favor, traé la carta de derivación y avisá en recepción si necesitás un intérprete cuando llegues.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_06_M1_16k.wav",
+    "audio_sha256": "2b71c5800091bdcc4cdabc650cee8ed0de6f08b281c01321f939f0cc8edf129a"
+  },
+  {
+    "id": "es_07_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_07_F1_16k.wav",
+    "audio_sha256": "f1de4a14eafd1d02ca3e4e56677054b9e806fb0b14940f0be86f32c2e6366cf2"
+  },
+  {
+    "id": "es_07_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "María y Daniel viajan de Buenos Aires a Córdoba. Quieren visitar el museo, caminar junto al río y volver a casa el domingo por la tarde.",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_07_M1_16k.wav",
+    "audio_sha256": "f74a066c5466f981c92fc5366db87c26cbb357b6d76b56b084f2d996ebb00240"
+  },
+  {
+    "id": "es_08_F1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. ¿Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_08_F1_16k.wav",
+    "audio_sha256": "7f22191bf317803d347cd371c6ab98afb83740285d6df14322d3c5eacc2dfa7e"
+  },
+  {
+    "id": "es_08_M1",
+    "group": "synthetic_es",
+    "language": "es",
+    "reference": "Bueno, yo pensaba que el paquete ya había llegado, pero parece que todavía está en camino. ¿Podés revisar el seguimiento y mandarme una actualización cuando tengas noticias?",
+    "audio_path": "/Users/op/Projects/underdog-bark-3.0-pro-mlx8/bilingual-supertonic-test/audio/es_08_M1_16k.wav",
+    "audio_sha256": "fe26475803e1bd0ec9286524df36b9266b3438d134fcb2f6767cba3a6fd1f1a9"
+  }
+]

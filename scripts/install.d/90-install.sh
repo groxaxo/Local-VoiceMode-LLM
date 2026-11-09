@@ -8,6 +8,7 @@ if [[ "$DOCTOR_ONLY" == true ]]; then
 fi
 if [[ "$UNINSTALL" == true ]]; then uninstall_stack; exit 0; fi
 require_cmd git
+preflight_check_ports
 preflight_supertonic_source
 info "Parakeet accelerator: ${ACCEL} (${OS} ${ARCH})"
 info "Supertonic backend policy: ${SUPERTONIC_BACKEND}"

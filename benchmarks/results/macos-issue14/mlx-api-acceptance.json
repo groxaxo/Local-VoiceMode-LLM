@@ -1,0 +1,182 @@
+{
+  "bark": {
+    "text": "me podés mandar fotos de la pileta",
+    "duration": 4.0106875,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0.31000000000000005,
+        "end": 2.79,
+        "text": "me podés mandar fotos de la pileta",
+        "words": [
+          {
+            "word": "me",
+            "start": 0.31000000000000005,
+            "end": 0.4700000000000001
+          },
+          {
+            "word": "podés",
+            "start": 0.79,
+            "end": 1.1099999999999999
+          },
+          {
+            "word": "mandar",
+            "start": 1.19,
+            "end": 1.51
+          },
+          {
+            "word": "fotos",
+            "start": 1.5099999999999998,
+            "end": 1.83
+          },
+          {
+            "word": "de",
+            "start": 1.83,
+            "end": 1.9100000000000001
+          },
+          {
+            "word": "la",
+            "start": 1.9100000000000001,
+            "end": 2.0700000000000003
+          },
+          {
+            "word": "pileta",
+            "start": 2.0700000000000003,
+            "end": 2.79
+          }
+        ]
+      }
+    ],
+    "words": [
+      {
+        "word": "me",
+        "start": 0.31000000000000005,
+        "end": 0.4700000000000001
+      },
+      {
+        "word": "podés",
+        "start": 0.79,
+        "end": 1.1099999999999999
+      },
+      {
+        "word": "mandar",
+        "start": 1.19,
+        "end": 1.51
+      },
+      {
+        "word": "fotos",
+        "start": 1.5099999999999998,
+        "end": 1.83
+      },
+      {
+        "word": "de",
+        "start": 1.83,
+        "end": 1.9100000000000001
+      },
+      {
+        "word": "la",
+        "start": 1.9100000000000001,
+        "end": 2.0700000000000003
+      },
+      {
+        "word": "pileta",
+        "start": 2.0700000000000003,
+        "end": 2.79
+      }
+    ],
+    "model": "/Users/op/mlx-models/Underdog-Bark-3.0-Pro-MLX-8bit",
+    "engine": "Bark Pro MLX 8-bit",
+    "timing_source": "native TDT token timings",
+    "inference_seconds": 0.0640093749971129
+  },
+  "parakeet": {
+    "text": "¿Me podés mandar fotos de la pileta?",
+    "duration": 4.0106875,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0.07,
+        "end": 3.11,
+        "text": "¿Me podés mandar fotos de la pileta?",
+        "words": [
+          {
+            "word": "¿Me",
+            "start": 0.07,
+            "end": 0.55
+          },
+          {
+            "word": "podés",
+            "start": 0.71,
+            "end": 1.19
+          },
+          {
+            "word": "mandar",
+            "start": 1.19,
+            "end": 1.51
+          },
+          {
+            "word": "fotos",
+            "start": 1.5099999999999998,
+            "end": 1.83
+          },
+          {
+            "word": "de",
+            "start": 1.83,
+            "end": 1.9100000000000001
+          },
+          {
+            "word": "la",
+            "start": 1.9100000000000001,
+            "end": 2.1500000000000004
+          },
+          {
+            "word": "pileta?",
+            "start": 2.15,
+            "end": 3.11
+          }
+        ]
+      }
+    ],
+    "words": [
+      {
+        "word": "¿Me",
+        "start": 0.07,
+        "end": 0.55
+      },
+      {
+        "word": "podés",
+        "start": 0.71,
+        "end": 1.19
+      },
+      {
+        "word": "mandar",
+        "start": 1.19,
+        "end": 1.51
+      },
+      {
+        "word": "fotos",
+        "start": 1.5099999999999998,
+        "end": 1.83
+      },
+      {
+        "word": "de",
+        "start": 1.83,
+        "end": 1.9100000000000001
+      },
+      {
+        "word": "la",
+        "start": 1.9100000000000001,
+        "end": 2.1500000000000004
+      },
+      {
+        "word": "pileta?",
+        "start": 2.15,
+        "end": 3.11
+      }
+    ],
+    "model": "/Users/op/.cache/huggingface/hub/models--transcriber-app--parakeet-tdt-0.6b-v3-mlx-8bit/snapshots/b56210e2fad422736810524963c24b5e2a1985ab",
+    "engine": "Parakeet v3 MLX 8-bit",
+    "timing_source": "native TDT token timings",
+    "inference_seconds": 0.07190966699272394
+  }
+}
