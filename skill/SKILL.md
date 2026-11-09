@@ -1,8 +1,8 @@
 ---
 name: talk
 description: >-
-  Orchestrates VAD-driven voice conversation (Silero VAD listen, xAI cloud STT,
-  xAI cloud TTS voice eve by default; local TTS engines removed from the default path).
+  Orchestrates VAD-driven voice conversation with local Silero VAD, Parakeet STT,
+  and Supertonic TTS by default, plus optional hosted speech providers.
   Use when the user says talk, voice, speak, habla, voz, audio, talk mode, or wants
   spoken back-and-forth. Also when they ask to read a reply aloud (say it, speak that).
   Triggers on: voice, talk, speak, habla, audio, tts, stt.
@@ -23,29 +23,33 @@ each agent's skills directory by `setup.sh` / `setup.ps1`.
 | Hermes Agent | `~/.hermes/skills/talk/` |
 | Codex        | `~/.codex/skills/talk/` |
 
-**Default STT:** **xAI cloud** — `POST https://api.x.ai/v1/stt` (non-streaming), needs `XAI_API_KEY`. Same key as the TTS side. Switched from local Parakeet on 2026-08-19: the `com.opencode.parakeet-stt` launchd job was booted out and `launchctl disable`d to reclaim ~1.8 GB of resident footprint on a 24 GB Mac that was swapping hard.
+**Default STT:** local Parakeet on `http://127.0.0.1:5093/v1/audio/transcriptions`.
+**Default TTS:** local Supertonic on `http://127.0.0.1:8766`, voice `F4`.
+Neither local service requires an API key. Use the configured local services
+before requesting cloud credentials. Check `talk.sh status` when a backend fails.
 
-> **xAI STT is NOT OpenAI-compatible.** There is no `model` field, and `file` **must be the last multipart field**. Response is `{text, language, duration, words[]}`. The streaming WebSocket endpoint (`wss://api.x.ai/v1/stt`) is deliberately unused — turn endpointing is already done locally by `vad_recorder.py`, so only complete utterances are ever uploaded.
+Select a hosted provider explicitly with `STT_ENGINE=xai` or `TTS_ENGINE=xai`.
+xAI requires `XAI_API_KEY`. Its STT endpoint is not OpenAI-compatible: omit the
+`model` field and send `file` last in the multipart request.
 
-| Env var | Default | Effect |
-|---|---|---|
-| `STT_ENGINE` | `xai` | `xai` \| `local` \| `remote` |
-| `XAI_STT_URL` | `https://api.x.ai/v1/stt` | endpoint |
-| `XAI_STT_LANGUAGE` | *(empty)* | empty = auto-detect, required for es/en code-switching. Setting it also sends `format=true`, enabling Inverse Text Normalization ("twenty seven" → "27") |
-| `XAI_STT_FILLER_WORDS` | `false` | keep "um"/"uh" in the transcript |
-| `XAI_STT_VAD_THRESHOLD` | *(unset)* | xAI-side speech gate 0.0–1.0 (their default 0.5); `0` disables |
+**Bluetooth playback:** `TALK_PRE_RECORD=0` is the default. The reply finishes
+playing before the mic opens, so capture does not force hands-free playback.
+Keep `TALK_BARGE_IN=0` for a Bluetooth headset used as both output and microphone.
+Use `TALK_PRE_RECORD=1` only when the devices support capture during playback.
+This reduces the gap between turns, but can reduce Bluetooth output quality.
 
-**Falling back to local Parakeet** (re-enables the ~1.8 GB service):
+For local F4 speech with 20 denoising steps, export these for every talk command:
+
 ```bash
-launchctl enable gui/501/com.opencode.parakeet-stt
-launchctl bootstrap gui/501 ~/Library/LaunchAgents/com.opencode.parakeet-stt.plist
-STT_ENGINE=local ~/.config/opencode/skills/talk/talk.sh status
+export TTS_ENGINE=supertonic
+export SUPERTONIC_VOICE=F4
+export SUPERTONIC_STEPS=20
+export TALK_PRE_RECORD=0
+export TALK_BARGE_IN=0
 ```
 
-**Default TTS:** **xAI cloud** (`https://api.x.ai/v1/tts`, needs `XAI_API_KEY`) with voice **`eve`**. Long replies are chunked at sentence boundaries and synthesized in parallel. Local TTS engines (qwen3-mlx, chatterbox, supertonic, qwen, neutts, inflect, vibevoice) were **removed from the default speak path** — they do not work on this setup — but remain selectable per call with `TTS_ENGINE=<name>`. `say`/TTS-system fallback is intentionally disabled.
-
-Codex and Claude Code symlink this same skill directory, so this xAI default is
-shared by Codex, Claude, and OpenCode.
+Use `talk.sh devices` to select a real input with `MIC_QUERY`. On Linux,
+`bluez_input` selects a Bluetooth microphone; `.monitor` inputs record playback.
 
 **Audio playback:** `afplay` (macOS), `ffplay`/`aplay`/`paplay` (Linux), `ffplay`/SoundPlayer (Windows via `talk.ps1`).
 
@@ -69,7 +73,7 @@ shared by Codex, Claude, and OpenCode.
 
 ```bash
 ~/.config/opencode/skills/talk/talk.sh listen    # block until user stops; print transcript
-~/.config/opencode/skills/talk/talk.sh speak "…" # xAI voice iris (no local fallback)
+~/.config/opencode/skills/talk/talk.sh speak "…" # local Supertonic, then listen
 ~/.config/opencode/skills/talk/talk.sh status    # health check (all backends)
 ~/.config/opencode/skills/talk/talk.sh devices   # list mics
 ~/.config/opencode/skills/talk/talk.sh loop      # continuous loop (tty or pipe stdin)
@@ -81,7 +85,7 @@ When the user enters talk/voice mode:
 
 1. **First turn only** — `talk.sh listen`. Stdout = first user utterance (may be empty → listen again).
 2. **Think** — Reply to that text. Keep answers **short** for voice.
-3. **Speak + listen** — `talk.sh speak '<reply>'` (escape single quotes). This plays TTS, plays a short **beep**, and **opens the mic the instant the audio ends** (the recorder is pre-warmed during playback and flipped live by signal — no timing guess, no gap). **Stdout = the user's next utterance** (same as `listen`).
+3. **Speak + listen** — `talk.sh speak '<reply>'` (escape single quotes). This finishes TTS playback, then starts the recorder and its ready cue. Allow a short recorder-startup delay. With `TALK_PRE_RECORD=1`, recorder startup overlaps playback instead. **Stdout = the user's next utterance** (same as `listen`).
 4. **Loop** — Go to step 2 with the text from step 3. **Do not call `listen` separately** after `speak` (it is built in).
 
 The session **persists** across natural pauses and stays open until the user explicitly cancels via one of three signals:
@@ -109,7 +113,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 - Always invoke `talk.sh` via Shell; never fake transcription or audio.
 - **Empty stdout from `speak`** = user ended the session (stop phrase, silence timeout, or keyboard). Exit the conversation loop; do not retry `listen`.
 - One-off read-aloud only (no mic): `TALK_AUTO_LISTEN=0 talk.sh speak '…'`.
-- TTS down (xAI failed) → check `XAI_API_KEY` and network; do not use macOS `say`, do not switch to local engines.
+- TTS down → check the selected backend with `talk.sh status`. For local Supertonic, check `http://127.0.0.1:8766/health`; only check cloud credentials when a cloud provider was selected.
 - First session turn: `talk.sh status` if services were recently restarted.
 
 ## Environment
@@ -119,7 +123,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | `STT_ENGINE` | `local` | STT backend — `local` Parakeet (ONNX, **CPU**) on `:5093` by default; or `remote` (set `STT_REMOTE_URL` + `STT_API_KEY`) for OpenAI Whisper etc. |
 | `STT_MODEL` | `parakeet-tdt-0.6b-v3` | Parakeet ONNX/CPU model (same on all platforms) |
 | `STT_URL` | `http://127.0.0.1:5093/v1/audio/transcriptions` | Parakeet ONNX endpoint |
-| `TTS_ENGINE` | `xai` | TTS backend — xAI cloud (default, voice iris). Local engines (`qwen3-mlx`, `chatterbox-turbo-mlx`, `supertonic`, `qwen`, `neutts`) and remote `openai` remain opt-in via this variable. |
+| `TTS_ENGINE` | `supertonic` | Local Supertonic by default; select other local or hosted engines explicitly. |
 | `QWEN3_MLX_MODEL` | `~/mlx-models/qwen3-tts-12hz-1.7b-base-mlx-8bit` | Explicit local Qwen3-TTS 1.7B W8 checkpoint used by the default route. |
 | `QWEN3_MLX_REF_AUDIO_EN` | `~/voices/qwen3-mlx-carina-en.wav` | English reference recording. |
 | `QWEN3_MLX_REF_AUDIO_ES` | `~/voices/qwen3-mlx-carina-es.wav` | Spanish reference recording. |
@@ -131,7 +135,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | `TTS_FADE_MS` | `6` | Fade-in/out (ms) applied to each TTS clip/chunk to kill onset/offset clicks; `0` disables |
 | `QWEN_TTS_QUALITY` | `hq` | Qwen3-TTS server: `fast` (0.6B :18881), `hq` (1.7B :18882), `lazy` (1.7B :18883, auto-start). Server + setup: https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi |
 | `QWEN_TTS_VOICE` | `vivian` | Qwen3-TTS voice (serena, vivian, ryan, aiden, …) |
-| `XAI_API_KEY` | (required) | API key for xAI TTS (the default engine) |
+| `XAI_API_KEY` | (for `xai`) | API key when selecting xAI speech |
 | `XAI_TTS_VOICE` | `eve` | xAI voice: `iris`, `ara`, `eve`, `leo`, `rex`, `sal` |
 | `TALK_READY_CUE` | 1 | Play a short tone before `listen` |
 | `TALK_READY_SOUND` | Tink.aiff | macOS fallback ready sound (used when `TALK_BEEP=0`) |
@@ -143,6 +147,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | `VAD_MIN_SILENCE_MS` | 700 | End-of-turn silence (700ms tolerates mid-sentence pauses; lower for snappier turns) |
 | `MIC_QUERY` | _(empty)_ | Mic name substring; empty = auto-detect → honors the macOS system-default input (System Settings → Sound → Input), skipping virtual adapters (NoMachine, VirtualBox, VMware) |
 | `TALK_AUTO_LISTEN` | `1` | After `speak`, run `listen` |
+| `TALK_PRE_RECORD` | `0` | Finish playback before opening the mic; `1` opts into recorder startup during playback |
 | `TALK_BARGE_IN` | `0` | Interrupt TTS on speech (opt-in) |
 | `TALK_IDLE_TIMEOUT_S` | `1440` | Session-silence window: exit listen if no speech within N seconds (0=disabled, 1440=24 min) |
 | `TALK_STOP_PHRASES` | `stop talk` | Pipe-separated phrases that end the session (case-insensitive substring match) |
@@ -152,7 +157,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | Problem | Action |
 |---------|--------|
 | No transcription | `talk.sh status` — check Parakeet ONNX on `:5093`. macOS: `launchctl kickstart -k gui/$UID/com.opencode.parakeet-stt`. Linux: `systemctl --user start opencode-parakeet-stt`. Windows: `Start-ScheduledTask 'OpenCode-Parakeet-STT'` |
-| No TTS | `talk.sh status` — xAI is the default engine; check `XAI_API_KEY` is set and reachable. Local engines are opt-in only (`TTS_ENGINE=<name>`) |
+| No TTS | `talk.sh status` — check the selected backend; local Supertonic needs no API key |
 | VAD misses speech | `talk.sh devices`; lower `VAD_THRESHOLD` |
 | VAD grabs background speech / TV / others | Raise `VAD_THRESHOLD` toward `0.6`–`0.7` (single mic, no speaker separation — it captures whatever crosses the threshold) |
 | Wrong microphone | `talk.sh devices`; set `MIC_QUERY` to your mic name substring |
@@ -233,7 +238,7 @@ The tagger's LLM is configured in `~/.local/share/xai-sentence-tagger/.env`
 API error, or any output whose stripped text doesn't match the source exactly,
 the original untagged sentence is synthesized instead.
 
-Default voice is **`eve`**.
+The xAI voice can be set with `XAI_TTS_VOICE`; the default local Supertonic voice is `F4`.
 
 ## Google Gemini voices
 

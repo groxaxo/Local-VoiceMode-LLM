@@ -3,7 +3,7 @@
 #
 # A complete voice conversation cycle in two commands:
 #   talk.sh listen   → VAD record + xAI STT → prints transcribed text
-#   talk.sh speak    → TTS (xAI voice iris by default), then auto-listen
+#   talk.sh speak    → local Supertonic TTS, then auto-listen
 #
 # Depends on:
 #   vad_recorder.py  (Silero VAD + sounddevice)
@@ -50,10 +50,8 @@ play_wav() {
 # --- Configurable settings ---------------------------------------------------
 # Python env (tts-venv with silero-vad, sounddevice, onnxruntime, torch)
 : "${PYTHON:=}"  # auto-detect below
-# TTS — xAI cloud only. Local engines (qwen3-mlx, chatterbox, supertonic, qwen,
-# neutts, inflect, vibevoice) were removed from the default path: they do not
-# work on this setup. Override per call with TTS_ENGINE=<engine>.
-: "${TTS_ENGINE:=xai}"
+# Use the local backend installed by setup.sh. Hosted engines remain opt-in.
+: "${TTS_ENGINE:=supertonic}"
 # Qwen3-TTS (opt-in): fast 0.6B (:18881) / HQ 1.7B (:18882) MLX servers.
 # QWEN_TTS_QUALITY=fast|hq picks which; tts.sh resolves the actual URL.
 : "${QWEN_TTS_QUALITY:=hq}"
@@ -140,6 +138,9 @@ fi
 : "${TALK_LISTEN_GUARD_MS:=200}"
 # After speak finishes playback, immediately start listen (stdout = next user text)
 : "${TALK_AUTO_LISTEN:=1}"
+# Open the mic after playback so Bluetooth headsets can retain A2DP output.
+# Set 1 to overlap recorder startup with playback when the devices support it.
+: "${TALK_PRE_RECORD:=0}"
 # Barge-in: detect user speech during TTS playback and interrupt
 # WARNING: requires echo cancellation or careful mic placement — TTS audio
 # bleeding into the mic will trigger false interrupts. Test before enabling.
@@ -605,7 +606,7 @@ cmd_speak() {
     # recorder stays armed-but-ignoring (large ready-delay) during playback, then
     # talk.sh sends SIGUSR1 to flip it live the *instant* the audio + beep finish.
     # Event-driven activation — no guessed timing, so it feels immediate.
-    if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+    if [ "${TALK_AUTO_LISTEN}" = "1" ] && [ "${TALK_PRE_RECORD}" = "1" ]; then
         local tts_wav
         tts_wav=$(TTS_NO_PLAY=1 TTS_ENGINE="$TTS_ENGINE" \
             VIBEVOICE_MODEL="${VIBEVOICE_MODEL:-vibe-realtime-8bit}" \
@@ -687,7 +688,7 @@ with open('$vad_out') as f:
         echo "[talk] TTS pre-generation failed, falling back to simple mode" >&2
     fi
 
-    # Simple mode (fallback): TTS generates + plays, then listen
+    # Sequential mode (default and fallback): finish playback, then open the mic.
     if ! TTS_ENGINE="$TTS_ENGINE" \
     VIBEVOICE_MODEL="${VIBEVOICE_MODEL:-vibe-realtime-8bit}" \
     VIBEVOICE_VOICE="${VIBEVOICE_VOICE:-en-Emma_woman}" \

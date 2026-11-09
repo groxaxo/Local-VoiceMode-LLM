@@ -203,7 +203,14 @@ Stdout is reserved for the transcript so an agent can consume it directly. Diagn
 
 ### Speak and auto-listen
 
-With `TALK_AUTO_LISTEN=1`, `talk.sh speak` uses a pre-record path:
+With `TALK_AUTO_LISTEN=1`, `talk.sh speak` finishes synthesizing and playing the
+reply before opening the microphone. This is the default (`TALK_PRE_RECORD=0`)
+because opening a Bluetooth headset microphone during playback can switch its
+output from high-quality A2DP to the hands-free profile. Recorder startup adds a
+short delay after playback. Barge-in stays disabled by default.
+
+For a separate microphone or hardware that supports simultaneous high-quality
+playback and capture, `TALK_PRE_RECORD=1` enables the previous pre-record path:
 
 1. Ask `tts.sh` to synthesize without playing and return a WAV path.
 2. Start the recorder with a long ignore window so model loading and microphone opening overlap playback.

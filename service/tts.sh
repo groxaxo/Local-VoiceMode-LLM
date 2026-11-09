@@ -1,10 +1,8 @@
 #!/bin/bash
 # tts.sh — TTS CLI for OpenCode / talk skill.
 #
-# Default engine: xai (voice iris). Local engines (qwen3-mlx, chatterbox,
-# supertonic, qwen, neutts, inflect, vibevoice) are NOT used by default — they
-# were removed from the default path because they do not work on this setup.
-# Set TTS_ENGINE explicitly to use any other engine. macOS `say` is never used.
+# Default engine: local Supertonic (voice F4). Set TTS_ENGINE explicitly to
+# select another local or hosted engine. macOS `say` is never used.
 #
 # Slow CPU? Point TTS_ENGINE=openai at any OpenAI-compatible endpoint (OpenAI, a
 # hosted provider, or your own remote box) to offload synthesis. See docs/providers.md.
@@ -188,14 +186,13 @@ PY
 }
 
 # --- Engine config -----------------------------------------------------------
-# Default engine is xAI cloud TTS (needs XAI_API_KEY), voice "iris" by default.
-# Local engines were removed from the default path — they don't work here —
-# but remain selectable with TTS_ENGINE=<name>:
+# Default engine is local Supertonic, installed by setup.sh, with no API key.
+# Other engines remain selectable with TTS_ENGINE=<name>:
 #   chatterbox-turbo-mlx — local Lucía Chatterbox Turbo bundle (Apple Silicon)
 #   qwen      — local MLX Qwen3-TTS server (Apple Silicon). Setup/server:
 #               https://github.com/groxaxo/Qwen3-TTS-Openai-Fastapi
 #   neutts    — local NeuTTS GGUF server
-: "${TTS_ENGINE:=xai}"
+: "${TTS_ENGINE:=supertonic}"
 : "${CHATTERBOX_TURBO_MLX_PYTHON:=$HOME/.venvs/chatterbox-turbo-mlx/bin/python}"
 : "${CHATTERBOX_TURBO_MLX_MODEL:=$HOME/mlx-models/chatterbox-lucia-latam-ordered-turbo-mlx-8bit-g128}"
 : "${CHATTERBOX_TURBO_MLX_REF_AUDIO:=$HOME/chatterbox-finetunino/latam_runs/profiles/lucia-latam-ar-recipe-ordered/reference.wav}"
@@ -1177,11 +1174,8 @@ _speak_openai_chunked() {
 }
 
 # --- Fallback policy ---------------------------------------------------------
-# xAI is the default. Local engines (qwen3-mlx, chatterbox, supertonic, qwen,
-# neutts, inflect, vibevoice) were removed from the default speak path — they
-# do not work on this setup. They remain selectable explicitly via
-# TTS_ENGINE=<name>; their internal chains are unchanged. macOS `say` is never
-# used as a fallback.
+# Route the selected engine; Supertonic is the default local path.
+# macOS `say` is never used as a fallback.
 engine="$(printf '%s' "${TTS_ENGINE}" | tr '[:upper:]' '[:lower:]')"
 case "$engine" in
     chatterbox-turbo-mlx|chatterbox-turbo|chatterbox-q8|lucia-mlx)
@@ -1264,7 +1258,7 @@ case "$engine" in
         exit 1
         ;;
     xai)
-        # Default route: xAI only — no local fallback (local TTS removed).
+        # Explicit xAI mode does not fall back to a local engine.
         if speak_xai "$TEXT" "$LANG"; then exit 0; fi
         echo "tts.sh: xAI TTS failed; no local fallback available (removed), no macOS say fallback" >&2
         exit 1
