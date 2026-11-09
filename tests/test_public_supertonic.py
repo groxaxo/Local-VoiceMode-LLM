@@ -76,6 +76,35 @@ def test_health_reports_actual_mixed_sessions():
     assert adapter.runtime_health(engine)['backend'] == 'mixed'
 
 
+def test_default_cpu_ignores_available_cuda(monkeypatch):
+    import onnxruntime as ort
+    import supertonic
+    import supertonic.loader as loader
+    monkeypatch.delenv('SUPERTONIC_ORT_BACKEND', raising=False)
+    monkeypatch.setattr(ort, 'get_available_providers', lambda: ['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    preloads = []
+    monkeypatch.setattr(ort, 'preload_dlls', lambda **kw: preloads.append(kw))
+    monkeypatch.setattr(supertonic, 'TTS', lambda **kw: Engine())
+    monkeypatch.setattr(loader, 'DEFAULT_ONNX_PROVIDERS', [])
+    adapter.load_engine()
+    assert loader.DEFAULT_ONNX_PROVIDERS == ['CPUExecutionProvider']
+    assert preloads == []
+
+
+@pytest.mark.parametrize('requested,actual', [('cuda','cpu'), ('cpu','cuda'), ('cuda','mixed')])
+def test_wrong_backend_never_reports_ready(monkeypatch, requested, actual):
+    monkeypatch.setenv('SUPERTONIC_ORT_BACKEND', requested)
+    engine = Engine()
+    if actual != 'cpu':
+        engine.model = SimpleNamespace(**{n: SimpleNamespace(get_providers=lambda: ['CUDAExecutionProvider'])
+            for n in ('dp_ort','text_enc_ort','vector_est_ort','vocoder_ort')})
+    if actual == 'mixed':
+        engine.model.vocoder_ort = SimpleNamespace(get_providers=lambda: ['CPUExecutionProvider'])
+    with pytest.raises(RuntimeError, match='actual backend'):
+        with TestClient(adapter.create_app(lambda: engine)):
+            pass
+
+
 @pytest.mark.parametrize('backend',['mlx','coreml','typo','cuda'])
 def test_unavailable_backend_fails_explicitly(monkeypatch,backend):
     import onnxruntime

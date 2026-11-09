@@ -99,7 +99,7 @@ Examples:
 
 ### Accelerator behavior
 
-- **Linux + NVIDIA:** interactive setup offers CUDA but defaults to CPU so VRAM remains available to the LLM. `--gpu` selects CUDA non-interactively.
+- **Linux + NVIDIA:** setup uses CPU, including interactive setup. `--gpu` explicitly selects CUDA; GPU presence alone never changes the default.
 - **Linux without NVIDIA:** CPU ONNX Runtime.
 - **macOS:** CPU ONNX is the main installer path. Optional CoreML services are separate from the default setup.
 - **Windows:** the main PowerShell installer uses CPU ONNX Runtime.

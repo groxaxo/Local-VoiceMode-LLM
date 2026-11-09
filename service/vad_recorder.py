@@ -327,8 +327,6 @@ class VADRecorder:
             self._ignore_until = time.time() + self.args.ready_delay_ms / 1000
         if not self._activated:
             self._listen_start = time.time()
-        emit_json("listening")
-
         self.stream = sd.InputStream(
             device=device,
             channels=1,
@@ -338,6 +336,7 @@ class VADRecorder:
             dtype=np.float32,
         )
         with self.stream:
+            emit_json("listening")
             while not self._stop_event.is_set():
                 sd.sleep(100)
                 if self._check_idle_timeout():

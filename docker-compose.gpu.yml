@@ -1,0 +1,27 @@
+# Explicit override; use after docker-compose.yml and docker-compose.cpu.yml.
+services:
+  supertonic:
+    build:
+      dockerfile: Dockerfile.gpu
+    environment:
+      SUPERTONIC_ORT_BACKEND: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  parakeet:
+    build:
+      dockerfile: Dockerfile.gpu
+    environment:
+      PARAKEET_USE_GPU: "true"
+      PARAKEET_DEFAULT_MODEL: istupakov/parakeet-tdt-0.6b-v3-onnx
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

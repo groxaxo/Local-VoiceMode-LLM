@@ -188,6 +188,38 @@ python3 -c 'import sounddevice as sd; print(sd.query_devices())'
 
 For remote SSH or container sessions, the host microphone is usually not available unless audio devices and the sound server are passed through explicitly.
 
+### Bluetooth output sounds like a telephone
+
+Opening a Bluetooth headset microphone can switch playback from stereo A2DP to
+the lower-bandwidth HSP/HFP hands-free profile. The default `TALK_PRE_RECORD=0`
+finishes the spoken reply before opening the microphone. Keep `TALK_BARGE_IN=0`
+with this setup. The tradeoff is a short recorder-startup delay between turns.
+
+To reproduce the local Supertonic F4 setup with 20 denoising steps:
+
+```bash
+export TTS_ENGINE=supertonic
+export SUPERTONIC_VOICE=F4
+export SUPERTONIC_STEPS=20
+export TALK_PRE_RECORD=0
+export TALK_BARGE_IN=0
+talk.sh devices
+# Copy a distinctive input name from the list, excluding .monitor devices:
+export MIC_QUERY=bluez_input
+talk.sh speak "Playback completes before the microphone opens."
+```
+
+On Linux, `pactl list short sources` and `pactl list cards` show the source and
+active Bluetooth profile. A `.monitor` source captures speaker output; choose
+the actual microphone. Confirm A2DP during playback, when no capture stream
+from this conversation is open. Another application holding the headset mic
+open may still force HFP. Use a separate microphone if you need continuous
+capture or barge-in with high-quality Bluetooth output.
+
+For compatible hardware, `TALK_PRE_RECORD=1` restores overlapping recorder
+startup and playback. The scripts inherit these exports from their launcher;
+put them in that launcher's environment to reuse the same configuration.
+
 ### Windows permissions
 
 Check:
