@@ -305,6 +305,9 @@ class VADRecorder:
         self._listen_start = now
         self._heard_speech = False
 
+    def _request_stop(self, *_args: object) -> None:
+        self._stop_event.set()
+
     def run(self) -> None:
         device = self.args.mic_device
         if device is None:
@@ -321,12 +324,17 @@ class VADRecorder:
                 signal.signal(signal.SIGUSR1, self._activate_now)
             except (ValueError, OSError):
                 pass
+        try:
+            signal.signal(signal.SIGTERM, self._request_stop)
+        except (ValueError, OSError):
+            pass
 
         self.load_vad()
+        if self._stop_event.is_set():
+            return
         if self.args.ready_delay_ms > 0 and not self._activated:
-            self._ignore_until = time.time() + self.args.ready_delay_ms / 1000
-        if not self._activated:
-            self._listen_start = time.time()
+            # Stream startup may block; keep VAD paused until capture is ready.
+            self._ignore_until = float("inf")
         self.stream = sd.InputStream(
             device=device,
             channels=1,
@@ -335,12 +343,25 @@ class VADRecorder:
             callback=self.audio_callback,
             dtype=np.float32,
         )
-        with self.stream:
+        try:
+            self.stream.start()
+            if self._stop_event.is_set():
+                return
+            if not self.stream.active:
+                raise RuntimeError("Microphone input stream failed to start")
+            if not self._activated:
+                self._listen_start = time.time()
+                self._ignore_until = self._listen_start + self.args.ready_delay_ms / 1000
             emit_json("listening")
             while not self._stop_event.is_set():
                 sd.sleep(100)
+                if not self._stop_event.is_set() and not self.stream.active:
+                    raise RuntimeError("Microphone input stream stopped unexpectedly")
                 if self._check_idle_timeout():
                     self._stop_event.set()
+        finally:
+            # Stream.start() can fail after construction has opened the device.
+            self.stream.close()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -387,7 +408,11 @@ def main() -> None:
         return
     if args.continuous:
         args.oneshot = False
-    VADRecorder(args).run()
+    try:
+        VADRecorder(args).run()
+    except Exception as error:
+        emit_json("error", message=str(error))
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

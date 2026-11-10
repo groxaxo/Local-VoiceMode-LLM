@@ -354,19 +354,56 @@ is_stop_phrase() {
     return 1
 }
 
+_talk_vad_pid=""
+_talk_vad_out=""
+_talk_tts_wav=""
+
+cleanup_recorder() {
+    if [ -n "$_talk_vad_pid" ]; then
+        local attempts=0
+        kill "$_talk_vad_pid" 2>/dev/null || true
+        # A stuck model/audio initialization must not hang shutdown indefinitely.
+        while kill -0 "$_talk_vad_pid" 2>/dev/null && [ "$attempts" -lt 20 ]; do
+            sleep 0.05
+            attempts=$((attempts + 1))
+        done
+        if kill -0 "$_talk_vad_pid" 2>/dev/null; then
+            kill -KILL "$_talk_vad_pid" 2>/dev/null || true
+        fi
+        wait "$_talk_vad_pid" 2>/dev/null || true
+        _talk_vad_pid=""
+    fi
+    [ -z "$_talk_vad_out" ] || rm -f "$_talk_vad_out"
+    [ -z "$_talk_tts_wav" ] || rm -f "$_talk_tts_wav"
+    _talk_vad_out=""
+    _talk_tts_wav=""
+}
+
 wait_recorder_ready() {
     local vad_pid="$1" vad_out="$2"
     local deadline=$((SECONDS + TALK_READY_TIMEOUT_S))
-    until grep -qE '"event"[[:space:]]*:[[:space:]]*"listening"' "$vad_out"; do
-        if ! kill -0 "$vad_pid" 2>/dev/null || (( SECONDS >= deadline )); then
-            echo "[talk] Recorder failed to become ready" >&2
-            kill "$vad_pid" 2>/dev/null || true
-            wait "$vad_pid" 2>/dev/null || true
-            rm -f "$vad_out"
-            return 1
+    while kill -0 "$vad_pid" 2>/dev/null; do
+        # An error takes precedence over an earlier readiness notification.
+        grep -qE '"event"[[:space:]]*:[[:space:]]*"error"' "$vad_out" && break
+        if grep -qE '"event"[[:space:]]*:[[:space:]]*"listening"' "$vad_out"; then
+            return 0
         fi
+        (( SECONDS >= deadline )) && break
         sleep 0.05
     done
+    echo "[talk] Recorder failed to become ready (exited, errored, or timed out)" >&2
+    return 1
+}
+
+wait_recorder_done() {
+    local status=0
+    wait "$_talk_vad_pid" || status=$?
+    _talk_vad_pid=""
+    if [ "$status" -ne 0 ]; then
+        echo "[talk] Recorder failed during capture (exit $status)" >&2
+        cleanup_recorder
+        return "$status"
+    fi
 }
 
 cmd_listen() {
@@ -383,6 +420,7 @@ cmd_listen() {
     # VAD from triggering on cue bleed; ring buffer captures everything.
     local vad_out
     vad_out=$(mktemp /tmp/opencode-vad-output.XXXXXX)
+    _talk_vad_out="$vad_out"
 
     "$PYTHON" "$VAD_PY" --oneshot \
         --mic-query "$MIC_QUERY" \
@@ -393,13 +431,17 @@ cmd_listen() {
         --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-1440}" \
         2>/dev/null >"$vad_out" &
     local vad_pid=$!
+    _talk_vad_pid="$vad_pid"
 
     # Model loading may take seconds; a spawned process is not a ready mic.
-    wait_recorder_ready "$vad_pid" "$vad_out" || return 1
+    if ! wait_recorder_ready "$vad_pid" "$vad_out"; then
+        cleanup_recorder
+        return 1
+    fi
     cmd_ready_cue >&2
 
     # Wait for VAD to finish (speech_end, idle_timeout, or error)
-    wait "$vad_pid"
+    wait_recorder_done || return $?
 
     # Parse the JSON output for the WAV file path
     local file
@@ -416,6 +458,7 @@ with open('$vad_out') as f:
         except: pass
     ")
     rm -f "$vad_out"
+    _talk_vad_out=""
 
     if [ -z "$file" ] || [ ! -f "$file" ]; then
         echo "[talk] No speech captured; continuing to listen" >&2
@@ -584,7 +627,6 @@ _talk_lock_acquire() {
     done
     printf '%s' "$$" > "$TALK_AUDIO_LOCK/pid" 2>/dev/null || true
     _talk_lock_held=1
-    trap '_talk_lock_release' EXIT INT TERM
     return 0
 }
 # --- end global audio lock ---------------------------------------------------
@@ -636,6 +678,7 @@ cmd_speak() {
             bash "$TTS_SH" "$text" "$lang" 2>/dev/null) || true
 
         if [ -n "$tts_wav" ] && [ -f "$tts_wav" ]; then
+            _talk_tts_wav="$tts_wav"
             # Pre-generate the beep now so the cue is instant at hand-off.
             ensure_beep || true
 
@@ -643,6 +686,7 @@ cmd_speak() {
             # If the signal somehow never lands, the mic still opens after this.
             local vad_out vad_pid
             vad_out=$(mktemp /tmp/opencode-vad-output.XXXXXX)
+            _talk_vad_out="$vad_out"
             "$PYTHON" "$VAD_PY" --oneshot \
                 --mic-query "$MIC_QUERY" \
                 --output-file "${TMPDIR:-/tmp}/opencode-utterance.wav" \
@@ -652,17 +696,37 @@ cmd_speak() {
                 --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-1440}" \
                 2>/dev/null >"$vad_out" &
             vad_pid=$!
+            _talk_vad_pid="$vad_pid"
 
-            wait_recorder_ready "$vad_pid" "$vad_out" || return 1
+            if ! wait_recorder_ready "$vad_pid" "$vad_out"; then
+                cleanup_recorder
+                _talk_lock_release
+                return 1
+            fi
 
-            play_wav "$tts_wav"        # speak the reply (blocking)
+            if ! play_wav "$tts_wav"; then
+                echo "[talk] Playback failed" >&2
+                cleanup_recorder
+                _talk_lock_release
+                return 1
+            fi
             rm -f "$tts_wav"
+            _talk_tts_wav=""
+            # Capture may have failed while the reply was playing.
+            if ! wait_recorder_ready "$vad_pid" "$vad_out"; then
+                cleanup_recorder
+                _talk_lock_release
+                return 1
+            fi
             play_beep                  # cue the instant speech ends
             _talk_lock_release         # audio done: let other agents speak
-            kill -USR1 "$vad_pid" 2>/dev/null  # flip the recorder live now
+            if ! kill -USR1 "$vad_pid" 2>/dev/null; then
+                cleanup_recorder
+                return 1
+            fi
             echo "Listening…" >&2
 
-            wait "$vad_pid"
+            wait_recorder_done || return $?
 
             local file
             file=$("$PYTHON" -c "
@@ -678,6 +742,7 @@ with open('$vad_out') as f:
         except: pass
 ")
             rm -f "$vad_out"
+            _talk_vad_out=""
 
             if [ -n "$file" ] && [ -f "$file" ]; then
                 local stt_info stt_url stt_model text
@@ -1091,6 +1156,12 @@ cmd_devices() {
         "$PYTHON" "$VAD_PY" --print-selected-mic 2>&1 || echo "(selection failed)"
     fi
 }
+
+# Cover standalone listen as well as speak, without replacing cleanup when the
+# audio lock is acquired. Signal exits run the same bounded recorder cleanup.
+trap 'cleanup_recorder; _talk_lock_release' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 case "${1:-listen}" in
     listen|record|hear)
