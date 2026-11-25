@@ -215,6 +215,8 @@ class VADRecorder:
 
     def process_frame(self, frame: np.ndarray) -> None:
         assert self.vad is not None
+        if self.args.wait_for_activation and not self._activated:
+            return
         self.ring.append(frame)
         now = time.time()
         if self._ignore_until and now < self._ignore_until:
@@ -279,6 +281,8 @@ class VADRecorder:
         self.frames_since_speech = 0
 
     def _check_idle_timeout(self) -> bool:
+        if self.args.wait_for_activation and not self._activated:
+            return False
         timeout = self.args.idle_timeout_s
         if timeout <= 0 or self._heard_speech:
             return False
@@ -300,10 +304,10 @@ class VADRecorder:
 
     def _activate_now(self, *_args: object) -> None:
         now = time.time()
-        self._activated = True
-        self._ignore_until = now
+        self._ignore_until = 0.0 if self.args.wait_for_activation else now
         self._listen_start = now
         self._heard_speech = False
+        self._activated = True
 
     def run(self) -> None:
         device = self.args.mic_device
@@ -316,19 +320,14 @@ class VADRecorder:
         if self.args.debug:
             print(f"[vad] device [{device}]: {sd.query_devices(device)['name']}", file=sys.stderr)
 
-        if hasattr(signal, "SIGUSR1"):
-            try:
-                signal.signal(signal.SIGUSR1, self._activate_now)
-            except (ValueError, OSError):
-                pass
+        try:
+            signal.signal(signal.SIGUSR1, self._activate_now)
+        except (AttributeError, ValueError, OSError):
+            if self.args.wait_for_activation:
+                emit_json("error", message="Signal-based microphone activation is unavailable")
+                raise SystemExit(1)
 
         self.load_vad()
-        if self.args.ready_delay_ms > 0 and not self._activated:
-            self._ignore_until = time.time() + self.args.ready_delay_ms / 1000
-        if not self._activated:
-            self._listen_start = time.time()
-        emit_json("listening")
-
         self.stream = sd.InputStream(
             device=device,
             channels=1,
@@ -337,7 +336,12 @@ class VADRecorder:
             callback=self.audio_callback,
             dtype=np.float32,
         )
+        if not self._activated:
+            self._listen_start = time.time()
+            if self.args.ready_delay_ms > 0:
+                self._ignore_until = self._listen_start + self.args.ready_delay_ms / 1000
         with self.stream:
+            emit_json("listening")
             while not self._stop_event.is_set():
                 sd.sleep(100)
                 if self._check_idle_timeout():
@@ -355,6 +359,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vad-threshold", type=float, default=0.5)
     parser.add_argument("--pre-speech-ms", type=int, default=800)
     parser.add_argument("--ready-delay-ms", type=int, default=0)
+    parser.add_argument(
+        "--wait-for-activation", action="store_true",
+        help="Discard microphone input and pause the idle timer until SIGUSR1",
+    )
     parser.add_argument("--max-duration-s", type=float, default=30)
     parser.add_argument("--idle-timeout-s", type=float, default=0)
     parser.add_argument("--mic-device", type=int)

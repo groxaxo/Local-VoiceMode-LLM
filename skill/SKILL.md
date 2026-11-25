@@ -86,13 +86,13 @@ When the user enters talk/voice mode:
 
 The session **persists** across natural pauses and stays open until the user explicitly cancels via one of three signals:
 
-| Signal | Trigger | Empty stdout → agent exits loop |
+| Signal | Trigger | How the loop ends |
 |--------|---------|--------------------------------|
 | Keyboard | `Ctrl+C` / `Cmd+D` (sent to `talk.sh`) | n/a — process killed |
 | Session silence | No speech for `TALK_IDLE_TIMEOUT_S` (default 1440s = 24 min) | yes |
-| Spoken stop phrase | User says any phrase in `TALK_STOP_PHRASES` (default `"stop talk"`) | yes |
+| Spoken stop phrase | User says a command in `TALK_STOP_PHRASES` (default `"stop talk"`) | Stdout is `__TALK_STOP__` |
 
-When you receive empty stdout from `talk.sh speak`, **exit the conversation loop** cleanly — the user has ended the session. Do not call `talk.sh listen` again to "recover"; respect the cancel.
+When you receive `__TALK_STOP__` from `talk.sh speak` or `talk.sh listen`, exit the conversation loop.
 
 ### Idle timeout
 
@@ -100,9 +100,7 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 
 ### Stop phrases
 
-`TALK_STOP_PHRASES` is a pipe-separated list of phrases that end the session (case-insensitive substring match). Default: `"stop talk"`. Spanish: `TALK_STOP_PHRASES="stop talk|para de hablar"`. When matched, `cmd_listen` prints `"[talk] Stop phrase detected"` to stderr and empty stdout to the agent.
-
-> **Caveat:** substring match is intentionally permissive — *"I want to stop talking now"* matches `"stop talk"`. For tighter control, use a longer phrase: `TALK_STOP_PHRASES="end the conversation"`. Word-boundary matching is a planned future improvement.
+`TALK_STOP_PHRASES` is a pipe-separated list of stop commands. Say a command on its own. Matching ignores case, extra whitespace, and punctuation at the ends. The default is `"stop talk"`. To also accept Spanish, set `TALK_STOP_PHRASES="stop talk|para de hablar"`. A match prints `__TALK_STOP__` to stdout.
 
 ### Rules
 
@@ -143,9 +141,10 @@ When you receive empty stdout from `talk.sh speak`, **exit the conversation loop
 | `VAD_MIN_SILENCE_MS` | 700 | End-of-turn silence (700ms tolerates mid-sentence pauses; lower for snappier turns) |
 | `MIC_QUERY` | _(empty)_ | Mic name substring; empty = auto-detect → honors the macOS system-default input (System Settings → Sound → Input), skipping virtual adapters (NoMachine, VirtualBox, VMware) |
 | `TALK_AUTO_LISTEN` | `1` | After `speak`, run `listen` |
+| `TALK_PRE_RECORD` | `1` | Open the mic before reply playback and enable detection after the cue. Set to `0` if opening a Bluetooth headset mic affects playback. |
 | `TALK_BARGE_IN` | `0` | Interrupt TTS on speech (opt-in) |
 | `TALK_IDLE_TIMEOUT_S` | `1440` | Session-silence window: exit listen if no speech within N seconds (0=disabled, 1440=24 min) |
-| `TALK_STOP_PHRASES` | `stop talk` | Pipe-separated phrases that end the session (case-insensitive substring match) |
+| `TALK_STOP_PHRASES` | `stop talk` | Pipe-separated commands that match the complete transcribed utterance |
 
 ## Troubleshooting
 
