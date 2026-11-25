@@ -138,6 +138,8 @@ fi
 : "${TALK_LISTEN_GUARD_MS:=200}"
 # After speak finishes playback, immediately start listen (stdout = next user text)
 : "${TALK_AUTO_LISTEN:=1}"
+# Set to 0 when opening the mic during playback changes Bluetooth audio quality.
+: "${TALK_PRE_RECORD:=1}"
 # Barge-in: detect user speech during TTS playback and interrupt
 # WARNING: requires echo cancellation or careful mic placement — TTS audio
 # bleeding into the mic will trigger false interrupts. Test before enabling.
@@ -148,7 +150,7 @@ fi
 # Idle timeout for a single VAD attempt (0=disabled). Conversation mode must
 # remain available until the user explicitly ends it, so the default is off.
 : "${TALK_IDLE_TIMEOUT_S:=0}"
-# Spoken phrases that end the session (case-insensitive substring match,
+# Spoken commands that end the session (case-insensitive whole-utterance match,
 # pipe-separated). Default: "stop talk". Spanish example: "para de hablar".
 # When matched, cmd_listen prints the unambiguous `__TALK_STOP__` marker.
 # Empty output is never an end-session signal: it is retried internally.
@@ -307,16 +309,6 @@ PY
     [ -f "$TALK_BEEP_FILE" ]
 }
 
-# Play the beep cue (blocking). Falls back to the terminal bell.
-play_beep() {
-    [ "${TALK_BEEP}" = "0" ] && return 0
-    if ensure_beep; then
-        play_wav "$TALK_BEEP_FILE" 2>/dev/null || printf '\a' >&2
-    else
-        printf '\a' >&2
-    fi
-}
-
 cmd_ready_cue() {
     [ "${TALK_READY_CUE}" = "0" ] && return 0
     if [ "${TALK_BEEP}" = "1" ] && ensure_beep; then
@@ -328,25 +320,34 @@ cmd_ready_cue() {
     fi
 }
 
-# True if $1 matches any of the | separated phrases in TALK_STOP_PHRASES
-# (case-insensitive substring match). Used by cmd_listen to detect a
-# user-initiated session cancel.
-# Uses word-splitting (not read -a) for bash 3.2 portability.
+# Match the complete command while tolerating punctuation added by transcription.
 is_stop_phrase() {
-    local text
-    text=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
-    local phrases_lower
-    phrases_lower=$(printf '%s' "${TALK_STOP_PHRASES:-stop talk}" | tr '[:upper:]' '[:lower:]')
-    local saved_ifs="$IFS"
-    IFS='|'
-    for phrase in $phrases_lower; do
-        [ -z "$phrase" ] && continue
-        case "$text" in
-            *"$phrase"*) IFS="$saved_ifs"; return 0 ;;
-        esac
+    "$PYTHON" - "$1" "$TALK_STOP_PHRASES" <<'PY'
+import sys
+
+def normalize(text):
+    text = " ".join(text.casefold().split())
+    return text.strip(" .,!?:;¡¿\"'“”‘’")
+
+utterance = normalize(sys.argv[1])
+commands = {normalize(phrase) for phrase in sys.argv[2].split("|")}
+sys.exit(0 if utterance and utterance in commands else 1)
+PY
+}
+
+wait_recorder_ready() {
+    local pid="$1" events="$2"
+    local deadline=$((SECONDS + 15))
+    until grep -q '"event": "listening"' "$events"; do
+        if ! kill -0 "$pid" 2>/dev/null || [ "$SECONDS" -ge "$deadline" ]; then
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            rm -f "$events"
+            echo "[talk] Microphone did not become ready" >&2
+            return 1
+        fi
+        sleep 0.05
     done
-    IFS="$saved_ifs"
-    return 1
 }
 
 cmd_listen() {
@@ -374,7 +375,7 @@ cmd_listen() {
         2>/dev/null >"$vad_out" &
     local vad_pid=$!
 
-    # Play the ready cue NOW — vad_recorder is already capturing
+    wait_recorder_ready "$vad_pid" "$vad_out" || return 1
     cmd_ready_cue >&2
 
     # Wait for VAD to finish (speech_end, idle_timeout, or error)
@@ -600,10 +601,10 @@ cmd_speak() {
 
     # Pre-record mode: start the VAD recorder BEFORE TTS playback so the mic is
     # already open and torch is already loaded — no gap when playback ends. The
-    # recorder stays armed-but-ignoring (large ready-delay) during playback, then
+    # recorder waits for activation during playback, then
     # talk.sh sends SIGUSR1 to flip it live the *instant* the audio + beep finish.
     # Event-driven activation — no guessed timing, so it feels immediate.
-    if [ "${TALK_AUTO_LISTEN}" = "1" ]; then
+    if [ "${TALK_AUTO_LISTEN}" = "1" ] && [ "${TALK_PRE_RECORD}" = "1" ]; then
         local tts_wav
         tts_wav=$(TTS_NO_PLAY=1 TTS_ENGINE="$TTS_ENGINE" \
             VIBEVOICE_MODEL="${VIBEVOICE_MODEL:-vibe-realtime-8bit}" \
@@ -616,10 +617,10 @@ cmd_speak() {
 
         if [ -n "$tts_wav" ] && [ -f "$tts_wav" ]; then
             # Pre-generate the beep now so the cue is instant at hand-off.
-            ensure_beep || true
+            if [ "${TALK_READY_CUE}" != "0" ]; then
+                ensure_beep || true
+            fi
 
-            # Large ready-delay = safety net only; SIGUSR1 is the real trigger.
-            # If the signal somehow never lands, the mic still opens after this.
             local vad_out vad_pid
             vad_out=$(mktemp /tmp/opencode-vad-output.XXXXXX)
             "$PYTHON" "$VAD_PY" --oneshot \
@@ -627,18 +628,38 @@ cmd_speak() {
                 --output-file "${TMPDIR:-/tmp}/opencode-utterance.wav" \
                 --vad-threshold "$VAD_THRESHOLD" \
                 --min-silence-ms "$VAD_MIN_SILENCE_MS" \
-                --ready-delay-ms 600000 \
+                --wait-for-activation \
                 --idle-timeout-s "${TALK_IDLE_TIMEOUT_S:-1440}" \
                 2>/dev/null >"$vad_out" &
             vad_pid=$!
 
-            sleep 0.05  # let sounddevice open the mic + register SIGUSR1
+            if ! wait_recorder_ready "$vad_pid" "$vad_out"; then
+                local playback_status=0
+                play_wav "$tts_wav" || playback_status=$?
+                rm -f "$tts_wav"
+                _talk_lock_release
+                [ "$playback_status" -eq 0 ] || return "$playback_status"
+                cmd_listen
+                return
+            fi
 
-            play_wav "$tts_wav"        # speak the reply (blocking)
+            if ! play_wav "$tts_wav"; then
+                kill "$vad_pid" 2>/dev/null || true
+                wait "$vad_pid" 2>/dev/null || true
+                rm -f "$tts_wav" "$vad_out"
+                _talk_lock_release
+                return 1
+            fi
             rm -f "$tts_wav"
-            play_beep                  # cue the instant speech ends
-            _talk_lock_release         # audio done: let other agents speak
-            kill -USR1 "$vad_pid" 2>/dev/null  # flip the recorder live now
+            cmd_ready_cue >&2
+            if ! kill -USR1 "$vad_pid" 2>/dev/null; then
+                wait "$vad_pid" 2>/dev/null || true
+                rm -f "$vad_out"
+                _talk_lock_release
+                cmd_listen
+                return
+            fi
+            _talk_lock_release
             echo "Listening…" >&2
 
             wait "$vad_pid"

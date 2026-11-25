@@ -359,8 +359,9 @@ Important variables:
 | `VAD_MIN_SILENCE_MS` | Silence required to close a turn |
 | `MIC_QUERY` | Input-device name substring |
 | `TALK_AUTO_LISTEN` | Reopen the microphone after playback |
+| `TALK_PRE_RECORD` | Prepare the microphone before playback for an immediate handoff. Set to `0` if opening a Bluetooth headset mic affects playback. |
 | `TALK_BARGE_IN` | Interrupt playback when speech is detected |
-| `TALK_STOP_PHRASES` | Pipe-separated spoken session-stop phrases |
+| `TALK_STOP_PHRASES` | Pipe-separated commands that match the complete transcribed utterance |
 
 Start from [`.env.example`](.env.example).
 

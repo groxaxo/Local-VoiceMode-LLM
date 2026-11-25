@@ -81,3 +81,22 @@ def test_invalid_capacity_is_rejected() -> None:
         pass
     else:
         raise AssertionError("zero-capacity buffers must be rejected")
+
+
+def test_standby_discards_audio_and_starts_idle_timer_on_activation(monkeypatch) -> None:
+    args = vad_recorder.build_parser().parse_args(
+        ["--wait-for-activation", "--idle-timeout-s", "1"]
+    )
+    recorder = vad_recorder.VADRecorder(args)
+    recorder.vad = object()
+    clock = [10.0]
+    monkeypatch.setattr(vad_recorder.time, "time", lambda: clock[0])
+
+    recorder.process_frame(frame(1, vad_recorder.FRAME_SIZE))
+    assert recorder.ring.end_sample == 0
+    assert not recorder._check_idle_timeout()
+
+    recorder._activate_now()
+    assert not recorder._check_idle_timeout()
+    clock[0] += 1.1
+    assert recorder._check_idle_timeout()
